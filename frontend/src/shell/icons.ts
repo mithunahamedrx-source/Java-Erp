@@ -86,15 +86,19 @@ export const DISCLOSURE_GLYPH = ChevronDown;
 /**
  * Chevron rotation by disclosure state.
  *
- * <p>🔴 Business-approved direction, and the inverse of the common web convention — record it
- * here so it cannot be "corrected" back by habit:
+ * <p>🔴 Business-approved direction — recorded here so it cannot be flipped by habit:
  *
  * <ul>
- *   <li>FOLDED / CLOSED → chevron points <b>UP</b> (180°)</li>
- *   <li>UNFOLDED / OPEN → chevron points <b>DOWN</b> (0°)</li>
+ *   <li>FOLDED / CLOSED → chevron points <b>DOWN</b> (0°)</li>
+ *   <li>UNFOLDED / OPEN → chevron points <b>UP</b> (180°)</li>
  * </ul>
+ *
+ * <p>⚠ INVERTED 2026-08-11 by business decision, after review of the running application. The
+ * previous direction — closed UP, open DOWN — is superseded. 🔴 This currently CONTRADICTS
+ * `DESIGN_CONSTITUTION.md` `RULE 3.17.b`, which still records the superseded direction; that
+ * rule needs a governed amendment (`DOC-079`) so code and architecture agree again.
  */
 export const DISCLOSURE_ROTATION = {
-  closed: 'rotate(180deg)',
-  open: 'rotate(0deg)',
+  closed: 'rotate(0deg)',
+  open: 'rotate(180deg)',
 } as const;

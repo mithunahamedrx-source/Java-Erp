@@ -94,7 +94,7 @@ export default function NavigationGroup({
  * filled triangle, never a heavy arrow, never a sideways chevron, and never a different glyph
  * per module. ONE glyph is ROTATED for state.
  *
- * <p>🔴 Business-approved direction: <b>CLOSED points UP</b>, <b>OPEN points DOWN</b>.
+ * <p>🔴 Business-approved direction: <b>CLOSED points DOWN</b>, <b>OPEN points UP</b>.
  *
  * <p>It sits at the far right of the parent row (`margin-left: auto`) and is deliberately
  * lighter than the module icon — smaller at `14px`, thin `1.5px` stroke, in the secondary nav
@@ -110,7 +110,7 @@ function DisclosureChevron({ expanded }: { readonly expanded: boolean }): React.
       color="var(--color-icon-stroke-nav)"
       aria-hidden="true"
       data-testid="nav-chevron"
-      data-direction={expanded ? 'down' : 'up'}
+      data-direction={expanded ? 'up' : 'down'}
       className="nav-chevron"
       style={{
         marginLeft: 'auto',

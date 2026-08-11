@@ -33,10 +33,10 @@ export default function ApplicationBrand({
 }: {
   readonly surface?: 'sidebar' | 'auth';
 }): React.JSX.Element {
-  // Sidebar: 46px canvas -> ~30px of visible mark inside the 64px brand block (§3.7), and
-  // ~161px wide against the 184px available between the block's 16px gutters.
+  // Sidebar: 40px canvas -> ~26px of visible mark inside the 64px brand block (§3.7), and
+  // ~140px wide against the 184px available between the block's 16px gutters.
   // Auth: larger, because the login card has room and the logo is the only branding there.
-  const height = surface === 'sidebar' ? 46 : 56;
+  const height = surface === 'sidebar' ? 40 : 50;
 
   const logo = (
     <img

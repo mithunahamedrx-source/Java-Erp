@@ -160,23 +160,23 @@ describe('operator-controlled disclosure (UX-026.f, amended 2026-08-11)', () => 
   });
 
   /**
-   * 🔴 Business-approved chevron direction, and the inverse of the usual web convention.
-   * These two assertions exist so it cannot be "corrected" back by habit.
+   * 🔴 Business-approved chevron direction, INVERTED 2026-08-11: closed points DOWN, open
+   * points UP. These two assertions pin it so it cannot drift back.
    */
-  it('points the chevron UP while the group is folded', () => {
+  it('points the chevron DOWN while the group is folded', () => {
     renderSidebar('/inventory/products');
     const chevron = within(screen.getByTestId('nav-group-Purchasing')).getByTestId('nav-chevron');
-    expect(chevron.getAttribute('data-direction')).toBe('up');
-    expect(chevron.getAttribute('style')).toContain('rotate(180deg)');
+    expect(chevron.getAttribute('data-direction')).toBe('down');
+    expect(chevron.getAttribute('style')).toContain('rotate(0deg)');
   });
 
-  it('points the chevron DOWN while the group is unfolded', () => {
+  it('points the chevron UP while the group is unfolded', () => {
     renderSidebar('/inventory/products');
     fireEvent.click(screen.getByTestId('nav-group-Purchasing'));
 
     const chevron = within(screen.getByTestId('nav-group-Purchasing')).getByTestId('nav-chevron');
-    expect(chevron.getAttribute('data-direction')).toBe('down');
-    expect(chevron.getAttribute('style')).toContain('rotate(0deg)');
+    expect(chevron.getAttribute('data-direction')).toBe('up');
+    expect(chevron.getAttribute('style')).toContain('rotate(180deg)');
   });
 
   /** A leaf discloses nothing, so it carries no chevron at all. */
@@ -258,7 +258,7 @@ describe('shell regions', () => {
   it('sizes the logo without distorting or recolouring it', () => {
     renderSidebar('/inventory/products');
     const logo = screen.getByTestId('application-logo');
-    expect(logo.style.height).toBe('46px');
+    expect(logo.style.height).toBe('40px');
     expect(logo.style.width).toBe('auto');
     expect(logo.style.objectFit).toBe('contain');
     // 🔴 No recolouring and no CSS filter of any kind.

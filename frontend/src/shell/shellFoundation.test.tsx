@@ -132,9 +132,9 @@ describe('global brand and icon system', () => {
     expect(new Set(icons).size).toBe(icons.length);
   });
 
-  /** 🔴 CLOSED points UP, OPEN points DOWN — recorded so it cannot drift back. */
+  /** 🔴 CLOSED points DOWN, OPEN points UP — recorded so it cannot drift back. */
   it('fixes the disclosure rotation contract', () => {
-    expect(DISCLOSURE_ROTATION.closed).toBe('rotate(180deg)');
-    expect(DISCLOSURE_ROTATION.open).toBe('rotate(0deg)');
+    expect(DISCLOSURE_ROTATION.closed).toBe('rotate(0deg)');
+    expect(DISCLOSURE_ROTATION.open).toBe('rotate(180deg)');
   });
 });
