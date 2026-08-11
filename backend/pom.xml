@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Trioloo Java ERP - backend.
+
+        Stack is LOCKED by docs/TECHNOLOGY_ARCHITECTURE.md (FREEZE-V1-2026-08-11).
+        Java 25 LTS (TEC 1.1) - Spring Boot 4.1.x (TEC 1.1) - Maven (TEC 1.1)
+        PostgreSQL 18.x (TEC 1.2) - Flyway (TEC 1.1) - Modular Monolith (TEC-002).
+
+        Do not change a version here to make a build convenient. TEC-003 requires a
+        proven requirement recorded as an amendment.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.trioloo</groupId>
+    <artifactId>trioloo-erp-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>trioloo-erp-backend</name>
+    <description>Trioloo ERP backend - application foundation</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- TEC 1.1 Web: REST/JSON transport (TEC-081). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- TEC 1.1 Persistence: Spring Data JPA / Hibernate as managed by Spring Boot. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- TEC 1.1 Validation: Jakarta Bean Validation (TEC-082 - outer layer only). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            TEC 1.1 Security: Spring Security. Added in Step 2, deliberately not in Step 1,
+            because adding it without a configuration would have auto-enabled HTTP Basic
+            with a generated password - either locking the health endpoint or forcing the
+            placeholder "allow everything" rule the brief prohibits.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Actuator: supplies the technical health endpoint required by the Step 1 brief.
+            PRJ-180 reason: it avoids inventing a bespoke /health controller, which would be
+            an invented API surface. Only 'health' is exposed - see application.yml.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            TEC 1.1 Schema evolution: Flyway owns schema (PRJ-080, PRJ-081).
+
+            spring-boot-flyway supplies the Flyway AUTOCONFIGURATION. Spring Boot 4 split
+            per-technology autoconfiguration out of spring-boot-autoconfigure into modules
+            (the same reason spring-boot-jackson appears on this classpath). Without it,
+            flyway-core is present but never runs: the application starts, the datasource
+            connects, and no migration is applied - a silent failure observed on this stack
+            during Step 1B and now covered by ApplicationFoundationSmokeTest.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- TEC 1.2 Database engine driver. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

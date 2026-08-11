@@ -1,0 +1,26 @@
+# --- Secrets and local environment (never commit real credentials) ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Backend (Maven) ---
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# --- Frontend (Node / Vite) ---
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# --- Local run logs (never committed) ---
+*.log
+*.err
+
+# --- Tooling / OS ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

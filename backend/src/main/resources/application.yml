@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: trioloo-erp
+
+  # TEC 1.2 - one authoritative PostgreSQL database. No credentials are committed;
+  # every value comes from the environment (see backend/.env.example).
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:trioloo_erp}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    # PRJ-080 - Flyway owns schema evolution. Hibernate schema auto-update against any
+    # environment holding real data is prohibited; ddl-auto is validate or none.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          # TEC-051 - instants keep INSTANT semantics. The JDBC layer is pinned to UTC so
+          # timestamptz round-trips are not reinterpreted by the host zone; business dates
+          # are derived by applying Asia/Dhaka explicitly (TEC-052).
+          time_zone: UTC
+
+  # TEC 1.1 - Flyway. PRJ-081 - every schema change is a migration and an applied
+  # migration is never modified.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jackson:
+    generator:
+      # Prevents scientific notation on BigDecimal. This alone does NOT satisfy TEC-015:
+      # money still crosses as a JSON string via @MonetaryAmount on the DTO field.
+      write-bigdecimal-as-plain: true
+    deserialization:
+      # TEC-084 - 'absent' stays distinguishable from zero, empty and false.
+      fail-on-null-for-primitives: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    # PRJ-200 - no stack traces reach an end user.
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only the technical health endpoint is exposed. No business API exists yet.
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO

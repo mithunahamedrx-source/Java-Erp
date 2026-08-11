@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      RULE 7.9 / TEC-093 - browser zoom is never suppressed.
+      There is deliberately no `user-scalable=no` and no `maximum-scale`.
+      TEC-094 / RULE 7.10 - no breakpoint is invented.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+      DESIGN_CONSTITUTION RULE 15.2 - Manrope must ACTUALLY load, and every weight the token
+      matrix uses must resolve to a real font file. Synthetic bold is prohibited, and a
+      fallback rendering is a fidelity FAILURE, not a success.
+      Weights 400/500/600/700/800 match the approved reference sources exactly.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>TrioLoo ERP</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

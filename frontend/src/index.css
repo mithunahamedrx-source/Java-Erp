@@ -1,0 +1,242 @@
+/*
+ * TrioLoo ERP - global base.
+ *
+ * Deliberately minimal. This is NOT a component library and NOT the application shell;
+ * both arrive in later bounded steps. Every value below resolves to a canonical token.
+ */
+
+@import './design/tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  color: var(--color-text-base);
+  background: var(--color-app-background);
+
+  /* Matches the approved reference sources exactly. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * RULE 3.2.a - the screen files govern in-application links: no rest underline,
+ * underline on hover.
+ */
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-link-hover);
+  text-decoration: underline;
+}
+
+::placeholder {
+  color: var(--color-placeholder);
+}
+
+/*
+ * RULE 6.0.a - removing focus indication is prohibited on every interactive element,
+ * without exception. The platform default must not be suppressed while the designed
+ * treatment is applied per component in a later step. There is deliberately no
+ * `outline: none` anywhere in this codebase.
+ */
+
+/*
+ * Money is rendered, never computed, on the client (TEC-095), and always with tabular
+ * figures (Constitution Article X).
+ */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * RULE 6.0.a / 6.0.b - visible focus on EVERY interactive element.
+ *
+ * Focus is ALWAYS ink, never red, so it can never be mistaken for destructive semantics.
+ * The ring is offset from the control edge, which matters because §8.4 makes a form
+ * control's boundary load-bearing for identification.
+ *
+ * :focus-visible only, so a mouse click does not paint a ring, but keyboard focus always
+ * does. There is deliberately no `outline: none` anywhere in this codebase.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/*
+ * RULE 6.0.a.b - where the control's own fill IS ink, an ink ring would be invisible.
+ * A white separator sits between the control and the ring (18.10:1 against ink).
+ */
+button:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+/*
+ * UX-060 / RULE 7.4 - the absolute rule, restated as a safety net.
+ *
+ * A structured operational row NEVER wraps under width or zoom pressure. This is scoped to
+ * the row class only: UX-061 forbids a global flex-wrap or white-space rule, so ordinary
+ * prose, descriptions and forms keep normal reflow.
+ */
+.operational-row {
+  flex-wrap: nowrap !important;
+}
+
+/*
+ * ============================================================================
+ * THE ONE SCROLLBAR TREATMENT - `.erp-scroll`
+ * ============================================================================
+ *
+ * Business decision: visible native scrollbar chrome is not shown on ERP-owned scroll
+ * surfaces. This is the single implementation of that decision. Every ERP-owned scroll
+ * container carries `erp-scroll` and nothing else; 🔴 no module, page or component declares
+ * its own browser-specific scrollbar CSS, and future modules inherit this by using the class.
+ *
+ * WHAT IS HIDDEN: the visible track and thumb, and nothing else.
+ *
+ * WHAT KEEPS WORKING - all of it, unchanged:
+ *   - mouse wheel and touchpad
+ *   - keyboard (arrows, PageUp/PageDown, Home/End, Space)
+ *   - focus scrolling: a focused element still scrolls itself into view
+ *   - pointer/touch dragging and momentum
+ *   - programmatic scrolling (scrollIntoView, scrollTo)
+ *
+ * 🔴 `overflow` is NEVER set to `hidden` to hide a scrollbar. The container keeps its real
+ * `auto` overflow, so content stays reachable and nothing is clipped away silently. Hiding
+ * chrome is presentation; removing access would be data loss.
+ */
+.erp-scroll {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* legacy Edge */
+}
+
+.erp-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                  /* Chromium, WebKit */
+}
+
+/*
+ * ============================================================================
+ * THE ONE ROUTED-CONTENT TRANSITION - `.page-content-transition`
+ * ============================================================================
+ *
+ * Applied once at the application content boundary, so every routed module page inherits it
+ * automatically. 🔴 No page-specific or module-specific transition exists anywhere.
+ *
+ * Restrained on purpose: a small fade and a 4px settle. No slide, no scale(), no bounce, no
+ * spring. RULE 15.3 forbids transform-scaled text, so scale is never used and glyphs are
+ * never resampled. `ease-out` lets the content arrive and stop rather than decelerate into a
+ * wobble.
+ *
+ * 🔴 Presentation only. It never delays navigation, never gates a request and never touches
+ * data or state - the content has already arrived before this plays.
+ *
+ * 🔴 IMPLEMENTATION TREATMENT, NOT A DESIGN TOKEN - see the disclosure note below.
+ */
+.page-content-transition {
+  --page-transition-duration: 150ms;
+  animation: page-content-enter var(--page-transition-duration) ease-out;
+}
+
+@keyframes page-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * ============================================================================
+ * THE ONE SIDEBAR-DISCLOSURE TREATMENT - `.nav-disclosure` / `.nav-chevron`
+ * ============================================================================
+ *
+ * 🔴 IMPLEMENTATION TREATMENT, NOT A DESIGN TOKEN.
+ *
+ * DESIGN_CONSTITUTION Article VI and Article XIV item 10 both record Motion / transition as
+ * NOT DEFINED BY SOURCE. Rather than silently legislate a system-wide motion standard, these
+ * durations are scoped to the two primitives that need them - sidebar disclosure and the
+ * routed-content boundary - and to nothing else. 🔴 They are deliberately NOT applied to
+ * buttons, modals, overlays, tabs, rows or any other component, and they are not published as
+ * canonical tokens for reuse. Ratifying an ERP-wide motion scale remains an open design
+ * decision, reported rather than quietly taken.
+ *
+ * 160ms is quick enough for repeated operational use and slow enough to read as disclosure
+ * rather than a jump. Submenu reveal and chevron rotation share the SAME duration and easing,
+ * so the two halves of the gesture move together.
+ */
+:root {
+  --disclosure-duration: 160ms;
+}
+
+/* The chevron rotates on the same clock as the region it discloses. */
+.nav-chevron {
+  transition: transform var(--disclosure-duration) ease;
+}
+
+.nav-disclosure {
+  /*
+   * `visibility` MUST be listed here. It interpolates discretely, which is precisely the
+   * behaviour wanted: it flips to `hidden` only at the END of the collapse, and back to
+   * `visible` at the START of the expand. Omitting it makes the children blank instantly
+   * while the row height is still animating.
+   */
+  transition:
+    grid-template-rows var(--disclosure-duration) ease,
+    opacity var(--disclosure-duration) ease,
+    visibility var(--disclosure-duration);
+}
+
+/*
+ * Collapsed children are removed from the accessibility tree and from tab order, not merely
+ * shrunk to zero height - otherwise keyboard focus would land inside an invisible group.
+ */
+.nav-disclosure[data-expanded='false'] {
+  visibility: hidden;
+}
+
+/*
+ * ============================================================================
+ * THE ONE REDUCED-MOTION FALLBACK
+ * ============================================================================
+ *
+ * Both motion primitives - and only those two - are answered here, in one place.
+ *
+ * 🔴 FUNCTIONALITY IS PRESERVED EXACTLY. Groups still open and close, routed pages still
+ * render, the chevron still points UP when closed and DOWN when open. Only the animation is
+ * removed. Nothing becomes unreachable and no state changes.
+ *
+ * `prefers-reduced-motion` is a USER-PREFERENCE query, not a viewport breakpoint - it does
+ * not invent a breakpoint and does not touch RULE 7.10.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .nav-disclosure,
+  .nav-disclosure *,
+  .nav-chevron {
+    transition: none !important;
+  }
+
+  .page-content-transition {
+    animation: none !important;
+  }
+}

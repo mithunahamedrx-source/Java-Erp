@@ -1,0 +1,124 @@
+/*
+ * TrioLoo ERP - canonical design tokens.
+ *
+ * SOURCE OF TRUTH: docs/DESIGN_CONSTITUTION.md v2.6.0 (FREEZE-V1-2026-08-11).
+ * This file TRANSCRIBES that authority. It does not own, extend or reinterpret it.
+ *
+ * RULE 15.1 - the oklch() value is the ONLY source of truth for colour. Never eye-match,
+ * never sample from a screenshot, never hard-code a hex substitute, never approximate a
+ * token with opacity. Any hex appearing in the Constitution is a computed rendering
+ * published for verification, not a second source.
+ *
+ * If a value here disagrees with DESIGN_CONSTITUTION.md, THIS FILE IS THE DEFECT
+ * (CLAUDE.md section 6, DOC-080).
+ *
+ * Component primitives are deliberately NOT built here. Step 1 establishes the token
+ * source only; the shell and components arrive in later bounded steps.
+ */
+
+:root {
+  /* ---- Typography (Constitution 3.1) ---- */
+  --font-family-base: 'Manrope', system-ui, sans-serif;
+  --font-family-mono: ui-monospace, monospace;
+
+  /* ---- Core colour (Constitution 3.2) ---- */
+  --color-ink: oklch(0.2 0 0); /* the single accent */
+  --color-surface: #ffffff;
+  --color-app-background: oklch(0.985 0.004 290);
+  --color-border-card: oklch(0.93 0.006 290);
+  --color-text-primary: oklch(0.24 0.02 290);
+  --color-text-secondary: oklch(0.55 0.015 290);
+  --color-text-base: oklch(0.22 0.02 290);
+  --color-heading-ink: oklch(0.18 0.02 290);
+  --color-text-muted: oklch(0.5 0.015 290);
+
+  /* v2.4.0 - RULE 8.14. Demoted text and placeholder were corrected for AA; the old
+     0.6/0.65 values survive only in the icon-stroke role below. */
+  --color-text-demoted: oklch(0.568 0.012 290);
+  --color-placeholder: oklch(0.568 0.01 290);
+
+  /* ---- Boundary hierarchy - five distinct classes, never collapsed (RULE 3.18.b) ---- */
+  --color-border-control: oklch(0.9 0.006 290); /* list-page utility controls, 32px select */
+  --color-border-form-control: oklch(0.65 0.006 290); /* v2.5.0 - ENABLED form controls ONLY */
+  --color-border-secondary-button: oklch(0.75 0 0);
+  --color-divider-inner: oklch(0.95 0.004 290);
+  --color-divider-light: oklch(0.96 0.004 290);
+  --color-divider-vertical: oklch(0.91 0.006 290);
+
+  /* ---- Buttons (Constitution 3.11) ---- */
+  --color-primary-hover: oklch(0.28 0 0);
+  --color-secondary-text: oklch(0.25 0 0);
+  --color-secondary-hover: oklch(0.94 0 0);
+  --color-destructive: oklch(0.48 0.16 25); /* RULE 3.3.c - three placements only */
+  --color-destructive-hover: oklch(0.54 0.16 25); /* RULE 3.11.b - reference-defined, NOT a formula */
+
+  /* ---- Sidebar and shell (Constitution 3.7) ---- */
+  --color-nav-hover: oklch(0.97 0.004 290);
+  --color-nav-active-parent: oklch(0.93 0 0);
+  --color-nav-active-child: oklch(0.95 0 0);
+  --color-user-block: oklch(0.97 0.004 290);
+  --color-tab-container: oklch(0.96 0.004 290);
+  --color-strip: oklch(0.98 0.002 290);
+  --color-nav-label: oklch(0.4 0.015 290);
+  --color-icon-stroke-nav: oklch(0.6 0.012 290);
+  --color-icon-stroke-header: oklch(0.48 0.015 290);
+  --color-avatar-ring: oklch(0.55 0 0);
+  --color-notification-dot: oklch(0.55 0.22 25);
+
+  /* ---- Links (RULE 3.2.a - no rest underline, underline on hover) ---- */
+  --color-link: oklch(0.2 0 0);
+  --color-link-hover: oklch(0.4 0.18 300);
+
+  /* ---- Financial ---- */
+  --color-positive: oklch(0.38 0.1 155);
+
+  /* ---- Semantic status: soft background + darker foreground (Constitution 3.3) ---- */
+  --color-status-pending-bg: oklch(0.95 0.06 85);
+  --color-status-pending-fg: oklch(0.42 0.11 85);
+  --color-status-confirmed-bg: oklch(0.94 0.05 155);
+  --color-status-confirmed-fg: oklch(0.38 0.1 155);
+  --color-status-dispatched-bg: oklch(0.94 0.04 250);
+  --color-status-dispatched-fg: oklch(0.42 0.14 250);
+  --color-status-cancelled-bg: oklch(0.95 0.04 25);
+  --color-status-cancelled-fg: oklch(0.48 0.16 25);
+  --color-status-neutral-bg: oklch(0.95 0.004 290);
+  --color-status-neutral-fg: oklch(0.45 0.01 290);
+
+  /* ---- Overlay (Constitution 3.19, v2.6.0) ---- */
+  --color-scrim: oklch(0.2 0 0 / 0.48); /* RULE 3.19 - dialogs only, never behind a menu */
+  --color-focus-halo: oklch(0.93 0 0); /* RULE 6.0.b - focus is always ink, never red */
+
+  /* ---- Elevation: exactly THREE, no fourth (RULE 3.6, RULE 3.6.a) ---- */
+  --elevation-card: 0 1px 2px oklch(0 0 0 / 0.03);
+  --elevation-active-tab: 0 1px 3px oklch(0 0 0 / 0.08);
+  --elevation-overlay: 0 8px 24px oklch(0 0 0 / 0.1); /* detached overlays ONLY */
+
+  /* ---- Radius (Constitution 3.5) ---- */
+  --radius-control: 9px;
+  --radius-control-small: 7px;
+  --radius-card-small: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+
+  /* ---- Spacing: 4px base (Constitution 3.4) ---- */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 10px;
+  --space-4: 12px;
+  --space-5: 14px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+
+  /* ---- Shell geometry (Constitution 3.7, 3.9, RULE 4.1) ---- */
+  --sidebar-width: 216px;
+  --brand-block-height: 64px;
+  --content-max-width: 1560px;
+  --content-gutter: 32px;
+
+  /* ---- Control geometry (Constitution 3.18) ---- */
+  --control-height-form: 34px;
+  --control-height-row-action: 32px;
+  --control-height-button: 36px;
+  --control-height-page-header-button: 40px;
+}

@@ -1,0 +1,43 @@
+# Test-scope configuration.
+#
+# 🔴 Integration tests NEVER touch the development database.
+#
+# AccessFixtures.clear() deletes every access row, and while tests and local development
+# shared one schema that cleanup erased the developer's own identity mid-session. Isolation
+# here is structural; DevelopmentDatabaseIsolationTest is the tripwire that makes it
+# enforced rather than merely intended.
+#
+# Credentials come from the environment, exactly as in production configuration. Nothing
+# secret is committed.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${TEST_DB_HOST:localhost}:${TEST_DB_PORT:5432}/${TEST_DB_NAME:trioloo_erp_test}
+    username: ${TEST_DB_USERNAME:trioloo_test}
+    password: ${TEST_DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  # Flyway runs independently against the test database, so the schema under test is
+  # produced by the same migrations that produce production.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jackson:
+    generator:
+      write-bigdecimal-as-plain: true
+
+logging:
+  level:
+    root: WARN
+    com.trioloo: INFO
