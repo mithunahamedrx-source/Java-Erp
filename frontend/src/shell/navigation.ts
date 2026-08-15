@@ -56,23 +56,32 @@ export const NAVIGATION: readonly NavItem[] = [
   // UX-024 amended 2026-08-11 - Dashboard is the first direct destination under MAIN.
   // 🔴 A DESTINATION only: GAP-004 keeps dashboard KPIs undefined, so it displays nothing.
   { label: 'Dashboard', section: 'MAIN', path: '/dashboard', permission: null },
+  /*
+    UX-024 amended 2026-08-12 - INVENTORY NAVIGATION TERMINOLOGY. `Stock Control` and
+    `Purchasing` are labels only; `/inventory/stock` and `/purchasing/purchases` remain.
+    The child ORDER below is the ratified operating order and is never re-sorted.
+
+    🔴 UX-025 is the only reason this is permissible and NOTHING moved with the rows:
+    PROCUREMENT_ARCHITECTURE.md remains the sole owner of Supplier, Purchase Order, Goods
+    Receipt and every purchasing lifecycle, approval, document and accounting consequence.
+    The `/purchasing/…` paths are kept deliberately — the URL keeps naming the OWNING module,
+    so nothing in the address suggests Inventory acquired procurement.
+  */
   {
     label: 'Inventory',
     section: 'MAIN',
     children: [
+      // UX-035 - ONE destination carrying three entity-class tabs. It is NOT `Stock Control`.
       { label: 'Products', path: '/inventory/products', permission: null },
-      { label: 'Stock', path: '/inventory/stock', permission: null },
-      { label: 'Warehouses', path: '/inventory/warehouses', permission: null },
-    ],
-  },
-  {
-    label: 'Purchasing',
-    section: 'MAIN',
-    children: [
+      // The Inventory-owned operational destination. 🔴 Never merged with `Products`: a
+      // Stock Item card DISPLAYING a derived inventory figure transfers no ownership
+      // (UX-036, IVN-000).
+      { label: 'Stock Control', path: '/inventory/stock', permission: null },
       // UX-033 - one workspace exposing Purchase Orders and Goods Receipts, which remain
-      // canonically separate records.
-      { label: 'Purchases', path: '/purchasing/purchases', permission: null },
+      // canonically separate records. Procurement-owned (UX-033.a).
+      { label: 'Purchasing', path: '/purchasing/purchases', permission: null },
       { label: 'Suppliers', path: '/purchasing/suppliers', permission: null },
+      { label: 'Warehouses', path: '/inventory/warehouses', permission: null },
     ],
   },
   {

@@ -64,24 +64,26 @@ a:hover {
 }
 
 /*
- * RULE 6.0.a / 6.0.b - visible focus on EVERY interactive element.
+ * RULE 6.0.c - visible focus on EVERY interactive element, in RESTRAINED NEUTRAL GREY.
  *
- * Focus is ALWAYS ink, never red, so it can never be mistaken for destructive semantics.
- * The ring is offset from the control edge, which matters because §8.4 makes a form
- * control's boundary load-bearing for identification.
+ * 🔴 THE INK RING IS SUPERSEDED. A 2px near-black ring is what made a clicked text field look
+ * framed in black: browsers match :focus-visible on text inputs for MOUSE focus too, because
+ * typing is expected there, so "keyboard only" was never the protection it appeared to be.
+ * Superseded declaration, retained: `outline: 2px solid var(--color-ink); outline-offset: 2px`.
  *
- * :focus-visible only, so a mouse click does not paint a ring, but keyboard focus always
- * does. There is deliberately no `outline: none` anywhere in this codebase.
+ * 🔴 QUIETER, NOT ABSENT. The ring is neutral grey and still measures >= 3:1 against every
+ * canonical surface it can sit on, so SC 1.4.11 is met. There is deliberately no
+ * `outline: none` anywhere in this codebase, and none is introduced here.
  */
 :focus-visible {
-  outline: 2px solid var(--color-ink);
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
   border-radius: inherit;
 }
 
 /*
- * RULE 6.0.a.b - where the control's own fill IS ink, an ink ring would be invisible.
- * A white separator sits between the control and the ring (18.10:1 against ink).
+ * RULE 6.0.c.b - where the control's own fill is INK, the grey ring would sit on near-black.
+ * A white separator keeps it legible, exactly as the superseded ink ring required.
  */
 button:focus-visible {
   box-shadow: 0 0 0 2px var(--color-surface);
@@ -151,8 +153,8 @@ button:focus-visible {
  * 🔴 IMPLEMENTATION TREATMENT, NOT A DESIGN TOKEN - see the disclosure note below.
  */
 .page-content-transition {
-  --page-transition-duration: 150ms;
-  animation: page-content-enter var(--page-transition-duration) ease-out;
+  /* v2.13.0 - the canonical page duration, from the shared scale. Superseded: 150ms local. */
+  animation: page-content-enter var(--motion-page) var(--ease-out);
 }
 
 @keyframes page-content-enter {
@@ -186,12 +188,81 @@ button:focus-visible {
  * so the two halves of the gesture move together.
  */
 :root {
-  --disclosure-duration: 160ms;
+  /*
+   * ⚠ AN ALIAS, NOT A FOURTH DURATION. Sidebar disclosure was ratified at 160ms before the
+   * shared scale existed; it now consumes the page token, which carries the same value.
+   */
+  --disclosure-duration: var(--motion-page);
 }
 
 /* The chevron rotates on the same clock as the region it discloses. */
 .nav-chevron {
   transition: transform var(--disclosure-duration) ease;
+}
+
+/*
+ * ============================================================================
+ * STATE EMPHASIS - `.state-transition`
+ * ============================================================================
+ *
+ * 🔴 `RULE 3.21.d` - the ONE treatment for a surface that CHANGES EMPHASIS in place:
+ * a sidebar row becoming active, a tab becoming selected, a chevron rotating.
+ *
+ * 🔴 COLOUR AND TRANSFORM ONLY. Nothing here animates width, height or any layout
+ * property, so a state change can never move the things around it. There is no sliding
+ * indicator and no travelling underline: the emphasis arrives where it already was.
+ */
+.state-transition {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+/*
+ * ============================================================================
+ * ELEVATED SURFACE ARRIVAL - `.overlay-enter`
+ * ============================================================================
+ *
+ * 🔴 A SEPARATE SYSTEM FROM ROUTE MOTION, deliberately. An overlay arrives ABOVE the
+ * page; routed content arrives IN it. Giving them one animation would say they were the same
+ * kind of event.
+ *
+ * ⚠ Enter only. A closing menu is unmounted immediately, because an operator who dismissed
+ * something should not have to watch it leave (`RULE 3.21.e`).
+ */
+.overlay-enter {
+  animation: overlay-enter var(--motion-standard) var(--ease-out);
+}
+
+/*
+ * 🔴 NO `scale()`, DELIBERATELY. A subtle 0.98 grow was drafted and REMOVED: `RULE 15.3`
+ * forbids transform-scaled text because it resamples glyphs, and this panel is almost
+ * entirely text. Opacity and a 4px settle carry the same "it arrived from above" reading
+ * without touching a single letterform.
+ */
+/*
+ * FRAME 16 - the inbound refresh indicator.
+ *
+ * ⚠ INDETERMINATE BY DESIGN. A remote read reports no progress, so no percentage is drawn and
+ * none is invented. This rotates a ring; it never scales or moves text (`RULE 15.3`).
+ */
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .nav-disclosure {
@@ -232,11 +303,27 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .nav-disclosure,
   .nav-disclosure *,
-  .nav-chevron {
+  .nav-chevron,
+  .state-transition {
     transition: none !important;
   }
 
-  .page-content-transition {
+  /*
+   * 🔴 FUNCTIONALITY IS PRESERVED EXACTLY. The page still renders, the menu still opens,
+   * the chevron still points the right way and every state is still legible. Only the
+   * movement is removed - nothing becomes unreachable and no information is hidden.
+   */
+  .page-content-transition,
+  .overlay-enter {
+    animation: none !important;
+  }
+
+  /*
+   * 🔴 THE INDICATOR STOPS SPINNING BUT DOES NOT DISAPPEAR. The ring remains visible and the
+   * live region still announces the outcome, so "a read is running" is still communicated -
+   * only the movement is removed.
+   */
+  [data-testid='refresh-spinner'] {
     animation: none !important;
   }
 }

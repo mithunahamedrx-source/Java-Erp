@@ -1,98 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 /**
- * The operational data region — the one place horizontal overflow is permitted.
+ * The operational data region in the final workspace model.
  *
- * <p>🔴 `UX-071` — overflow is SCOPED TO THE ROW REGION. The page header, filters, tabs and
- * pagination stay fixed and visible, and the page never becomes a globally horizontally
- * scrolling canvas. That is why this is a container the caller wraps *only* around rows,
- * never around a whole page.
- *
- * <p>`UX-073` — off-viewport content must be DISCOVERABLE, not merely reachable. A
- * persistent affordance appears when the region is actually scrollable, so a truncated row
- * is never visually indistinguishable from a complete one. Silent truncation is the exact
- * failure this rule exists to prevent.
+ * UX-263 through UX-266 supersede the older component-level horizontal scroller. The region
+ * now participates in the one coherent main workspace canvas: it never owns overflow-x, never
+ * measures the viewport, and never renders a horizontal-scroll affordance.
  */
 export function OperationalRegion({ children }: { readonly children: ReactNode }): React.JSX.Element {
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [overflowing, setOverflowing] = useState(false);
-  const [atEnd, setAtEnd] = useState(false);
-
-  useEffect(() => {
-    const element = scrollerRef.current;
-    if (!element) {
-      return;
-    }
-
-    const measure = (): void => {
-      const scrollable = element.scrollWidth > element.clientWidth + 1;
-      setOverflowing(scrollable);
-      setAtEnd(element.scrollLeft + element.clientWidth >= element.scrollWidth - 1);
-    };
-
-    measure();
-    element.addEventListener('scroll', measure);
-
-    // ResizeObserver keeps the affordance honest when the viewport or zoom changes.
-    // 🔴 It observes LAYOUT only. It never changes page size, record count or any request
-    // (RULE 7.3.a forbids viewport-driven data behaviour).
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-
-    return () => {
-      element.removeEventListener('scroll', measure);
-      observer.disconnect();
-    };
-  }, [children]);
-
   return (
-    <div style={{ position: 'relative' }} data-testid="operational-region">
-      {/*
-        The shared `erp-scroll` treatment hides the native horizontal scrollbar chrome here
-        too - but overflow stays `auto`, so wheel, touchpad, keyboard, drag and programmatic
-        scrolling are all intact and no column is clipped away.
-
-        🔴 That is exactly why the UX-073 affordance below is NOT optional: with the
-        chrome hidden, it is the discoverability mechanism. It is never removed.
-      */}
-      <div
-        ref={scrollerRef}
-        className="erp-scroll"
-        data-testid="operational-scroller"
-        data-overflowing={overflowing ? 'true' : 'false'}
-        style={{ overflowX: 'auto', overflowY: 'hidden' }}
-      >
+    <div data-testid="operational-region" style={{ width: '100%', minWidth: 0 }}>
+      <div data-testid="operational-canvas" style={{ width: '100%', minWidth: 0 }}>
         {children}
       </div>
-
-      {/*
-        UX-073 discoverability affordance. Rendered only while genuinely scrollable and not
-        yet at the end, so it always means "there is more this way".
-      */}
-      {overflowing && !atEnd && (
-        <div
-          aria-hidden="true"
-          data-testid="overflow-affordance"
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: '24px',
-            pointerEvents: 'none',
-            borderRight: '1px solid var(--color-border-card)',
-          }}
-        />
-      )}
-      {overflowing && (
-        <div
-          data-testid="overflow-notice"
-          style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }}
-        >
-          Scroll horizontally to see more columns
-        </div>
-      )}
     </div>
   );
 }
@@ -100,14 +20,8 @@ export function OperationalRegion({ children }: { readonly children: ReactNode }
 /**
  * A structured operational row.
  *
- * <p>🔴 `UX-060` / `RULE 7.4` — the absolute rule. This row preserves its horizontal
- * composition under ALL viewport and zoom pressure. `Product | Amount | Delivery | Status |
- * Actions` never becomes a stack.
- *
- * <p>`flex-wrap: nowrap` is set HERE, on the row, deliberately and locally. `UX-061`
- * forbids a global `flex-wrap: wrap` responsive solution AND a global
- * `white-space: nowrap` — ordinary prose, descriptions and forms keep normal reflow, which
- * is why neither is applied at the document level anywhere in this codebase.
+ * UX-060 / RULE 7.4: the row preserves horizontal composition. Flexible identity/prose
+ * regions may truncate; the structure does not wrap.
  */
 export function OperationalRow({
   children,
@@ -125,7 +39,6 @@ export function OperationalRow({
         display: 'flex',
         alignItems: 'center',
         gap: 'var(--space-3)',
-        // 🔴 The rule itself. Never change this to wrap.
         flexWrap: 'nowrap',
         minWidth: 0,
         padding: '10px 16px',
@@ -137,26 +50,13 @@ export function OperationalRow({
   );
 }
 
-/**
- * The identity cell — which record this row is.
- *
- * <p>`UX-071` — in a scrolled region the identity column is PINNED, so a horizontally
- * scrolled row never loses which record it belongs to.
- */
 export function RowIdentity({ children }: { readonly children: ReactNode }): React.JSX.Element {
   return (
     <div
       data-testid="row-identity"
       style={{
-        position: 'sticky',
-        left: 0,
-        zIndex: 1,
-        background: 'var(--color-surface)',
-        paddingRight: 'var(--space-4)',
-        minWidth: '180px',
-        flexShrink: 0,
-        // Content may ellipsis; the STRUCTURE does not move. These are different concerns
-        // (UX-061) and this is the content one.
+        minWidth: '140px',
+        flex: '1 1 auto',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',

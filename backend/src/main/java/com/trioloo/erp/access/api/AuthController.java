@@ -130,9 +130,10 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         contextRepository.saveContext(context, httpRequest, httpResponse);
 
-        return currentActor.current()
-                .map(actor -> ResponseEntity.ok(CurrentUserResponse.of(actor)))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+        if (authentication.getPrincipal() instanceof AccessUserDetails details) {
+            return ResponseEntity.ok(CurrentUserResponse.of(details.toActor()));
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
     /** The signed-in actor, or {@code 401} when there is none. */

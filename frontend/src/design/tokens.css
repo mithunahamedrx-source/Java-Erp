@@ -1,7 +1,7 @@
 /*
  * TrioLoo ERP - canonical design tokens.
  *
- * SOURCE OF TRUTH: docs/DESIGN_CONSTITUTION.md v2.6.0 (FREEZE-V1-2026-08-11).
+ * SOURCE OF TRUTH: docs/DESIGN_CONSTITUTION.md v2.13.0.
  * This file TRANSCRIBES that authority. It does not own, extend or reinterpret it.
  *
  * RULE 15.1 - the oklch() value is the ONLY source of truth for colour. Never eye-match,
@@ -24,10 +24,15 @@
   /* ---- Core colour (Constitution 3.2) ---- */
   --color-ink: oklch(0.2 0 0); /* the single accent */
   --color-surface: #ffffff;
-  --color-app-background: oklch(0.985 0.004 290);
+  /* v2.12.0 - RULE 3.4.a. One restrained step deeper so a WHITE surface separates from the
+     page by ground contrast rather than by shadow. Superseded value: oklch(0.985 0.004 290). */
+  --color-app-background: oklch(0.968 0.003 290);
   --color-border-card: oklch(0.93 0.006 290);
   --color-text-primary: oklch(0.24 0.02 290);
-  --color-text-secondary: oklch(0.55 0.015 290);
+  /* v2.12.0 - A11Y-01b HELD. The deeper ground cost this pairing 0.24 (4.69 -> 4.45), which
+     crosses AA, so the token is darkened by the smallest step that restores the measured
+     PASS. Superseded value: oklch(0.55 0.015 290). */
+  --color-text-secondary: oklch(0.543 0.015 290);
   --color-text-base: oklch(0.22 0.02 290);
   --color-heading-ink: oklch(0.18 0.02 290);
   --color-text-muted: oklch(0.5 0.015 290);
@@ -88,6 +93,11 @@
   --color-scrim: oklch(0.2 0 0 / 0.48); /* RULE 3.19 - dialogs only, never behind a menu */
   --color-focus-halo: oklch(0.93 0 0); /* RULE 6.0.b - focus is always ink, never red */
 
+  /* v2.12.0 - RULE 6.0.c. The RESTRAINED NEUTRAL focus indicator, replacing the ink ring.
+     Neutral grey, never black, never blue, never a brand accent - and still >= 3:1 against
+     every canonical surface it can appear on, so SC 1.4.11 is met rather than traded away. */
+  --color-focus-ring: oklch(0.6 0 0);
+
   /* ---- Elevation: exactly THREE, no fourth (RULE 3.6, RULE 3.6.a) ---- */
   --elevation-card: 0 1px 2px oklch(0 0 0 / 0.03);
   --elevation-active-tab: 0 1px 3px oklch(0 0 0 / 0.08);
@@ -115,10 +125,24 @@
   --brand-block-height: 64px;
   --content-max-width: 1560px;
   --content-gutter: 32px;
+  --workspace-min-width: 1040px;
+
+  /* ---- Motion (Constitution 3.21, v2.13.0) ----
+     🔴 THREE DURATIONS AND TWO EASINGS, AND NO MORE. Every animated surface picks one of
+     these; scattering 127ms here and 183ms there is how a system stops feeling like one
+     product. ⚠ `--disclosure-duration` predates these and is now an ALIAS of the page
+     duration rather than a fourth number. */
+  --motion-fast: 120ms;      /* state emphasis inside a surface: nav row, tab, chevron */
+  --motion-standard: 150ms;  /* an elevated surface arriving: menu, popover, dropdown */
+  --motion-page: 160ms;      /* routed content entering after a navigation */
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* ---- Control geometry (Constitution 3.18) ---- */
   --control-height-form: 34px;
   --control-height-row-action: 32px;
   --control-height-button: 36px;
-  --control-height-page-header-button: 40px;
+  /* v2.13.0 - RULE 3.11.d. The page-header action was the largest control in the ERP for
+     no reason but habit. Superseded: 40px. */
+  --control-height-page-header-button: 36px;
 }

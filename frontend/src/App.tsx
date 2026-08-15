@@ -5,6 +5,23 @@ import AppShell from './shell/AppShell';
 import { allDestinations } from './shell/navigation';
 import ModulePlaceholder from './pages/ModulePlaceholder';
 import PrimitivesHarness from './dev/PrimitivesHarness';
+import ProductWorkspace from './product/ProductWorkspace';
+import StockItemsPage from './product/StockItemsPage';
+import StockItemFormPage from './product/StockItemFormPage';
+import StockItemImportPage from './product/StockItemImportPage';
+import SellableProductsPage from './product/SellableProductsPage';
+import SellableProductFormPage from './product/SellableProductFormPage';
+import SellableProductDetailPage from './product/SellableProductDetailPage';
+import SellableProductImportPage from './product/SellableProductImportPage';
+import ChannelListingsPage from './product/ChannelListingsPage';
+import ChannelListingCreatePage from './product/ChannelListingCreatePage';
+import ChannelListingEditPage from './product/ChannelListingEditPage';
+import ListingMediaPage from './product/ListingMediaPage';
+import ChannelListingDetailPage from './product/ChannelListingDetailPage';
+import ChannelListingImportPage from './product/ChannelListingImportPage';
+import ChannelListingBatchPage from './product/ChannelListingBatchPage';
+import ChannelListingBatchEditPage from './product/ChannelListingBatchEditPage';
+import ChannelListingSyncPage from './product/ChannelListingSyncPage';
 
 /**
  * Application routes.
@@ -43,7 +60,57 @@ export default function App(): React.JSX.Element {
         */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {allDestinations().map((destination) => (
+        {/*
+          The Products workspace - ONE sidebar destination carrying three entity-class tabs at
+          path-addressable routes (`UX-035.f`). 🔴 Sellable Products and Listings are
+          STRUCTURAL tabs only in Stage P1.
+
+          `UX-035.f.i` - `/inventory/products` RENDERS the workspace with Stock Items active
+          and KEEPS that URL. 🔴 It no longer redirects: a workspace entry that instantly
+          renames itself after its first tab misstates what the operator opened.
+
+          `/inventory/products/stock` REMAINS ratified and addressable (`UX-023`) and is what
+          the tab control targets. Two addressable paths, ONE workspace implementation - the
+          same `StockItemsPage`, never a second Products surface.
+        */}
+        <Route path="/inventory/products" element={<ProductWorkspace />}>
+          <Route index element={<StockItemsPage />} />
+          <Route path="stock" element={<StockItemsPage />} />
+          {/* Stage P2 — Sellable Products is now the second FUNCTIONAL tab (`E-058`). */}
+          <Route path="sellable" element={<SellableProductsPage />} />
+          {/* Stage P3 - Listings is now the third functional Product tab (`E-059`). */}
+          <Route path="listings" element={<ChannelListingsPage />} />
+        </Route>
+        <Route path="/inventory/products/stock/new" element={<StockItemFormPage mode="create" />} />
+        <Route path="/inventory/products/stock/import" element={<StockItemImportPage />} />
+        <Route path="/inventory/products/stock/:id" element={<StockItemFormPage mode="detail" />} />
+        <Route path="/inventory/products/stock/:id/edit" element={<StockItemFormPage mode="edit" />} />
+
+        <Route path="/inventory/products/sellable/new" element={<SellableProductFormPage mode="create" />} />
+        <Route path="/inventory/products/sellable/import" element={<SellableProductImportPage />} />
+        <Route path="/inventory/products/sellable/:id" element={<SellableProductDetailPage />} />
+        <Route path="/inventory/products/sellable/:id/edit" element={<SellableProductFormPage mode="edit" />} />
+
+        <Route path="/inventory/products/listings/new" element={<ChannelListingCreatePage />} />
+        <Route path="/inventory/products/listings/import" element={<ChannelListingImportPage />} />
+        {/*
+          Stage P3 — the connected Listings surfaces. 🔴 `UX-151` — batch edit, batch review
+          and channel sync are complex workflows and are therefore PAGES, never modals. The
+          Drawer container remains undefined by source and is deliberately unused.
+
+          ⚠ These routes are placed BEFORE `/:id` so that `sync`, `batch-edit` and `batches`
+          are never captured as listing identifiers.
+        */}
+        <Route path="/inventory/products/listings/sync" element={<ChannelListingSyncPage />} />
+        <Route path="/inventory/products/listings/batch-edit" element={<ChannelListingBatchEditPage />} />
+        <Route path="/inventory/products/listings/batches/:batchId" element={<ChannelListingBatchPage />} />
+        <Route path="/inventory/products/listings/:id" element={<ChannelListingDetailPage />} />
+        <Route path="/inventory/products/listings/:id/edit" element={<ChannelListingEditPage />} />
+        <Route path="/inventory/products/listings/:id/media" element={<ListingMediaPage />} />
+
+        {allDestinations()
+          .filter((destination) => destination.path !== '/inventory/products')
+          .map((destination) => (
           <Route
             key={destination.path}
             path={destination.path}

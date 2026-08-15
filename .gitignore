@@ -10,6 +10,8 @@ backend/target/
 backend/.mvn/wrapper/maven-wrapper.jar
 
 # --- Frontend (Node / Vite) ---
+# Root-level too: a stray tool cache (e.g. Vitest) can create /node_modules outside frontend/.
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
@@ -17,6 +19,10 @@ frontend/*.tsbuildinfo
 # --- Local run logs (never committed) ---
 *.log
 *.err
+
+# --- Local development authority scripts (never committed, never deployed) ---
+# Dev-only permission grants for UI review. Not migrations, not a bootstrap.
+dev-local/
 
 # --- Tooling / OS ---
 .idea/

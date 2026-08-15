@@ -1,7 +1,7 @@
 # Design Constitution
 
-**Status:** Ratified · **Version:** 2.7.0 · **Applies to:** All user-facing surfaces of the ERP platform
-**Reconciled:** 2026-08-10 against the approved TrioLoo Design Language · **Amended:** 2026-08-10 (accessibility MEASURED — Article VIII; production visual fidelity — Article XV; `RULE 4.1` scope corrected) · **Amended:** 2026-08-10 (`A11Y-08b` per-control-class ruling; adjacency correction) · **Amended:** 2026-08-11 (final ratification pass — `RULE 8.10` self-identifying content; grey text tiers resolved) · **Amended:** 2026-08-11 (**FORM DESIGN LANGUAGE RATIFIED** — §3.18; `A11Y-08b` CLOSED) · **Amended:** 2026-08-11 (**OVERLAY & DESTRUCTIVE RATIFIED** — §3.19; `RULE 3.6` and `RULE 3.3.b` amended) · **Amended:** 2026-08-11 (**GLOBAL UI FOUNDATION RATIFIED** — §3.20 scroll surfaces; §3.21 motion; §3.17 production icon set; the omitted nav-label token; `RULE 3.7.a`, `RULE 3.7.b`)
+**Status:** Ratified · **Version:** 2.14.0 · **Applies to:** All user-facing surfaces of the ERP platform
+**Reconciled:** 2026-08-10 against the approved TrioLoo Design Language · **Amended:** 2026-08-10 (accessibility MEASURED — Article VIII; production visual fidelity — `RULE 4.1` scope corrected) · **Amended:** 2026-08-10 (`A11Y-08b` per-control-class ruling; adjacency correction) · **Amended:** 2026-08-11 (final ratification pass — `RULE 8.10` self-identifying content; grey text tiers resolved) · **Amended:** 2026-08-11 (**FORM DESIGN LANGUAGE RATIFIED** — §3.18; `A11Y-08b` CLOSED) · **Amended:** 2026-08-11 (**OVERLAY & DESTRUCTIVE RATIFIED** — §3.19; `RULE 3.6` and `RULE 3.3.b` amended) · **Amended:** 2026-08-11 (**GLOBAL UI FOUNDATION RATIFIED** — §3.20 scroll surfaces; §3.21 motion; §3.17 production icon set; the omitted nav-label token; `RULE 3.7.a`, `RULE 3.7.b`) · **Amended:** 2026-08-11 (**ENTITY-CLASS TABS resolved by REUSE** — `RULE 3.13.a`; status-carrier boundary `RULE 3.14.a`; thumbnail composition `RULE 3.15.a`) · **Amended:** 2026-08-12 (**FINAL GLOBAL UI FOUNDATION** — `RULE 3.11.c`, `RULE 3.22`) · **Amended:** 2026-08-12 (**FINAL GLOBAL UI DELTA** — `RULE 3.8.a`, `RULE 3.17.d`) · **Amended:** 2026-08-13 (**`RULE 3.15.a` image data model released to Product `§38`** — geometry and empty treatment unchanged) · **Amended:** 2026-08-15 (**GLOBAL VISUAL FOUNDATION CORRECTION** — `RULE 3.4.a` workspace ground; `RULE 3.6.c` ordinary elevation; `RULE 3.8.a.b` identity control; `RULE 6.0.c` neutral focus) · **Amended:** 2026-08-15 (**GLOBAL SHELL POLISH** — `RULE 3.8.a.c` account card; `RULE 3.11.d` compact header action; `RULE 3.7.c` brand hierarchy; `RULE 3.21.d`–`.f` motion scale; `RULE 3.17.b` direction corrected) · **Amended:** 2026-08-15 (**`RULE 3.6.d`** — editability is never a container treatment)
 
 ---
 
@@ -124,10 +124,10 @@ This Constitution governs the **reusable visual language and interaction present
 |---|---|---|---|---|---|
 | Ink / accent | `oklch(0.2 0 0)` | ✅ DL | swatch "Ink / accent" | Primary action, active states, links | **The single accent** |
 | Surface | `#FFFFFF` | ✅ DL | swatch "Surface" | Cards, sidebar, inputs | |
-| App background | `oklch(0.985 0.004 290)` | ✅ DL | swatch "App background" | Page ground | |
+| App background | **`oklch(0.968 0.003 290)`** = `#F4F4F6` | ✅ DL + **v2.12.0** | swatch "App background" | Page ground | 🔴 **AMENDED v2.12.0 — `RULE 3.4.a`.** ⚠ **Superseded: `oklch(0.985 0.004 290)` = `#FAFAFB`** |
 | Border | `oklch(0.93 0.006 290)` | ✅ DL | swatch "Border" | Card and shell borders | |
 | Text primary | `oklch(0.24 0.02 290)` | ✅ DL | swatch "Text primary" | Values, body | |
-| Text secondary | `oklch(0.55 0.015 290)` | ✅ DL | swatch "Text secondary" | Labels, captions | ⚠ See A11Y-01 |
+| Text secondary | **`oklch(0.543 0.015 290)`** | ✅ DL + **v2.12.0** | swatch "Text secondary" | Labels, captions | ⚠ See A11Y-01. 🔴 **DARKENED v2.12.0 to HOLD `A11Y-01b` against the deeper ground.** ⚠ **Superseded: `oklch(0.55 0.015 290)`** |
 | Base text (root) | `oklch(0.22 0.02 290)` | ✅ DL, OD, ODT | root `color` | Inherited default | |
 | Heading ink | `oklch(0.18 0.02 290)` | ✅ OD, ODT | `h1`, `h3` | Headings, KPI values | |
 | Muted text | `oklch(0.5 0.015 290)` | ✅ OD, ODT | subtitles, rail labels | Secondary UI text | |
@@ -212,6 +212,16 @@ This Constitution governs the **reusable visual language and interaction present
 
 > **RULE 3.4 — The 4px base governs new work.** **Values outside the common set exist in source for specific components and are recorded in their component rows; they are not licence for arbitrary spacing.**
 
+> **RULE 3.4.a — ✅ THE WORKSPACE GROUND IS ONE RESTRAINED STEP DEEPER THAN THE CONTENT SURFACE. Ratified 2026-08-15.**
+>
+> 🔴 **THE SEPARATION MECHANISM IS GROUND CONTRAST, NOT SHADOW.** **A white content surface is told apart from the page because the PAGE is darker, not because the surface is lifted.** ⚠ **At the superseded `oklch(0.985 0.004 290)` the two differed by `1.02` measured — effectively nothing — so every card, row and section relied on its `1px` border alone and the workspace read as one undifferentiated white field.**
+>
+> **a.** ✅ **The ground is `oklch(0.968 0.003 290)`, rendering `#F4F4F6`.** **Measured: a `#FFFFFF` surface separates from it by `1.10`, and the standard card border separates from it by `1.12`.**
+> **b.** 🔴 **ORDINARY CONTENT SURFACES REMAIN `#FFFFFF` AND ARE NOT TINTED TO COMPENSATE.** **Cards, list rows, panels, form sections, detail sections, readiness and lifecycle cards, filter and search containers and table rows all stay white** (`§3.2`).
+> **c.** 🔴 **THE GROUND IS NEVER DEEPENED FURTHER TO INCREASE SEPARATION.** ⚠ **This is a light, black-and-white-dominant, information-dense enterprise surface. A visibly grey workspace is a different product, and reaching for one would be a design decision through `§12.3`, never an implementation adjustment.**
+> **d.** 🔴 **SEPARATION IS NEVER BOUGHT WITH SHADOW INSTEAD** (`RULE 3.6.a`, `RULE 3.6.c`). **Raising ordinary cards onto a visible elevation to make them stand out is prohibited: it produces floating dashboard tiles, and `RULE 3.6.b` already records that no shadow at any strength is component identification.**
+> **e.** ⚠ **CONSEQUENCE MEASURED, NOT DISCOVERED LATER.** **Every text token was re-measured against the new ground. Exactly one pairing crossed a threshold — `A11Y-01b`, secondary text, `4.69 → 4.45` — and the TOKEN was darkened to restore it rather than the ground being reverted.** 🔴 **`A11Y-02`'s demoted text and placeholder were ALREADY below `4.5` on the superseded ground (`4.32` and `4.33`), are unchanged by this rule, and remain AA on `#FFFFFF` — the only surface either one appears on.**
+
 ## 3.5 Radius
 
 | Tier | Exact Value | Source | Applies to |
@@ -245,6 +255,16 @@ This Constitution governs the **reusable visual language and interaction present
 | **1** | **Card / contact** | `0 1px 2px oklch(0 0 0 / 0.03)` | Cards and panels sitting IN the page flow |
 | **2** | **Active-detail / contact** | `0 1px 3px oklch(0 0 0 / 0.08)` | The white-raised active detail tab (§3.13) |
 | **3** | ✅ **Detached overlay** — **NEW** | **`0 8px 24px oklch(0 0 0 / 0.1)`** | 🔴 **RATIFIED DETACHED OVERLAY SURFACES ONLY** — the confirmation dialog and the anchored action menu (§3.19) |
+
+> **RULE 3.6.c — ✅ ORDINARY CARDS AND ROWS CARRY NO VISIBLE ELEVATION. Ratified 2026-08-15.** **A card, list row, panel, form section or summary tile is `#FFFFFF` + a `1px` neutral border + at most the contact elevation, on the deeper ground of `RULE 3.4.a`.** 🔴 **Increasing shadow to solve surface separation is prohibited** — **it produces floating SaaS tiles and stacked shadow cards, and `RULE 3.6.b` already records that no shadow is component identification.** ✅ **Shadow means *this surface is above the page*, which is true of a dropdown, row action menu, popover, dialog, profile menu and overlay, and false of a section.**
+
+> **RULE 3.6.d — ✅ EDITABILITY IS NEVER A CONTAINER TREATMENT. Ratified 2026-08-15.**
+>
+> **A panel does not change its border, fill or elevation to say that its contents may be edited.** ⚠ **The defect this closes: a media-management surface drew its one editable column with a `1.5px` ink frame while its two read-only columns used the neutral border, so an ordinary capability was given the strongest treatment on the page.**
+>
+> **a.** 🔴 **ALL PEER PANELS SHARE THE SAME CONTAINER TREATMENT** — white surface, `1px` neutral border, no ordinary shadow — **whether their contents are editable, read-only or empty.**
+> **b.** ✅ **EDITABILITY IS CARRIED BY WHAT THE OPERATOR READS AND USES:** **a section badge (`EDITABLE` / `READ ONLY`), helper text, and the PRESENCE OF CONTROLS.** ⚠ **A read-only panel has no controls at all, which is a stronger and more honest signal than a border.**
+> **c.** 🔴 **THIS IS `RULE 3.6.c` AND `UX-269` APPLIED TO CAPABILITY RATHER THAN TO STATE.** **Neither business state NOR editability may claim the container; both live inside it.**
 
 > **RULE 3.6.a — 🔴 The overlay elevation is STRICTLY SCOPED and is available to NOTHING ELSE.** **It must never be applied to cards, ordinary panels, dashboard widgets, form cards, list rows, page headers, KPI tiles, or any surface seeking visual emphasis.** ⚠ **Elevations 1 and 2 are CONTACT shadows at `1px` offset, for surfaces in the flow. Elevation 3 has offset and spread because it separates a surface that is NOT in the flow.**
 
@@ -296,6 +316,16 @@ This Constitution governs the **reusable visual language and interaction present
 >
 > ✅ **One source, not many:** **the wordmark is stated once in the implementation and consumed everywhere.** ⚠ **A brand string retyped per surface is how a variant spelling reaches production.**
 
+> **RULE 3.7.c — ✅ THE BRAND MARK IS SECONDARY TO THE OPERATOR WORKSPACE. Ratified 2026-08-15.**
+>
+> **The brand mark remains clearly identifiable but visually secondary to the operator workspace. Its rendered size is slightly reduced and its opacity softened, without decorative container or shadow.**
+>
+> **a.** ✅ **Sidebar `36px` rendered height, auth surface `45px` — roughly `10%` smaller.** ⚠ **Superseded: `40px` / `50px`** (`DOC-009`).
+> **b.** ✅ **Opacity `0.86`.** 🔴 **HIERARCHY, NOT DISABLEMENT — lower values start to read as washed out or switched off, which is a different message entirely.**
+> **c.** 🔴 **THE ARTWORK IS UNTOUCHED.** **Only rendered size and opacity change: the asset is not recreated, redrawn, cropped, recoloured or re-exported, and only `height` is declared so the `643 × 184` aspect ratio cannot be distorted.**
+> **d.** 🔴 **NO DECORATIVE CONTAINER.** **No logo card, border, background panel, shadow, gradient or decorative line is added around the brand region** — **the existing hairline that separates the block from the navigation is kept and is not a container.**
+> **e.** ✅ **GLOBAL.** **Both surfaces that show branding consume the one shared component; there is no page-specific logo styling anywhere.**
+
 ## 3.8 Page header
 
 | Property | Exact Value | Source | Notes |
@@ -313,6 +343,31 @@ This Constitution governs the **reusable visual language and interaction present
 | Avatar | `32 × 32px`, circle, `oklch(0.2 0 0)`, `11.5px / 700` white | ✅ OD/ODT | Ring `0 0 0 2px oklch(0.55 0 0)` |
 | Notification dot | `7 × 7px`, `oklch(0.55 0.22 25)`, `1.5px` white border, `top 7px right 8px` | ✅ OD/ODT | |
 | Global search | 🔴 **REMOVED** | ✅ DL | *"Search removed from header in the final direction — header now holds notifications + chat + avatar only."* |
+
+> **RULE 3.8.a — ✅ FINAL HEADER UTILITY SURFACE. Ratified 2026-08-12. Amended 2026-08-12.**
+>
+> **Chat and Notifications use the compact white utility surface family:** `34 × 34px`, radius `10px`, `#FFFFFF` fill, no resting visible outer border and the existing card/contact elevation `0 1px 2px oklch(0 0 0 / 0.03)`. Their glyph remains inside that surface and every icon-only control keeps its accessible name. 🔴 **No unread badge, dot or count is created by this visual rule.**
+>
+> **User/Profile is deliberately NOT another white utility surface.** It is the authenticated identity control: **`36 × 36px`** *(🔴 **AMENDED v2.12.0**; ⚠ **superseded: `32 × 32px`**)*, circular, ink fill, white identity mark or initials, thin low-contrast visible resting border using the existing avatar-ring colour, and restrained contact elevation. 🔴 **No surrounding white pill, no white rectangular surface and no oversized container are introduced.** The resting border and the focus-visible indicator are different affordances; accessible focus remains mandatory and is never removed because the resting border exists.
+>
+> **RULE 3.8.a.c — ✅ THE ACCOUNT CARD IS THE GLOBAL IDENTITY TRIGGER. Ratified 2026-08-15. SUPERSEDES the avatar-only trigger.**
+>
+> **The header identity control is a COMPACT CARD: `[ avatar ] [ display name ] [ chevron ]`, on the white utility surface with the contact elevation, `999px` radius, `40px` tall.** ⚠ **Superseded: a bare `36px` avatar button with no name** (`DOC-009`).
+>
+> **a.** 🔴 **THE WHOLE CARD IS THE TRIGGER.** ⚠ **A `14px` chevron is not a hit target, and an operator reaching for their own account aims at their name.** **One button, `aria-haspopup="menu"` and `aria-expanded`.**
+> **b.** 🔴 **THE DISPLAY NAME IS THE OPERATOR'S OWN NAME, NEVER AN IDENTIFIER.** **Full name where one exists, username as the fallback.** 🔴 **A UUID or internal database identity is NEVER rendered, and no name is ever hard-coded.**
+> **c.** ⚠ **ONE LINE, AND IT TRUNCATES.** **The name ellipsises inside a `132px` maximum so the avatar and the chevron stay visible.** 🔴 **The header NEVER wraps because of who is signed in.**
+> **d.** 🔴 **NO ROLE LINE IN THE TRIGGER.** **The card stays compact and single-line; identity context belongs in the opened menu, which already carries name and username.** ⚠ **No account field is invented to fill the card.**
+> **e.** ✅ **The chevron is the shared disclosure glyph at the ratified rotation** (`RULE 3.17.b`) — **closed `0°`, open `180°` — turning on the SAME state as the menu, so the two can never disagree.** 🔴 **Never a text character.**
+> **f.** ✅ **The avatar of `RULE 3.8.a.b` is CARRIED IN UNCHANGED** — `36 × 36px`, true circle, ink fill, white initials, thin neutral resting ring. 🔴 **It is not resized by this rule.**
+> **g.** ⚠ **ONE SHARED IMPLEMENTATION for the whole ERP.** 🔴 **No module builds its own account trigger, and no avatar-only trigger survives anywhere.**
+
+> **RULE 3.8.a.b — ✅ THE IDENTITY CONTROL IS `36 × 36px`. Ratified 2026-08-15.**
+>
+> **a.** ⚠ **The operator's own presence sat fractionally below two `34px` utility surfaces and read as the smallest thing in the row.** ✅ **`36px` restores the identity control as the largest of the three while staying compact inside the header.**
+> **b.** 🔴 **CHAT AND NOTIFICATIONS ARE NOT ENLARGED TO MATCH and remain `34 × 34px`.** ⚠ **They are a different KIND of control — utility surfaces, not identity — and equalising the three would erase a deliberate distinction to satisfy a grid.**
+> **c.** **The resting border stays `1px` of the existing avatar-ring neutral `oklch(0.55 0 0)`, measured `4.44` against the ground.** 🔴 **It is NEVER ink and is NEVER thickened into a ring; a heavy ring would read as permanent focus.**
+> **d.** ⚠ **GEOMETRY ONLY. The profile menu, its open and dismiss behaviour and its focus handling are untouched by this rule.**
 
 ## 3.9 Content frame
 
@@ -363,6 +418,19 @@ This Constitution governs the **reusable visual language and interaction present
 > **Measured: `#FFFFFF` label on the red fill `7.11`; on the hover fill `5.49`; the fill against a `#FFFFFF` panel `7.11` and against the dialog footer tint `6.71`.**
 
 > **RULE 3.11.b — ⚠ `oklch(0.54 0.16 25)` is the REFERENCE-DEFINED destructive hover value.** 🔴 **Its authority is the approved reference, NOT a formula.** **That it sits near the primary hover's lightness step is PROVENANCE, not a reusable algorithm.** 🔴 **No future semantic colour derives its hover by adding a lightness constant. Every hover value is designed, captured and ratified.**
+
+> **RULE 3.11.d — ✅ THE PAGE-HEADER ACTION IS COMPACT. Ratified 2026-08-15.**
+>
+> **`36px` tall, `0 13px` padding, `9px` radius, `13px` label, `15px` semantic icon with a `6px` gap.** ⚠ **Superseded: `40px` tall, `0 18px` padding, `10px` radius, `13.5px` label** (`DOC-009`).
+>
+> **a.** 🔴 **PROMINENCE COMES FROM FILL, POSITION AND LABEL — NEVER FROM GEOMETRY.** ⚠ **At `40px` the page-header action was the single largest control in the ERP, which bought emphasis with size rather than hierarchy.**
+> **b.** ✅ **EXACTLY ONE DARK PRIMARY REMAINS where the page header carries one** (`RULE 3.11`), **at the same compact geometry.** 🔴 **Primary hierarchy is not weakened — the ink fill still does that work.**
+> **c.** ⚠ **COMPACT IS NOT SMALL.** **`36px` is the shared button height, not a reduced one, and the label stays at a readable `13px`.** 🔴 **No tiny text and no sub-32px desktop target.**
+> **d.** ✅ **GEOMETRY ONLY.** 🔴 **Action order, labels, icons, permissions, behaviour and destinations are untouched by this rule.**
+
+> **RULE 3.11.c — ✅ FINAL CONTEXTUAL ACTION SURFACE. Ratified 2026-08-12.**
+>
+> **Neutral contextual actions** keep the existing secondary text weight and white fill, but their resting outer border is not visible; they use the existing card/contact elevation `0 1px 2px oklch(0 0 0 / 0.03)` for the compact enterprise control surface. **Primary contextual actions** keep the canonical ink fill and white text, also with no resting visible outer border and the same restrained contact elevation. 🔴 **This creates no fourth elevation** (`RULE 3.6`): it reuses the existing in-flow contact shadow. Focus-visible treatment remains mandatory and may use the existing focus ring.
 
 ## 3.12 Inputs and selects
 
@@ -435,6 +503,18 @@ This Constitution governs the **reusable visual language and interaction present
 
 > **RULE 3.13 — Two active-segment treatments exist and both are correct.** **Dark-filled** on a light container (list status tabs, channel and period filters) and **white-raised** on a tinted container (detail tabs). ⚠ **The distinction is deliberate: dark for filtering a set, white-raised for switching a view.**
 
+> **RULE 3.13.a — ✅ AN ENTITY-CLASS TAB REUSES THE WHITE-RAISED TREATMENT. NO NEW PRIMITIVE IS CREATED. Ratified 2026-08-11.**
+>
+> **An ENTITY-CLASS TAB switches between distinct canonical entity classes rather than filtering one collection** — the Products workspace's `Stock Items` · `Sellable Products` · `Listings` is the first instance (`UI_UX_ARCHITECTURE.md` `UX-035`).
+>
+> ✅ **`RULE 3.13`'s own distinction decides this deterministically and no judgement is added:** ***dark for filtering a set, white-raised for switching a view.*** **An entity-class tab switches the view — a different collection of a different entity appears — so it takes the WHITE-RAISED treatment already specified at `§3.13`:** **container padding `5px`, radius `12px`, gap `6px`, `oklch(0.96 0.004 290)`; tab height `36px`, padding `0 16px`, radius `9px`, `13.5px/600`; active `#FFFFFF` with `0 1px 3px oklch(0 0 0 / 0.08)`.**
+>
+> **a.** 🔴 **NO NEW TOKEN, NO NEW ACCENT, NO NEW GEOMETRY, NO GRADIENT.** **Every value above already existed.** ✅ **This rule ratifies a REUSE and the boundary of that reuse; it does not create a tab system.**
+> **b.** 🔴 **THE DARK-FILLED TREATMENT IS PROHIBITED FOR ENTITY-CLASS TABS.** **Dark fill is the ratified language of STATUS FILTERING** (`§3.13`, `02-orders-list`). **Using it here would assert that the three entity classes are statuses of one collection — precisely the conflation `UX-035.a` and `UX-035.d` forbid.**
+> **c.** ⚠ **The white-raised treatment was captured on a record-detail surface (`ODT`).** **It is applied here on function, not on page class, because `RULE 3.13` states the distinction in FUNCTIONAL terms** — filtering versus switching. 🔴 **`RULE 4.1.b` is not weakened: this is not a licence to move other detail-surface patterns onto list pages.**
+> **d.** ⚠ **An entity-class tab strip and a status-tab strip may both exist on one surface** — the entity-class strip selects WHAT is listed, a status strip would filter WITHIN it. **Their treatments differ precisely so the two axes stay legible.**
+> **e.** ✅ **`RULE 8.12` already ruled the white-raised active state sufficient without colour:** **the state change measures `3.13` between labels, both labels pass 1.4.3, and the raised white surface is a non-colour cue.** 🔴 **The same finding carries here — no accessibility question is reopened.**
+
 ## 3.14 Status badges
 
 | Property | Exact Value | Source |
@@ -443,6 +523,15 @@ This Constitution governs the **reusable visual language and interaction present
 | Typography | `12px / 600` | ✅ DL/OD/ODT |
 | Palette | The five pairs at §3.3 | ✅ DL |
 | Detail-page inline badge | padding `4px 12px` beside `h1` | ✅ ODT |
+
+> **RULE 3.14.a — 🔴 THE FIVE SEMANTIC PAIRS CARRY ORDER SEMANTICS AND DO NOT AUTOMATICALLY EXTEND TO INTEGRATION OR PUBLICATION STATES. Ratified 2026-08-11.**
+>
+> **`§3.3`'s pairs — pending, confirmed, dispatched, cancelled, neutral — were derived from the approved ORDER collection.** 🔴 **They do NOT come with a ratified mapping for:** **`SYNCED` · `PENDING` · `IN_PROGRESS` · `FAILED` · `MANUAL_REQUIRED` · `DIVERGED`** (`SYS §7.1`) **· listing `ACTIVE` / `SUSPENDED` / `REJECTED` · publication intent** (`PRD-128`).
+>
+> **a.** 🔴 **A STATE IS NEVER ASSIGNED A PAIR BECAUSE IT *FEELS* SIMILAR.** ⚠ **`MANUAL_REQUIRED` is a NORMAL state** (`SYS-025`) **and colouring it as a failure would misinform every operator who sees it.** **`DIVERGED` is always an exception** (`SYS-026`) **and colouring it neutral would hide one.**
+> **b.** ✅ **UNTIL A MAPPING IS RATIFIED, THESE STATES USE THE NEUTRAL PAIR WITH AN EXPLICIT TEXT LABEL** — `oklch(0.95 0.004 290)` on `oklch(0.45 0.01 290)`. 🔴 **The label is mandatory; the state is never carried by colour alone** (`RULE 8.4`, SC 1.4.1) — **which is exactly why a neutral carrier loses no information.**
+> **c.** ✅ **THIS BLOCKS NO COMPOSITION.** **A surface may be designed, reviewed and built with neutral labelled carriers; assigning semantic colour later changes a token, not a layout.**
+> **d.** 🔴 **NO SIXTH PAIR IS CREATED HERE** (`RULE 3.3.a`) **and no new hue is introduced.** **Extending the semantic palette is a design decision through `§12.3`.**
 
 ## 3.15 Data presentation
 
@@ -461,6 +550,21 @@ This Constitution governs the **reusable visual language and interaction present
 | Timeline row | padding `12px 0`, gap `12px`; dot `8 × 8px` `oklch(0.2 0 0)`, `margin-top: 6px` | ✅ ODT |
 | Bulk action bar | height `50px`, padding `0 16px`, radius `12px`, `oklch(0.93 0 0)`, border `1px oklch(0.75 0 0)`, gap `16px` | ✅ OD |
 | **Traditional data table** | 🔴 **NOT USED.** The approved order collection is a **card list** | ⚠ OD |
+
+> **RULE 3.15.a — ✅ THE PRODUCT THUMBNAIL: RATIFIED GEOMETRY, AND THE DATA MODEL NOW OWNED BY PRODUCT. Ratified 2026-08-11 · AMENDED 2026-08-13.**
+>
+> ✅ **The GEOMETRY is canonical, unchanged, and already above:** **`38 × 38px`, radius `9px`, in a `12px 16px` row at `12px` gap** (`OD` product row) · **`48 × 48px` radius `10px`** on the detail items row (`ODT`).
+>
+> ✅ **THE IMAGE DATA MODEL IS NOW CANONICAL AND IS NOT THIS DOCUMENT'S.** **`PRODUCT_ARCHITECTURE.md` `§38` decided it on 2026-08-13** — **primary-image selection (`PRD-168.a`–`.c`), image ordering (`PRD-168.d`), storage ownership (`PRD-167`, `E-105` Media Asset) and fallback behaviour (`PRD-170`).** 🔴 **The authoritative URL model REMAINS UNDEFINED** — **`TEC-105` keeps storage technology `NOT DEFINED BY SOURCE`.**
+>
+> 🔴 **THIS CHANGES NO VISUAL RULE.** ⚠ **The Constitution never owned the image data model and does not acquire it now; it consumes the owner's decision** (`DOC-005`, `DOC-006`). **Clauses `a` – `d` below are unchanged and remain in force.**
+>
+> *🔴 **Superseded wording retained under `DOC-009`:** "**THE IMAGE DATA MODEL IS NOT CANONICAL.** `PRODUCT_ARCHITECTURE.md` `PRD-018` establishes only that images are content Trioloo authors and pushes where the adapter declares field support (`PRD-125`). **Primary-image selection, image ordering, storage ownership, fallback behaviour and any authoritative URL model are UNDEFINED.**" **It was correct when written and governed until 2026-08-13.***
+>
+> **a.** ✅ **A thumbnail region MAY be composed and reviewed as VISUAL COMPOSITION.**
+> **b.** 🔴 **ITS PRESENCE IS NEVER EVIDENCE THAT A FIELD EXISTS.** **No `primary_image_url`, no image table and no ordering column is authorised by drawing one** (`DOC-080` — a reference is not a schema). ⚠ **UNCHANGED BY THE 2026-08-13 AMENDMENT, AND THE DISTINCTION MATTERS: a media model now exists, but it is authorised by `PRD-167` – `PRD-170`, NEVER by this thumbnail.** 🔴 **Product's rules also do not authorise a `primary_image_url` column — `INV-105.6` puts role and order on the REFERENCE, not on the asset, and `TEC-105` selects no URL model.**
+> **c.** 🔴 **THE THUMBNAIL NEVER CONTROLS ROW HEIGHT AND NEVER DOMINATES THE CARD.** **It is supporting identity beside the name, at the ratified geometry.** ⚠ **An ecommerce aspect-ratio tile, a large marketplace image or an image-led catalogue grid is prohibited** — **`§3.15` already records that the approved collection is a compact operational card list.**
+> **d.** ✅ **A missing image is an ordinary case, not an error state.** **The `oklch(0.96 0.004 290)` block `OD` already uses is the ratified empty treatment** — **no placeholder illustration, no icon substitute, no "no image" text is introduced.** ✅ **CONFIRMED BY THE OWNER 2026-08-13: `PRD-168.b` makes media OPTIONAL — a Sellable Product may be created, remain `ACTIVE` and be sold with no media at all — so this clause describes the ORDINARY data condition, not a degraded one.** 🔴 **This clause is UNCHANGED and remains the authoritative empty treatment.**
 
 ## 3.16 Pagination and terminal region
 
@@ -531,8 +635,11 @@ This Constitution governs the **reusable visual language and interaction present
 >
 > | State | Chevron points |
 > |---|---|
-> | **FOLDED / CLOSED** | **UP** |
-> | **UNFOLDED / OPEN** | **DOWN** |
+> | **FOLDED / CLOSED** | **DOWN** — `rotate(0deg)` |
+> | **UNFOLDED / OPEN** | **UP** — `rotate(180deg)` |
+>
+> ⚠ **INVERTED 2026-08-15 by governed amendment** (`DOC-079`). **The superseded direction — closed UP, open DOWN — is retained here as the record** (`DOC-009`). 🔴 **This closes a KNOWN CONTRADICTION: the business decision to invert was taken on 2026-08-11 after reviewing the running application and was applied in code, but this rule was never amended, so architecture and implementation disagreed. Code was the correct behaviour and the document was the defect** (`DOC-080`).
+> ✅ **The same glyph and the same rotation now serve the account card** (`RULE 3.8.a.c.e`) — **one disclosure convention for the whole ERP.**
 >
 > ⚠ **This is DELIBERATELY the inverse of the common right-then-down disclosure convention.** **It is a business decision, recorded here precisely so a future implementer does not "fix" it by habit.** 🔴 **A sideways/right-pointing chevron is not this primitive.**
 >
@@ -550,6 +657,10 @@ This Constitution governs the **reusable visual language and interaction present
 > | **Disclosure chevron SIZE** | ⚠ **IMPLEMENTATION SELECTION.** **The superseded source caret was a `4/4/5px` triangle, which is not a chevron measurement** |
 >
 > ✅ **Both selections are bounded, not free:** **the chevron must remain visibly lighter than the `15px` module icon** (`RULE 3.17.b.b`), **and header utility icons must sit inside the `34 × 34px` ghost button at `§3.8` and stay identifiable by stroke at their ratified colour** (`RULE 8.11`).
+
+> **RULE 3.17.d — ✅ SEMANTIC ICONS IN CONTEXTUAL BUSINESS ACTIONS. Ratified 2026-08-12.**
+>
+> **A contextual business action may use a meaningful semantic icon where the icon materially improves immediate recognition.** The icon is semantic, never decorative; it precedes the concise visible label; the label remains visible; and a clear contextual action is not converted into an icon-only button. The icon comes from the existing Lucide outline vocabulary, uses consistent size, stroke, alignment and gap, and inherits the button foreground. 🔴 **Icons are not mechanically added to every action.** The Screen Contract / owning surface still owns exact domain action copy. Canonical examples: **`FileDown` Export**, **`Import` Import**, **`+` Add Item**.
 >
 > 🔴 **An implementation selection is NOT canonical geometry and confers no precedent.** **If either is to become binding, it is designed, captured and ratified through `§12.3` — not promoted because code contains a number.**
 
@@ -648,13 +759,13 @@ This Constitution governs the **reusable visual language and interaction present
 >
 > **f.** ⚠ **No decorative scrollbar is drawn in its place.** **The chrome is suppressed, not replaced with a styled one — a custom scrollbar would be a new visual primitive and no approved source contains one.**
 
-> **RULE 3.20.a — 🔴 SUPPRESSING CHROME NEVER SUPPRESSES OVERFLOW DISCOVERABILITY.**
+> **RULE 3.20.a — 🔴 SUPPRESSING CHROME NEVER SUPPRESSES OVERFLOW DISCOVERABILITY. Amended 2026-08-12.**
 >
-> **On a HORIZONTALLY scrollable operational or data region, the native scrollbar was itself a discoverability cue.** ✅ **Removing it makes the ratified affordance MANDATORY, not optional — `UI_UX_ARCHITECTURE.md` `UX-073` owns that mechanism and is strengthened, never weakened, by this rule.**
+> **This visual rule suppresses scrollbar chrome only where a surface is otherwise authorised to scroll.** It does not authorise horizontal operational scrollers. `UI_UX_ARCHITECTURE.md` `UX-263`-`UX-266` now own the ordinary ERP workspace rule: guaranteed desktop fit, coherent workspace overflow above the guaranteed band and no component-level horizontal scrollbar.
 >
-> 🔴 **A region that hides its chrome and shows no affordance is silently truncated data. That is the exact failure `UX-073` exists to prevent.**
+> 🔴 **A component that clips content away from its own background is silently broken data. That is the exact failure `UX-073` exists to prevent.**
 >
-> ⚠ **Unaffected and unchanged:** **structured operational rows never wrap** (`RULE 7.4`) · **the pinned identity column** · **scoped rather than page-level horizontal overflow** · **every zoom rule in Article VII** · **page size and record count, which never depend on viewport** (`RULE 7.3.a`).
+> ⚠ **Unaffected and unchanged:** **structured operational rows never wrap** (`RULE 7.4`) · **every zoom rule in Article VII** · **page size and record count, which never depend on viewport** (`RULE 7.3.a`).
 
 > **RULE 3.20.b — ✅ THIS IS A FOUNDATION TREATMENT AND IS INHERITED, NOT REIMPLEMENTED.** **Every future module receives it by consuming the shared scroll surface.** 🔴 **A module-local scrollbar rule is a defect, not a customisation.**
 
@@ -665,7 +776,9 @@ This Constitution governs the **reusable visual language and interaction present
 | Motion class | Duration | Applies to |
 |---|---|---|
 | **Sidebar disclosure** | **`160ms`** | Group submenu reveal / collapse **and** the chevron rotation that accompanies it |
-| **Routed page content** | **`150ms`** | The routed-content boundary of the application shell |
+| **Routed page content** | **`160ms`** ⚠ *(amended v2.13.0; superseded `150ms`)* | The routed-content boundary of the application shell |
+| ✅ **State emphasis** — **NEW** | **`120ms`** | A surface changing emphasis IN PLACE: sidebar row, entity tab, account chevron |
+| ✅ **Elevated arrival** — **NEW** | **`150ms`** | An anchored overlay appearing: account menu, action menu, popover |
 
 > **RULE 3.21 — ✅ SIDEBAR DISCLOSURE MOTION. `160ms`.**
 >
@@ -676,12 +789,40 @@ This Constitution governs the **reusable visual language and interaction present
 > **e.** 🔴 **Navigation is NEVER delayed by it.** **Motion decorates a state change that has already happened; it never gates one.**
 > **f.** **Scope: SIDEBAR DISCLOSURE.** 🔴 **This is GLOBAL for that primitive and for nothing else.**
 
-> **RULE 3.21.a — ✅ ROUTED PAGE-CONTENT TRANSITION. `150ms`.**
+> **RULE 3.21.a — ✅ ROUTED PAGE-CONTENT TRANSITION. `160ms`.** ⚠ **AMENDED v2.13.0; superseded `150ms`** (`DOC-009`).
 >
 > **a.** **An opacity transition with a VERY SMALL vertical entry movement.** 🔴 **No large slide, no `scale()`, no text blur, no navigation delay.**
-> **b.** 🔴 **ROUTED CONTENT ONLY. The stable application shell does NOT transition** — **not the sidebar, not the brand region, not the user identity card, not the header utilities.** ⚠ **A shell that re-animates on every navigation stops reading as stable, which is the opposite of what an operational ERP needs.**
+> **b.** 🔴 **ROUTED CONTENT ONLY. The stable application shell does NOT transition** — **not the sidebar, not the brand region, not the user identity card, not the header utilities.**
+>
+> 🔴 **DEFECT RECORDED 2026-08-15 — THIS CLAUSE CONTRADICTS `RULE 4.1` AND IS NOT SATISFIABLE AS WRITTEN.** ⚠ **Measured in the running application: the sidebar brand region, the navigation and the user identity card ARE outside the animated boundary and stay stable across every navigation, exactly as this clause requires. THE HEADER UTILITIES ARE NOT** — **they sit inside `§3.8`'s page header, which `RULE 4.1`, `RULE 4.1.a` and `RULE 4.1.b` establish as a CONTENT-REGION pattern belonging to the routed surface, with NO separate global application header bar permitted.** 🔴 **Honouring this clause literally would require creating exactly the global header those rules forbid, so it is REPORTED rather than resolved by invention** (`RULE 6.1`, `DOC-024`). ✅ **Which of the two rules yields is a design decision for `§12.3`; until then `RULE 4.1` governs, because it is structural and this clause is a list.** ⚠ **A shell that re-animates on every navigation stops reading as stable, which is the opposite of what an operational ERP needs.**
 > **c.** ✅ **Declared ONCE at the routed-content boundary, so every module inherits it** — Inventory, Purchasing, Sales & Orders, Finance & Accounting, HR & Payroll, CRM, Reports and Administration receive it without doing anything. 🔴 **A page-specific or module-specific entrance animation is a defect.**
 > **d.** 🔴 **It touches no data, no request and no state.** **It is presentation over content that has already arrived.**
+> **e.** 🔴 **IT REPLAYS ONLY ON A REAL NAVIGATION. Ratified 2026-08-15.** **The boundary is keyed on the route, so a data refresh, a keystroke, a validation change or any routine rerender does NOT restart it.** ⚠ **A page that re-fades every time a field is typed into is a flicker, not a transition.**
+
+> **RULE 3.21.d — ✅ STATE EMPHASIS MOTION. `120ms`. Ratified 2026-08-15.**
+>
+> **A surface that changes EMPHASIS in place — a sidebar row becoming active, an entity tab becoming selected, the account chevron rotating — transitions its colour and transform.**
+>
+> **a.** 🔴 **COLOUR AND TRANSFORM ONLY.** **Nothing animates width, height, margin, padding or position, so a state change can never move the things around it.**
+> **b.** 🔴 **NO SLIDING INDICATOR AND NO TRAVELLING UNDERLINE.** ⚠ **The emphasis arrives where the control already is; a marker crossing the tab strip is decoration and is prohibited.**
+> **c.** ✅ **The whole row or tab transitions as one.** 🔴 **Items are never animated individually or in sequence.**
+
+> **RULE 3.21.e — ✅ ELEVATED-SURFACE ARRIVAL MOTION. `150ms`. Ratified 2026-08-15.**
+>
+> **An anchored overlay — account menu, action menu, popover — enters with opacity `0 → 1` and a `4px` upward settle.**
+>
+> **a.** 🔴 **A SEPARATE SYSTEM FROM ROUTE MOTION, DELIBERATELY.** ⚠ **An overlay arrives ABOVE the page; routed content arrives IN it. One shared animation would say they were the same kind of event.** 🔴 **The routed-content treatment is NEVER applied to an overlay, and vice versa.**
+> **b.** ⚠ **ENTER ONLY.** **A dismissed overlay unmounts immediately: an operator who has closed something should not have to watch it leave.**
+> **c.** 🔴 **NO `scale()`.** ⚠ **A subtle `0.98` grow was drafted for the account menu and REMOVED: `RULE 15.3` forbids transform-scaled text because it resamples glyphs, and the panel is almost entirely text.**
+> **d.** 🔴 **The dialog family is untouched** (`§3.19`) — **this rule governs ANCHORED overlays.**
+
+> **RULE 3.21.f — ✅ ONE SHARED DURATION SCALE. Ratified 2026-08-15.**
+>
+> **`--motion-fast` `120ms` · `--motion-standard` `150ms` · `--motion-page` `160ms`, with `--ease-standard` and `--ease-out`.**
+>
+> **a.** 🔴 **A COMPONENT PICKS A SPEED; IT NEVER INVENTS ONE.** ⚠ **`127ms` in one place and `183ms` in another is how a system stops feeling like one product.**
+> **b.** ✅ **Sidebar disclosure's ratified `160ms` is now an ALIAS of the page duration, not a fourth number.** 🔴 **`RULE 3.21` is unchanged in substance.**
+> **c.** 🔴 **COMPOSITOR-FRIENDLY PROPERTIES ONLY — `opacity` and `transform`.** **Width, height, layout properties, large shadows and `filter: blur` are never animated.**
 
 > **RULE 3.21.b — 🔴 REDUCED MOTION IS MANDATORY FOR EVERY RATIFIED MOTION TREATMENT.**
 >
@@ -811,6 +952,20 @@ This Constitution governs the **reusable visual language and interaction present
 >
 > ✅ **`RULE 6.0.a` is REFINED for form controls by this rule and REMAINS IN FORCE unchanged for every other interactive element.** 🔴 **The two do not compete: `6.0.b` is the designed treatment where an approved reference exists; `6.0.a` is the floor where none does.**
 >
+> **RULE 6.0.c — ✅ THE FOCUS INDICATOR IS RESTRAINED NEUTRAL GREY. Ratified 2026-08-15. SUPERSEDES the ink ring of `RULE 6.0.a` and the ink boundary of `RULE 6.0.b`.**
+>
+> 🔴 **THE SUPERSEDED TREATMENT IS RETAINED AS THE RECORD** (`DOC-009`): **`RULE 6.0.a` set a `2px` ring of ink `oklch(0.2 0 0)` at `2px` offset, and `RULE 6.0.b` additionally turned a focused form control's BOUNDARY ink with a `0 0 0 3px oklch(0.93 0 0)` halo.** ⚠ **Both were accessibility-correct and visually wrong: measured `18.10` against white, an ink indicator is the strongest mark on the entire screen, applied to the most ordinary act in the ERP.**
+>
+> 🔴 **WHY IT READ AS A CLICK BEHAVIOUR, WHICH IS THE DEFECT ACTUALLY REPORTED.** **`:focus-visible` was believed to be keyboard-only. It is not: browsers match it on TEXT INPUTS for POINTER focus as well, because typing is expected there.** ⚠ **Clicking into any field therefore painted a near-black frame around it, while the rule believed the treatment was invisible to the mouse.**
+>
+> **a.** ✅ **The indicator is `2px` of the new neutral token `oklch(0.6 0 0)` = `#808080`, at `2px` offset.** 🔴 **Neutral by construction — zero chroma — so it can never be read as brand, as informational blue or as destructive red** (`RULE 3.3.b`).
+> **b.** ✅ **SC 1.4.11 IS MET, NOT TRADED AWAY. Measured against every canonical surface it can appear on: `#FFFFFF` `3.95` · app ground `3.60` · strip `3.72` · active-nav fill `oklch(0.93 0 0)` `3.22` — all at or above the required `3.0`.** ⚠ **An earlier candidate at `oklch(0.62 0 0)` measured `2.97` on the active-nav fill and was rejected for that one figure.**
+> **c.** 🔴 **A FOCUSED CONTROL'S OWN BOUNDARY NO LONGER CHANGES COLOUR.** **`RULE 6.0.b`'s ink boundary is WITHDRAWN: the ring alone carries focus and the control's resting border is left exactly as it is.** ✅ **This strengthens `§8.4`, where that border is load-bearing for identification — a boundary that changed meaning on focus was always in tension with it.**
+> **d.** 🔴 **REMOVING FOCUS INDICATION REMAINS PROHIBITED ON EVERY INTERACTIVE ELEMENT, WITHOUT EXCEPTION.** **`outline: none` appears nowhere, and quieting the indicator is not a licence to suppress it.**
+> **e.** ✅ **Where the control's own fill IS ink, the `#FFFFFF` separator of `RULE 6.0.a.b` is UNCHANGED and still required.**
+> **f.** 🔴 **HOVER MUST NOT BORROW THIS TREATMENT** (`RULE 6.0.a.e`, unchanged). **Focus must be visible when the pointer never moves; a hover state painting the same ring would make the two indistinguishable.**
+> **g.** ⚠ **ONE DECLARATION, GLOBALLY.** **The treatment lives in the single global base rule and is inherited by every module, dialog, menu and form.** 🔴 **A module re-declaring its own focus styling would win by specificity and silently exempt itself; that is prohibited.**
+
 > **RULE 6.1 — An undefined state is not a licence to invent one.** **Design it, capture it, add it to the reference, and amend this Constitution — in that order.**
 
 ---
@@ -997,7 +1152,7 @@ Actions
 | # | Pair | Computed | Ratio | Req | Verdict |
 |---|---|---|---|---|---|
 | **A11Y-01a** | Text secondary `oklch(0.55 0.015 290)` on `#FFFFFF` | `#71707A` | **4.87** | 4.5 | ✅ **PASS** |
-| **A11Y-01b** | Text secondary on app bg `oklch(0.985 0.004 290)` | `#71707A` | **4.66** | 4.5 | ✅ **PASS** |
+| **A11Y-01b** | Text secondary `oklch(0.543 0.015 290)` on app bg `oklch(0.968 0.003 290)` | `#6E6D77` on `#F4F4F6` | **4.58** | 4.5 | ✅ **PASS — RE-MEASURED v2.12.0.** ⚠ **The superseded pair measured `4.66`; on the deeper ground alone it would have fallen to `4.45`, so the text token was darkened** (`RULE 3.4.a.e`) |
 | **A11Y-02a** | Faint `oklch(0.6 0.012 290)` on `#FFFFFF` — **10px micro-labels** | `#807F87` | **3.96** | 4.5 | 🔴 **FAIL** |
 | **A11Y-02b** | Placeholder `oklch(0.65 0.01 290)` on `#FFFFFF` — **13px** | `#8F8E95` | **3.24** | 4.5 | 🔴 **FAIL** |
 | **A11Y-03a** | Amber badge fg on amber bg | `#684600` / `#FFECC1` | **7.30** | 4.5 | ✅ **PASS** |
@@ -1015,7 +1170,7 @@ Actions
 | **A11Y-08d** | Card border on app bg `oklch(0.985 0.004 290)` | `#E8E7EC` | **1.18** | 3.0 | ⚠ **NOT APPLICABLE — §8.4** |
 | **A11Y-08e** | **Icon-only button border `oklch(0.9 0.006 290)` on app bg** — `ODT` `⋮` More actions | `#DEDDE2` | **1.29** | 3.0 | 🔴 **FAIL — APPLICABLE.** ⚠ **NEWLY FOUND in v2.3.0; never in the register** |
 | **A11Y-08f** | **Detail-tab ACTIVE state `#FFFFFF` on container `oklch(0.96 0.004 290)`** | `#FFFFFF` / `#F2F1F4` | **1.12** | 3.0 | ⚠ **CONDITIONAL — §8.4.** ⚠ **NEWLY FOUND in v2.3.0** |
-| **A11Y-09** | **Focus indication** | — | — | 3.0 | ⚠ **INTERIM FLOOR SET — `RULE 6.0.a`** |
+| **A11Y-09** | **Focus indication** — neutral ring `oklch(0.6 0 0)` on white / ground / strip / active-nav | `#808080` | **3.95 / 3.60 / 3.72 / 3.22** | 3.0 | ✅ **PASS — CLOSED v2.12.0 by `RULE 6.0.c`.** ⚠ **Superseded: interim ink floor `RULE 6.0.a`** |
 | **A11Y-10** | Heading `oklch(0.18 0.02 290)` on `#FFFFFF` | `#11101A` | **18.85** | 4.5 | ✅ **PASS** |
 | **A11Y-11** | Text primary `oklch(0.24 0.02 290)` on `#FFFFFF` — 14px body | `#1F1E28` | **16.51** | 4.5 | ✅ **PASS** |
 | **A11Y-12** | Base text `oklch(0.22 0.02 290)` on app bg | `#1A1923` / `#FAFAFD` | **16.62** | 4.5 | ✅ **PASS** |
@@ -1293,6 +1448,18 @@ Actions
 | **A resting background pill on inactive navigation children** | RULE 3.7.a.c |
 | **Relying on the nav fills alone to tell active parent from selected child** | RULE 3.7.a.d |
 | **Spelling the application brand any way but `TrioLoo`** | RULE 3.7.b |
+| **Resting visible outer borders on Chat/Notification utilities or contextual action buttons** | RULE 3.8.a, RULE 3.11.c |
+| **A white pill/rectangular surface around User/Profile** | RULE 3.8.a |
+| **Removing User/Profile's focus-visible treatment because it has a resting border** | RULE 3.8.a |
+| **Decorative or mechanically-added business-action icons** | RULE 3.17.d |
+| **Replacing contextual business-action labels with icon-only buttons** | RULE 3.17.d |
+| **A fourth shadow/elevation for header utilities or contextual actions** | RULE 3.6, RULE 3.11.c |
+| **A dark-filled entity-class tab** | RULE 3.13.a.b |
+| **A new tab system beyond the two ratified treatments** | RULE 3.13.a |
+| **Colouring an integration or publication state from the order palette** | RULE 3.14.a |
+| **An ecommerce image tile or image-led product grid** | RULE 3.15.a.c |
+| **A thumbnail that controls row height** | RULE 3.15.a.c |
+| **A placeholder illustration or "no image" text** | RULE 3.15.a.d |
 
 ---
 
@@ -1547,6 +1714,13 @@ Actions
 | **2.5.0** | **2026-08-11** | ✅ **FORM DESIGN LANGUAGE RATIFIED — `A11Y-08b` CLOSED IN FULL.** **`Form Design Language.dc.html` was approved 2026-08-11 and is registered at `§1.3` as PRIMARY authority for the FORM surface class, and at `§5.3` as an archetype.** ✅ **NEW `§3.18` ratifies the complete form-control token set: `34px` height, `9px` radius, `13px` text, `#FFFFFF` fill, and the states — rest, focus, filled, error, disabled.** 🔴 **ONE genuinely new canonical colour, verified by programmatic token audit of the approved file: `oklch(0.65 0.006 290)`, the ENABLED FORM CONTROL boundary, measuring `3.24` on `#FFFFFF` and `3.10` on the app background (recomputed, not copied).** 🔴 **`RULE 3.18.b`/`c`/`d` forbid generalising it: card `0.93`, control/utility `0.9`, secondary action `0.75` and both dividers are UNCHANGED, grouped controls and pagination stay closed by self-identifying content, and the `32px` list-page utility select is NOT collapsed into the `34px` form control.** ✅ **`RULE 3.18.e` ratifies DISABLED as deliberately LIGHTER than enabled — SC 1.4.11 exempts inactive components, so the original `oklch(0.9 0.006 290)` hairline is correct there and is never darkened for symmetry; text stays readable at `5.36`. DISABLED is explicitly NOT read-only, NOT permission-restricted and NOT workflow-unavailable, and those classes may not borrow its treatment.** 🔴 **`RULE 3.18.f` records a measured constraint: the error boundary differs from the rest boundary by only `2.19`, so although each state passes SC 1.4.11 independently (`7.11`/`6.80`), the boundary CHANGE alone is insufficient — the outline marker and the message are therefore MANDATORY, and a focused field in error retains its message because focus and error boundaries differ by only `2.55`.** ✅ **`RULE 3.18.g` records the two-column `1fr 1fr` grid as this surface's REFERENCE COMPOSITION, not an ERP-wide mandatory form layout.** ✅ **`RULE 6.0.b` ratifies the designed focus treatment — ink `oklch(0.2 0 0)` boundary plus a solid `oklch(0.93 0 0)` halo, both already canonical, no new colour and no alpha — measured `18.10`/`17.33`, and `5.59` against the rest boundary so focus is identifiable by its boundary alone. `RULE 6.0.a` remains in force UNCHANGED for every non-form control; the two do not compete.** ✅ **`RULE 8.18` records the audit: 31 `oklch` values, one new; zero `transform: scale`, filters, gradients, opacity approximations, `@media` or `appearance` suppression; exactly three shadows, the focus halo being a RING not a third ELEVATION, so `RULE 3.6` is intact.** ✅ **The reference's use of v2.4.0-ratified sidebar text mappings instead of the superseded `OD`/`ODT` values is recorded as CORRECT — screenshot fidelity never resurrects an inaccessible value.** **Article XIV items 7 and 13 closed, item 2 partially closed. No business architecture touched. No GAP created. No new document.** |
 | **2.6.0** | **2026-08-11** | ✅ **OVERLAY & DESTRUCTIVE DESIGN LANGUAGE RATIFIED — THE LAST TWO V1 DESIGN BLOCKERS ARE DISCHARGED.** **`Overlay & Destructive Design Language.dc.html` approved 2026-08-11, registered at `§1.3` precedence 3c and `§5.3` as an archetype. Every value was re-extracted from the source markup and every ratio recomputed — not taken from the approval report.** 🔴 **`RULE 3.6` AMENDED from TWO elevations to THREE. The superseded two-elevation wording is retained verbatim inside the rule. The third — `0 8px 24px oklch(0 0 0 / 0.1)` — is STRICTLY scoped by `RULE 3.6.a` to ratified detached overlays and is forbidden on cards, panels, dashboard widgets, form cards, list rows, page headers and any surface seeking emphasis. `RULE 3.6.b` records WHY, so it is never mis-cited: elevations measure `1.06`, `1.18` and `1.23` against white, so NO shadow reaches 3:1 and a shadow is NEVER WCAG component identification — the overlay elevation exists for PERCEPTUAL DETACHMENT only.** 🔴 **`RULE 3.3.b` AMENDED by ADDITION, its original wording untouched: new `RULE 3.3.c` permits canonical red to carry DESTRUCTIVE ACTION semantics in EXACTLY THREE enumerated placements — the confirmation action fill, the destructive menu row with its red-tinted hover, and the outline marker beside a destructive title — and prohibits red panels, red scrims, red borders, red body text, red Cancel actions, and red for emphasis, branding or chart variety.** ✅ **`RULE 3.11.a` adds the destructive button as a SEMANTIC VARIANT of the primary — identical height, padding, radius, weight and label size, fill only — with no destructive geometry system. `RULE 3.11.b` ratifies `oklch(0.54 0.16 25)` as the REFERENCE-DEFINED hover and explicitly forbids treating its relationship to the primary hover as a reusable formula; that relationship is provenance, not an algorithm.** ✅ **NEW `§3.19` ratifies the scrim `oklch(0.2 0 0 / 0.48)` (`3.23` panel separation over white content, `3.34` over the app ground), the `460px` confirmation dialog, and the `216px` anchored action menu. `RULE 3.19` scopes the scrim to DIALOGS ONLY, forbids any other alpha variant of ink, forbids a scrim behind a menu and forbids blur. `RULE 3.19.a` keeps the `15.5px/700` dialog title a CARD-HEADING and forbids promoting it into a page-title rule. `RULE 3.19.b` requires the consequence to be stated before the action is reachable, and records that this creates NO confirmation requirement — which actions need confirming is business architecture. `RULE 3.19.c` keeps menu and dialog SEPARATE surface classes. `RULE 3.19.d` records that NEITHER overlay boundary is load-bearing — menu `1.35`, dialog `2.62` — because the dialog is identified by its scrim and the menu by its own content, so darkening them would be a regression. `RULE 3.19.e` records the overlay family as CONSUMING the existing focus architecture with no new primitive, and fixes that FOCUS IS ALWAYS INK, NEVER RED — an ink ring measures only `2.55` on the red fill, which is why the destructive button takes the two-part ring whose `#FFFFFF` separator measures `7.11`.** ✅ **Eleven prohibitions added to Article IX.** ✅ **Open-decision register updated PRECISELY, not wholesale: modal, anchored action menu, scrim, elevation and destructive treatment CLOSED; drawer, toast, tooltip and other popover classes DELIBERATELY RETAINED as open.** 🔴 **`RULE 14.1` AMENDED — the Design Foundation is now FREEZE-READY with no V1 blocker. The previous NOT-FREEZE-READY finding is superseded, not erased.** **No business rule, workflow, permission, entity, event, state or posting touched. No GAP created. No new document.** |
 | **2.7.0** | **2026-08-11** | ✅ **GLOBAL UI FOUNDATION RATIFIED — one bounded post-freeze amendment** (`DOC-079`), **from explicit business decision after the running application was reviewed. No business rule, entity, state machine, event, permission, posting or module ownership is touched.** 🔴 **THE OMITTED NAV-LABEL TOKEN IS RATIFIED, NOT INVENTED: `oklch(0.4 0.015 290)` was verified present in `Order Dashboard.dc.html` on every inactive nav row, while `§3.1` had already transcribed the SIZE and WEIGHT of that same span — the colour was dropped in transcription. Measured `9.25` on white, `8.85` on the app background, `8.47` on nav hover; AAA, no accessibility consequence. The ACTIVE nav label is recorded explicitly as the existing Ink token because Heading ink is a known implementation trap.** ✅ **NEW `§3.20` SCROLL SURFACES: ERP-owned scroll surfaces scroll normally while native scrollbar CHROME is suppressed. `RULE 3.20.b` forbids achieving it with `overflow: hidden`, forbids clipping, and preserves keyboard, wheel, touchpad, pointer, focus and programmatic scrolling; `RULE 3.20.c` states that HIDDEN CHROME IS NOT HIDDEN CONTENT; `RULE 3.20.f` forbids drawing a decorative replacement. 🔴 `RULE 3.20.a` STRENGTHENS `UX-073` rather than weakening it — with the chrome gone the discoverability affordance becomes MANDATORY, and row invariance, the pinned identity column, scoped overflow and every zoom and page-size rule are explicitly untouched.** ✅ **NEW `§3.21` MOTION — the register moves from `NOT DEFINED BY SOURCE` to PARTIALLY defined. Exactly TWO classes: sidebar disclosure `160ms` (`RULE 3.21`, submenu and chevron on one clock) and routed page content `150ms` (`RULE 3.21.a`, routed content only — sidebar, brand, user card and header utilities never animate). `RULE 3.21.b` makes reduced motion mandatory with functionality preserved exactly, and records that a preference query is NOT a breakpoint so `RULE 7.10` is untouched.** 🔴 **`RULE 3.21.c` is the guard: these are TWO NAMED PRIMITIVES, not tokens, not a scale and not a default — dialogs, menus, buttons, tabs, toasts, drawers, tooltips, accordions, skeletons and charts inherit NOTHING.** ✅ **`§3.17` PRODUCTION ICON SET RATIFIED as the Lucide outline icon set with the canonical semantic mapping for nine destinations and three header utilities — the OPEN item `RULE 3.17` itself anticipated, closed as a selection inside unchanged ratified geometry. `RULE 3.17.b` fixes the ONE rotated outline chevron and its business-approved direction — CLOSED points UP, OPEN points DOWN, deliberately the inverse of the common convention and recorded so it is not "corrected" by habit — and keeps it secondary to the module icon. 🔴 `RULE 3.17.c` records WHICH geometry is canonical and which is an IMPLEMENTATION SELECTION: header glyph size and chevron size are selections, because the superseded source values were CSS-primitive box dimensions and a `4/4/5px` triangle, neither of which transfers to a drawn icon set. Code is never mistaken for ratification** (`DOC-080`). ✅ **`RULE 3.7.a` ratifies the SEMANTIC USE of two colours that already existed — active parent `oklch(0.93 0 0)` at weight 700 with an ink icon versus selected child `oklch(0.95 0 0)` at weight 600 on a shorter indented row with no icon, and inactive children carrying NO resting pill. 🔴 It records that the fills alone are NOT the distinction: measured, they differ by `1.062` and reach only `1.229` and `1.157` against white, so neither is a WCAG identification mechanism — the same finding `RULE 3.6.b` records for shadows — and a stronger colour separation would be a NEW TOKEN through `§12.3`, never invented at implementation time.** ✅ **`RULE 3.7.b` ratifies the application-display brand `TrioLoo` with exact capitalisation, bounded to presentation and explicitly not rewriting package, database, repository, storage, historical or legal identifiers.** ✅ **Fifteen prohibitions added to Article IX. Article VI and Article XIV items 6 and 10 updated PRECISELY rather than wholesale — motion is recorded as PARTIALLY resolved and is not falsely marked solved.** 🔴 **Superseded wording retained throughout, never erased** (`DOC-009`): **the `Library: NONE / CSS-drawn primitives` row, the source caret row, and `RULE 3.17`'s final sentence.** ⚠ **The `FREEZE-V1-2026-08-11` baseline remains valid; this document's frozen version is superseded by this governed amendment and implementation must conform to the amended baseline.** |
+| **2.8.0** | **2026-08-11** | ✅ **PRODUCT WORKSPACE VISUAL QUESTIONS RESOLVED — three narrow rules, and the largest was answered by REUSE rather than invention.** 🔴 **The design extraction reported that no tab treatment existed for switching ENTITY CLASS.** ✅ **`RULE 3.13.a` finds the answer already present: `RULE 3.13`'s own distinction — *dark for filtering a set, white-raised for switching a view* — decides it deterministically, so an entity-class tab takes the EXISTING white-raised treatment at its existing geometry. No new token, accent, geometry or gradient is created, and `RULE 3.13.a.b` PROHIBITS the dark-filled treatment here because dark fill is the ratified language of status filtering and would assert that three entity classes are statuses of one collection.** ⚠ **`RULE 3.13.a.c` records that the treatment is applied on FUNCTION rather than page class, because `RULE 3.13` states the distinction functionally — and that `RULE 4.1.b` is not weakened into a licence to move other detail patterns onto list pages.** ✅ **`RULE 8.12`'s existing finding carries: the white-raised active state measures `3.13` between labels with both passing 1.4.3, so no accessibility question is reopened.** ✅ **`RULE 3.14.a` draws the status boundary honestly: `§3.3`'s five pairs carry ORDER semantics and do NOT extend automatically to `SYNCED`, `FAILED`, `MANUAL_REQUIRED`, `DIVERGED`, listing status or publication intent. 🔴 A state is never assigned a pair because it feels similar — `MANUAL_REQUIRED` is a NORMAL state and colouring it as failure would misinform, while `DIVERGED` is always an exception and colouring it neutral would hide one. Until a mapping is ratified these states use the NEUTRAL pair with a MANDATORY text label, which loses no information precisely because `RULE 8.4` already forbids colour-only state. No sixth pair is created** (`RULE 3.3.a`). ✅ **`RULE 3.15.a` separates ratified geometry from unratified data: the `38×38px` radius `9px` product thumbnail and the `48×48px` detail thumbnail are already canonical from `OD`/`ODT`, but `PRD-018` establishes only that images are Trioloo-authored and pushed where the adapter supports the field — primary-image selection, ordering, storage ownership, fallback and any URL model are UNDEFINED.** 🔴 **Drawing a thumbnail is therefore NEVER evidence that `primary_image_url` or any image field exists** (`DOC-080`), **the thumbnail never controls row height, and an ecommerce tile or image-led catalogue grid is prohibited. A missing image uses the existing `oklch(0.96 0.004 290)` block — no placeholder illustration, no icon substitute, no "no image" text.** ✅ **Six prohibitions added to Article IX.** ⚠ **No token, palette entry, elevation, radius, spacing or geometry created. No open Article XIV item closed — status colour for integration states is newly RECORDED as bounded, not solved. `PRODUCT_ARCHITECTURE.md` not amended; no business rule, entity or GAP touched.** |
+| **2.14.0** | **2026-08-15** | ✅ **`RULE 3.6.d` ADDED — EDITABILITY IS NEVER A CONTAINER TREATMENT, routed under `DOC-079` from a review finding on the implemented media surface.** ⚠ **The defect closed: a three-panel surface drew its one EDITABLE column with a `1.5px` ink frame while its two READ-ONLY columns used the neutral border — giving an ordinary capability the strongest treatment on the page.** ✅ **All peer panels now share one container treatment regardless of what their contents permit; editability is carried by the section badge, the helper text and the PRESENCE OF CONTROLS — a read-only panel having no controls at all is a stronger signal than a border.** 🔴 **This is `RULE 3.6.c` and `UX-269` extended from business STATE to CAPABILITY: neither may claim the container.** 🔴 **No token, geometry, colour, elevation, spacing or typography value is created or changed.** |
+| **2.13.0** | **2026-08-15** | ✅ **GLOBAL SHELL POLISH — the account trigger, header action geometry, brand hierarchy and the motion scale, routed under `DOC-079` from explicit business decision after the running ERP was reviewed.** 🔴 **ADDITIVE ONLY: v2.12.0's ground, elevation, focus and state-carrier rules are UNCHANGED and none is weakened. No business rule, entity, permission, workflow, API, persistence or migration is touched.** ✅ **NEW `RULE 3.8.a.c` — THE ACCOUNT CARD SUPERSEDES THE AVATAR-ONLY TRIGGER: `[ avatar ] [ display name ] [ chevron ]` on the white utility surface, `40px` tall, `999px` radius, and THE WHOLE CARD IS THE TRIGGER because a `14px` chevron is not a hit target. 🔴 The display name is the operator's own name — full name, username as fallback — and a UUID or internal identity is NEVER rendered. ⚠ One line, ellipsised at `132px`, so the header never wraps because of who is signed in; no role line in the trigger; no account field invented. ✅ The `36px` avatar of `RULE 3.8.a.b` is CARRIED IN UNCHANGED, not resized.** ✅ **NEW `RULE 3.11.d` — the page-header action becomes `36px` tall, `0 13px` padding, `9px` radius, `13px` label (superseded: `40px`, `0 18px`, `10px`, `13.5px`). 🔴 Prominence comes from FILL, POSITION and LABEL, never geometry — at `40px` this was the largest control in the ERP. Exactly one dark primary remains and primary hierarchy is not weakened; action order, labels, icons, permissions, behaviour and destinations are untouched.** ✅ **NEW `RULE 3.7.c` — the brand mark is secondary to the operator workspace: sidebar `36px`, auth `45px` (~10% smaller), opacity `0.86`. 🔴 ARTWORK UNTOUCHED — only rendered size and opacity change, only `height` is declared so the `643 × 184` ratio cannot distort, and NO logo card, border, panel, shadow or gradient is introduced.** ✅ **`§3.21` MOTION EXTENDED from two classes to four, all on ONE scale: NEW `RULE 3.21.d` state emphasis `120ms` (colour and transform only, 🔴 no sliding indicator and no travelling underline); NEW `RULE 3.21.e` elevated arrival `150ms` for anchored overlays, 🔴 deliberately a SEPARATE system from route motion and enter-only; NEW `RULE 3.21.f` one shared duration scale — `--motion-fast` `120ms`, `--motion-standard` `150ms`, `--motion-page` `160ms` — so a component picks a speed but never invents one. ⚠ `RULE 3.21.a` amended `150ms → 160ms` and gains `.e`: the transition replays ONLY on real navigation, never on a data refresh, keystroke or routine rerender.** 🔴 **A `scale(0.98)` overlay grow was DRAFTED AND REMOVED: `RULE 15.3` forbids transform-scaled text because it resamples glyphs, and the panel is almost entirely text. `RULE 3.21.b` reduced motion extended to every new primitive with functionality preserved exactly.** ✅ **`RULE 3.17.b` DIRECTION CORRECTED to closed `0°`/DOWN, open `180°`/UP, closing a known contradiction: the business decision to invert was taken 2026-08-11 and applied in code, but this rule was never amended — the code was right and the document was the defect** (`DOC-080`). ⚠ **Superseded wording retained throughout** (`DOC-009`). |
+| **2.12.0** | **2026-08-15** | ✅ **GLOBAL VISUAL FOUNDATION CORRECTION — four shared-system defects fixed at the TOKEN and BASE-STYLESHEET layer, routed under `DOC-079` from explicit business decision after the running ERP was reviewed.** 🔴 **NO BUSINESS RULE, ENTITY, PERMISSION, WORKFLOW, API, PERSISTENCE OR MIGRATION IS TOUCHED. No module is individually restyled; every module inherits.** ✅ **NEW `RULE 3.4.a` — THE WORKSPACE GROUND MOVES ONE RESTRAINED STEP DEEPER, `oklch(0.985 0.004 290)` → `oklch(0.968 0.003 290)` = `#F4F4F6`. Separation is created by GROUND CONTRAST, never by shadow: at the superseded value a white surface differed from the page by `1.02` measured — effectively nothing — so cards, rows and sections floated in one undifferentiated white field. Ordinary content surfaces REMAIN `#FFFFFF` and are never tinted to compensate; the ground is never deepened further; the ERP stays light, black-and-white dominant and information-dense.** ⚠ **CONSEQUENCE MEASURED RATHER THAN DISCOVERED: every text token was re-measured, exactly one pairing crossed a threshold — `A11Y-01b` secondary text `4.69 → 4.45` — and `--color-text-secondary` was DARKENED `oklch(0.55 0.015 290)` → `oklch(0.543 0.015 290)` to restore a measured `4.58` PASS rather than reverting the ground. `A11Y-02`'s demoted text and placeholder were ALREADY below `4.5` on the superseded ground (`4.32`, `4.33`), are unchanged, and remain AA on `#FFFFFF` — the only surface either appears on.** ✅ **NEW `RULE 3.6.c` — ORDINARY CARDS AND ROWS CARRY NO VISIBLE ELEVATION. Solving surface separation by raising shadows is prohibited; shadow means *above the page* and stays scoped to dropdowns, row action menus, popovers, dialogs, the profile menu and overlays. `RULE 3.6` remains THREE elevations — no fourth is created.** ✅ **NEW `RULE 3.8.a.b` — the identity control moves `32 × 32px` → `36 × 36px`, keeping the ink fill, white initials and the thin `1px` avatar-ring neutral (measured `4.44` on the ground). 🔴 Chat and Notifications are NOT enlarged to match and remain `34 × 34px`: they are a different KIND of control, and equalising the three would erase a deliberate distinction to satisfy a grid. Geometry only — the profile menu and its dismiss and focus behaviour are untouched.** 🔴 **NEW `RULE 6.0.c` SUPERSEDES the ink focus ring of `RULE 6.0.a` AND WITHDRAWS the ink focus BOUNDARY of `RULE 6.0.b`; both superseded treatments are retained verbatim** (`DOC-009`). **The indicator becomes `2px` of the new neutral `oklch(0.6 0 0)` = `#808080` at `2px` offset. ⚠ The root cause is recorded so it is never re-introduced: `:focus-visible` was believed keyboard-only, but browsers match it on TEXT INPUTS for POINTER focus too, so clicking any field painted a near-black frame while the rule believed it was invisible to the mouse. ✅ SC 1.4.11 IS MET, NOT TRADED AWAY — measured `3.95` on white, `3.60` on the ground, `3.72` on strip and `3.22` on the active-nav fill; a candidate at `oklch(0.62 0 0)` was REJECTED for measuring `2.97` on that last surface. A focused control's own boundary no longer changes colour, which strengthens `§8.4`. Removing focus indication remains prohibited without exception and `outline: none` appears nowhere.** ✅ **`A11Y-09` CLOSED — the interim floor of `RULE 6.0.a` is discharged by a designed, measured treatment.** ⚠ **`RULE 3.6`, `RULE 3.6.a`, `RULE 3.6.b`, `§3.19` overlay geometry, every radius, spacing, typography and viewport rule, and the `FREEZE-V1-2026-08-11` baseline are UNTOUCHED.** |
+| **2.11.0** | **2026-08-13** | ✅ **`RULE 3.15.a` AMENDED — THE IMAGE DATA MODEL IS RELEASED TO ITS OWNER, routed under `DOC-079`.** 🔴 **NO VISUAL RULE CHANGED. NO TOKEN, GEOMETRY, COLOUR, TYPE OR SPACING VALUE IS TOUCHED.** **`RULE 3.15.a` declared the image data model NOT CANONICAL and named primary-image selection, image ordering, storage ownership, fallback behaviour and any authoritative URL model as UNDEFINED; `PRODUCT_ARCHITECTURE.md` `§38` has now decided the first four, so this rule CONSUMES the owner's decision instead of declaring it undefined** (`DOC-005`, `DOC-006`). 🔴 **The authoritative URL model REMAINS UNDEFINED** (`TEC-105`). ✅ **The `38 × 38px` radius `9px` list geometry and `48 × 48px` radius `10px` detail geometry are UNCHANGED.** 🔴 **`RULE 3.15.a.b` is UNCHANGED and its distinction sharpened: a media model now exists, but it is authorised by `PRD-167`–`PRD-170`, NEVER by drawing a thumbnail — and Product's rules authorise no `primary_image_url` either, because `INV-105.6` puts role and order on the REFERENCE.** 🔴 **`RULE 3.15.a.c` height and dominance constraints UNCHANGED. 🔴 `RULE 3.15.a.d` UNCHANGED and now CONFIRMED BY THE OWNER — `PRD-168.b` makes media optional, so the `oklch(0.96 0.004 290)` empty block describes an ordinary condition; no placeholder illustration, icon substitute or "no image" text is introduced.** ⚠ **Superseded wording retained** (`DOC-009`). 🔴 **No new visual design, component, uploader or gallery surface is created.** |
+| **2.9.0** | **2026-08-12** | ✅ **FINAL GLOBAL UI FOUNDATION VISUAL STANDARD — `RULE 3.8.a` and `RULE 3.11.c`, routed under `DOC-079`.** ✅ **Header utilities and contextual action buttons now use white/ink no-resting-border surfaces with the existing in-flow contact elevation only; no fourth shadow, no gradient, no badge, no unread state and no new token are created.** 🔴 **Accessible focus remains mandatory and is not weakened.** |
+| **2.10.0** | **2026-08-12** | ✅ **FINAL GLOBAL UI DELTA — `RULE 3.8.a` amended and `RULE 3.17.d` added, routed under `DOC-079` / `DOC-087`.** ✅ **Chat and Notifications retain the white elevated utility surface, while User/Profile is superseded back to the compact ink circular identity control with white mark, thin low-contrast resting border and restrained shadow.** ✅ **Contextual business actions may use meaningful semantic icons from the existing Lucide outline vocabulary where recognition improves; icons precede visible labels and are never decorative, mechanical or label-replacing.** 🔴 **No viewport, sidebar, Product business, permission, backend, API or migration rule changed.** |
 
 **Amendment procedure.** Proposals state the business problem, the affected sections and rules, the proposed change, alternatives considered, and the operational impact. **Ratified amendments increment the version and are recorded here. Visual rules are never silently altered.**
 

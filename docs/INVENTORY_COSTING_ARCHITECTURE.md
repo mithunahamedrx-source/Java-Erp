@@ -1,7 +1,7 @@
 # Inventory Costing Architecture
 
 **Owner:** Trioloo Technology · **Module:** Inventory · **Status:** Canonical
-**Version:** 1.2.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `ICO-`
+**Version:** 1.3.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `ICO-`
 
 ---
 
@@ -497,6 +497,22 @@
 
 ---
 
+# 13A. Valuation Visibility Authority — ratified 2026-08-11
+
+> **ICO-038 — ✅ `inventory-costing.valuation.view` IS THE CAPABILITY FOR COST-SENSITIVE VALUATION, AND IT IS READ-ONLY.**
+>
+> **Written to `PRM-089`'s convention and named by the owning module** (`PRM-007`, `ICO-000`).
+>
+> **It authorises viewing and exporting:** **item-level Stock Value** · **Total Stock Value** · **weighted average cost where the canonical contract permits it** (`PRD-149`, `PRD-153`).
+>
+> **a.** 🔴 **WITHOUT IT, THE VALUE IS ABSENT — NOT ZERO.** **No Total Stock Value, no item Stock Value and no restricted cost column is returned by any API, export or client state.** ⚠ **Rendering `0` would state a falsehood: permission denied is not a measured zero, and `SYS-034` forbids presenting an unavailable figure as zero.**
+> **b.** 🔴 **IT GRANTS VIEW AUTHORITY ONLY.** **It confers no authority to mutate weighted average cost, a valuation or any costing fact.** ✅ **Cost remains DERIVED FROM MOVEMENTS and is never manually maintained** (`ICO-002`).
+> **c.** ✅ **It is INDEPENDENT of Product capabilities** (`PRD-154.b`) — **`PRD-098` applied: a technician assembling a build needs the component list and needs no cost.**
+> **d.** 🔴 **Administrator receives it implicitly no more than any other capability** (`PRM-068`, `PRM-003`).
+> **e.** ⚠ **Backend enforcement is authoritative.** **Hiding a figure in the interface is a usability decision, never a security control** (`PRM-004`, `PRJ-120`).
+
+---
+
 # 14. Version History
 
 | Version | Date | Change |
@@ -525,6 +541,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-08-11** | ✅ **`§13A`, `ICO-038` — `inventory-costing.valuation.view`, the READ-ONLY capability for cost-sensitive valuation, written to `PRM-089`'s convention.** 🔴 **Without it the value is ABSENT, NOT ZERO — no Total Stock Value, no item Stock Value, no restricted cost column in any API, export or client state, because `0` would state a falsehood and `SYS-034` forbids presenting an unavailable figure as zero.** 🔴 **VIEW ONLY — no authority to mutate WAC or any costing fact; cost stays derived from movements** (`ICO-002`). ✅ **Independent of Product capabilities, which is `PRD-098` applied; Administrator receives it implicitly no more than any other capability; backend enforcement is authoritative.** |
 | **1.2.0** | **2026-08-10** | ✅ **`ICO-036`/`ICO-037` added. Inventory Costing CONSUMES `DB-079` and states no rounding rule of its own.** 🔴 **The distinction recorded is PRECISION, not policy: the Weighted Average unit cost is a RATE and stays HIGH PRECISION; only the resulting monetary amount rounds to 2dp `HALF_UP`.** ⚠ **Rounding the unit cost before multiplying would compound error across every subsequent movement.** **`ICO-001` unchanged** |
 
 

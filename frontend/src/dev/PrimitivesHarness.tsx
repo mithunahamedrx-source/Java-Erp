@@ -131,13 +131,12 @@ export default function PrimitivesHarness(): React.JSX.Element {
       <section style={section}>
         <h2 style={heading}>Operational region — UX-060 / UX-071 / UX-073</h2>
         <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4)' }}>
-          Narrow the window or zoom in. The row must scroll horizontally inside its own
-          region and must never stack vertically. The identity column stays pinned. The
-          pagination below sits OUTSIDE the scrolling region.
+          Narrow the window or use browser zoom. The rows keep one coherent workspace canvas,
+          never stack vertically, and keep pagination outside the operational list.
         </p>
         <Card>
           <OperationalRegion>
-            <div style={{ minWidth: '1100px' }}>
+            <div style={{ width: '100%', minWidth: 0 }}>
               {['Row one', 'Row two', 'Row three'].map((label, index) => (
                 <OperationalRow key={label}>
                   <RowIdentity>{label} — identity</RowIdentity>

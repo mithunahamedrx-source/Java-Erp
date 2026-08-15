@@ -1,7 +1,7 @@
 # API Architecture
 
 **Owner:** Trioloo Technology · **Module:** Integration · **Status:** Canonical
-**Version:** 1.3.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-08-10 (`API-022` scope clarified — `BD-498`) · **Rule prefix:** `API-`
+**Version:** 1.7.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-08-15 (`API-071` — per-instance remote execution scope) · **Amended:** 2026-08-15 (Channel connection `§23C`, `API-068`–`API-070`) · **Amended:** 2026-08-13 (Channel Listing operations `§23B`, `API-062`–`API-067`) · **Amended:** 2026-08-10 (`API-022` scope clarified — `BD-498`) · **Rule prefix:** `API-`
 
 ---
 
@@ -541,6 +541,155 @@ Adapter responsibilities · capability declaration across its ratified dimension
 
 ---
 
+---
+
+# 23A. Bulk File Interchange — ratified 2026-08-11
+
+> **API-057 — ✅ CSV IS THE ONLY BULK INTERCHANGE FORMAT IN V1.**
+>
+> 🔴 **`XLS`, `XLSX`, `XML`, bulk `JSON` and spreadsheet-service integrations are NOT included and are not added silently.** ⚠ **A spreadsheet workbook is never parsed as CSV.** ✅ **Future formats are separate decisions.**
+
+> **API-058 — ✅ THE CSV SERIALISATION CONTRACT.**
+>
+> **a. ENCODING AND SHAPE** — **UTF-8** · **RFC 4180 quoting and escaping** · **a deterministic header order fixed by the contract** · **one header row** · **`LF` or `CRLF` accepted on import, one emitted on export.**
+> **b. IDENTIFIERS** — 🔴 **serialised as TEXT so leading zeros survive.** ⚠ **An identifier silently converted to a number by a spreadsheet is a corrupted identifier** (`DB-011`).
+> **c. MONEY** — 🔴 **plain decimal text, no thousands separators, no currency symbol, no locale formatting** — e.g. `32500.00`. **This is `TEC-015`'s discipline applied to a file boundary: money crosses as text, never as a machine float** (`TEC-010`, `PRJ-040`). 🔴 **The importer performs NO rounding — `DB-079` remains the sole rounding owner and precision is preserved exactly as written.**
+> **d. DATE AND TIME** — **timestamps in the canonical API representation; business dates as calendar dates carrying `Asia/Dhaka` business-date semantics** (`TEC-050`). 🔴 **Ambiguous local forms such as `08/11/26` are prohibited in both directions.**
+> **e.** 🔴 **EXPORTABLE DOES NOT IMPLY IMPORTABLE.** **A derived or system-owned field may be exported for information and is NEVER import authority unless its owning architecture explicitly declares it writable** — **derived stock positions, buildable availability, valuation, weighted average cost, sync state, last sync, channel-reported values, counts and audit timestamps are all READ-ONLY.**
+
+> **API-059 — ✅ EXPORT SANITISATION AGAINST SPREADSHEET FORMULA EXECUTION.**
+>
+> **A user-controlled text value beginning with `=`, `+`, `-`, `@`, TAB or CR is executed as a formula by common spreadsheet applications.**
+>
+> **a.** ✅ **Export applies a REVERSIBLE neutralisation at SERIALISATION so the opened file cannot execute.**
+> **b.** 🔴 **THE STORED VALUE IS NEVER MUTATED.** **Sanitisation belongs to the export representation, not to the record** — ⚠ **a product name is not rewritten in the database because a spreadsheet is dangerous.**
+> **c.** ✅ **Import reverses the neutralisation**, so a round trip returns the original text unchanged.
+
+> **API-060 — ✅ A CONFIRMED IMPORT COMMITS ATOMICALLY, AND REPORTS PER RECORD.**
+>
+> ⚠ **RECONCILED WITH `API-043`, `SYS-033` and `RPT-047`, which require bulk operations to enforce rules per record, audit per record, and report partial success per record rather than as an aggregate that hides which records failed.**
+>
+> ✅ **Those rules govern ENFORCEMENT, AUDIT and REPORTING GRANULARITY. They fix no transaction boundary, and none is stated anywhere for bulk operations.** 🔴 **Every one of their obligations is satisfied by this rule and none is weakened:**
+>
+> **a.** **Each row is validated and authorised INDIVIDUALLY** (`PRM-004`, `API-045`).
+> **b.** **Each accepted write is audited INDIVIDUALLY** (`AUD §12.2`, `API-043`).
+> **c.** **The result reports EVERY row's outcome by row number** — 🔴 **never an aggregate that hides which row failed** (`SYS-033`, `RPT-047`).
+> **d.** ✅ **The confirmed job is the TRANSACTION BOUNDARY: if any confirmed write fails, the whole job fails and nothing is committed.** ⚠ **This is STRICTER than partial commit, chosen for operational safety** — **`IVN-004`/`SYS-102` already rank correctness above availability.**
+> **e.** 🔴 **ACCIDENTAL PARTIAL SUCCESS IS PROHIBITED.** **A partial mode is not offered in V1; adding one later is an explicit decision, never a fallback.**
+> **f.** 🔴 **VALIDATION NEVER WRITES.** **Upload, parse and validation mutate nothing** — **only explicit confirmation authorises a write.**
+
+> **API-061 — ✅ IMPORT IDEMPOTENCY AND PROVENANCE.**
+>
+> **a.** ✅ **A confirmed import is one identified job**, and **re-submitting the same confirmed job must not create duplicates** (`SYS-045`, `PRD-075`).
+> **b.** 🔴 **DUPLICATE IDENTITY IS DECIDED BY CANONICAL ROW IDENTIFIERS** (`PRD-152`), **never by filename.** ⚠ **A content hash is a legitimate engineering aid and is NEVER business identity** (`DB-011`).
+> **c.** **Every accepted write is attributable to the acting Operational User Profile** (`AGV-001`, `AUD-004`), **and provenance is sufficient to reach the import job and the source row.** 🔴 **The actor is captured at write time, never reconstructed from logs** (`AGV-001`).
+> **d.** ⚠ **NO FILE RETENTION IS REQUIRED and none is invented.** **No canonical rule obliges storing the uploaded file, and indefinite storage of business data is not created here** (`DOC-024`).
+> **e.** ⚠ **Execution model, row limits and file-size bounds are ENGINEERING DELIVERABLES** (`API-001`, `TEC-081`). 🔴 **No queue or job infrastructure is invented for CSV, and no business row limit is written into architecture.**
+
+---
+
+# 23B. Channel Listing Operations — ratified 2026-08-13
+
+*Routed under `DOC-079` for Product `§39`. **This section fixes the ADAPTER BOUNDARY for listing discovery, readback and outbound operations. It defines no endpoint, no channel and no payload** (`API-003`, `SYS-009`).*
+
+> **API-062 — ✅ THE LISTING PORTS ARE CHANNEL-NEUTRAL AND BELONG TO THE CORE.**
+>
+> **Product defines the contracts through which an adapter reports channel facts and requests are made of it; the adapter implements them** (`PRD-194.b`).
+>
+> **a.** ✅ **INBOUND — an adapter REPORTS observed channel facts** for a listing or a page of listings: external identifier, orderable channel SKUs, title, description, media references, price, published stock, category, attributes, listing status.
+> **b.** ✅ **OUTBOUND — the core REQUESTS an operation**: discover, refresh, push update, publish create, withdraw. **The adapter executes it and reports the outcome.**
+> **c.** 🔴 **AN ADAPTER NEVER WRITES PRODUCT-OWNED INTENT** (`PRD-181.a`). **Inbound reporting lands on the REPORTED side only.** ⚠ **An adapter that "helpfully" corrected an intended value would destroy the operator's unsent edit and make `DIVERGED` undetectable.**
+> **d.** 🔴 **NO CHANNEL NAME, ENDPOINT, FIELD NAME, ERROR CODE, PAGINATION TOKEN OR CREDENTIAL CROSSES THIS BOUNDARY INTO THE CORE** (`API-003`).
+
+> **API-063 — ✅ FIELD SUPPORT IS DECLARED, NOT ASSUMED.**
+>
+> **a.** ✅ **`API-011`/`PRD-125` capability declaration governs every listing field, per operation and per direction.** **A rule that reads *"where the adapter supports it"* consults this declaration.**
+> **b.** 🔴 **AN UNSUPPORTED FIELD IS `MANUAL_REQUIRED`, A NORMAL STATE — NEVER A FAILURE** (`SYS-025`).
+> **c.** 🔴 **AN UNREADABLE FIELD HAS NO REPORTED VALUE, AND THAT IS NOT AN EMPTY VALUE** (`SYS-034`, `TEC-084`). ⚠ **Coalescing "the adapter cannot read this" into "the channel shows nothing" would manufacture a divergence on every listing.**
+
+> **API-064 — ✅ A REMOTE OPERATION IS REQUESTED, NOT PERFORMED BY A SAVE.**
+>
+> **a.** 🔴 **NO LOCAL PERSISTENCE OPERATION EVER TRIGGERS AN OUTBOUND CALL IMPLICITLY** (`PRD-185`). **An outbound operation is an explicit request carrying its own authorisation** (`PRM-004`, `PRD-196.b`).
+> **b.** ✅ **Every attempt is idempotent** (`API-024`, `SYS-045`, `PRD-075`). 🔴 **A retried publish must not create a second channel listing** — **deterministic external identity or an equivalent request key is required where the channel permits one** (`API-026`).
+> **c.** ✅ **Provenance is recorded for every exchange** — what was sent or received, from whom, when, in what form (`API-029`, `SYS-046`).
+
+> **API-065 — ✅ SINGLE AND BULK REMOTE OPERATIONS REPORT PER ITEM, AND BULK IS NOT ATOMIC.**
+>
+> **a.** 🔴 **A BULK REMOTE OPERATION IS NOT ASSUMED ATOMIC ACROSS THE EXTERNAL PARTY.** ⚠ **`API-060`'s atomic commit governs a LOCAL CSV import and does NOT extend to a remote batch** — **partial success is the normal outcome there** (`PRD-186.c`).
+> **b.** ✅ **EVERY ITEM CARRIES ITS OWN OUTCOME**, retained individually (`API-043`, `SYS-033`, `RPT-047`, `PRD-186.b`). 🔴 **No aggregate may hide which items failed.**
+> **c.** ✅ **Retry is targetable to failed or eligible items** and does not repeat successful work (`PRD-186.d`).
+> **d.** ✅ **The core MAY orchestrate a bulk operation as many single-item calls.** ⚠ **Whether a channel offers a native batch endpoint is adapter capability and changes no business semantics** (`API-063`).
+
+> **API-066 — ✅ DISCOVERY IS ENUMERATION, AND ITS MECHANICS ARE THE ADAPTER'S.**
+>
+> **a.** ✅ **Pagination, cursors, page size, rate limiting, backoff and chunking are ADAPTER concerns** (`PRD-175.c`). 🔴 **None appears in a business rule.**
+> **b.** 🔴 **AN INCOMPLETE OR FAILED RUN IS REPORTED AS INCOMPLETE.** ⚠ **A truncated enumeration must never be presented to the core as a complete one** — `PRD-177` forbids concluding deletion from absence, and that guarantee depends on the adapter being honest about completeness (`API-053`, `SYS §15`).
+> **c.** ✅ **Completeness reconciliation is a distinct operation from incremental sync** (`PRD-130`).
+
+> **API-067 — 🔴 THE CORE NEVER LEARNS THE CHANNEL'S TAXONOMY.**
+>
+> **a.** ✅ **Channel category catalogue retrieval, browsing, translation and validation are adapter concerns** (`PRD-191.c`).
+> **b.** ✅ **Channel-specific attribute schema, requiredness and validation are adapter concerns** (`PRD-192.d`).
+> **c.** ✅ **The variation AXIS schema is an adapter concern** (`PRD-190.g`). **The core holds that a listing has orderable SKUs and what each maps to — never the marketplace's option system.**
+> **d.** 🔴 **Marketplace-side validation failure is a reported OUTCOME, not a core business rule** (`SYS-032`, `TEC-083`).
+
+---
+
+# 23C. Channel Connection
+
+*Added v1.6.0 — Shops & Channels ratification, 2026-08-15. **Nothing here creates an endpoint, a provider, a payload or a transport technology.***
+
+> **API-068 — ✅ THE CHANNEL CONNECTION LIFECYCLE IS INTEGRATION-OWNED AND ASSOCIATED ONE-TO-ONE WITH A CHANNEL INSTANCE. Ratified 2026-08-15.**
+>
+> **The extraction found no ratified connection lifecycle anywhere in the corpus, while two unrelated lifecycles were being informally read as one.**
+>
+> | State | Meaning |
+> |---|---|
+> | **`NOT_CONNECTED`** | The Channel Instance exists; **no usable authorised connection currently exists.** |
+> | **`CONNECTED`** | **A usable authorised connection exists for this EXACT Channel Instance.** |
+> | **`REAUTH_REQUIRED`** | **The previous connection cannot continue without operator authorisation.** ⚠ Provider-specific causes are never encoded in the state name. |
+> | **`ERROR`** | **A connection-level error that is not honestly `NOT_CONNECTED` or `REAUTH_REQUIRED`.** |
+>
+> **a.** 🔴 **IT IS NOT `record_status`** — that is the CONFIGURATION lifecycle and is System's (`SYS-108`). **It is not the `§7.1` sync lifecycle either, which describes one RECORD's agreement with a counterparty.** ⚠ **Three lifecycles, three questions: *may this shop be used?*, *is it authorised?*, *does this listing agree with the channel?***
+> **b.** 🔴 **`AUTHORIZING` IS NOT A DURABLE BUSINESS STATE.** ✅ It may exist as a transient application or UI authorisation-session state. ⚠ **Persisting it would leave a shop stuck mid-handshake forever if the operator simply closed the tab.**
+> **c.** 🔴 **`DISABLED` IS NOT A CONNECTION STATE.** **Disabling is configuration and belongs to `SUSPENDED`** (`SYS-108`).
+> **d.** ✅ **ONE CONNECTION PER CHANNEL INSTANCE.** **`AGV-016` already requires per-shop actor isolation — seven Daraz adapters are seven scoped actors, not one actor holding seven credentials — so a connection shared across instances would break an access rule that already exists.**
+
+> **API-069 — ✅ THE SHOPS & CHANNELS / INTEGRATION OWNERSHIP SPLIT. Ratified 2026-08-15.**
+>
+> **Both are ratified Administration destinations** (`UX-024`). 🔴 **They are NOT merged.**
+>
+> | **Shops & Channels owns** | **Integration owns** |
+> |---|---|
+> | The `E-016` business / configuration record | The provider connector or adapter implementation |
+> | Internal shop name and internal code | **OAuth / authorisation EXECUTION** |
+> | Channel Type and Market | **App Key and App Secret** |
+> | Configuration lifecycle (`SYS-108`) | **Access and refresh tokens, their encryption and storage** |
+> | **External shop identifier as BUSINESS identity** | Callback processing |
+> | Business-facing connection SUMMARY | API transport, signing, authentication |
+> | Business-facing seller / account identity display | Remote response parsing |
+> | **The ENTRY POINT to Connect / Reauthorize** | Adapter capability declaration (`API-063`, `PRD-125`) |
+> | Links to Listings scoped to the shop | Connection execution, errors and token-expiry mechanics |
+>
+> **a.** ✅ **THE BUSINESS SURFACE INITIATES; INTEGRATION EXECUTES.** **A user may start Connect or Reauthorize from the shop record, and the operation invoked is Integration's**: authorisation workflow → external authorisation → callback → **verify the remote account identity** (`INV-16.6`) → update the connection result → expose that result back to the business surface.
+> **b.** 🔴 **THIS CHANGES NO EXISTING BOUNDARY.** **It applies `PRD-194` — which already assigns "seller authorisation, credentials, tokens, authentication" to Marketplace Integration — to the ADMINISTRATION SURFACES, which `PRD-194` did not address.**
+
+> **API-070 — 🔴 NO SECRET LEAVES INTEGRATION. Ratified 2026-08-15.**
+>
+> **a.** 🔴 **NO App Secret, access token, refresh token, marketplace password or equivalent may be returned to the Shops & Channels frontend, the Listings frontend, an ordinary business API, browser storage, logs, Git or canonical documentation.**
+> **b.** ✅ **App-level secret configuration is server-side Integration engineering; per-shop authorisation material belongs to Integration-owned secure persistence.** ⚠ **`API-044` already makes credential storage and encryption an ENGINEERING deliverable — this rule states the BOUNDARY, not the mechanism.**
+> **c.** ✅ **`E-016`'s *credentials reference* is an OPAQUE POINTER and is not itself secret material** (`INV-16.8`). 🔴 **A reference that resolves to a secret in a business response is the same defect as returning the secret.**
+
+> **API-071 — 🔴 ONE ADAPTER CLASS, MANY ACCOUNTS: EVERY REMOTE ACT EXECUTES IN AN EXPLICIT CHANNEL INSTANCE CONTEXT. Ratified 2026-08-15.**
+>
+> **`PRD-125` already declares capability per instance and `AGV-016` already isolates shop actors. This states the EXECUTION consequence, which is where a shared adapter class becomes dangerous.**
+>
+> **a.** ✅ **ONE ADAPTER IMPLEMENTATION MAY SERVE A CHANNEL TYPE.** 🔴 **EVERY SELLER-ACCOUNT-SPECIFIC OPERATION MUST CARRY AN EXPLICIT `channelInstanceId`**, which resolves that instance's own connection and authorisation material, communicates with that account only, and returns results scoped to it.
+> **b.** 🔴 **NO SHARED, MUTABLE "CURRENT ACCOUNT" CONTEXT MAY EXIST.** ⚠ **An ambient current-shop variable is the exact mechanism by which Shop A's authorisation reads Shop B's data** — **which `AGV-016` forbids: the seven Daraz adapters are seven SCOPED ACTORS, not one actor holding seven credentials.**
+> **c.** 🔴 **NO SIBLING INFERENCE, IN EITHER DIRECTION** (`PRD-125`, `API-063`). **A shared adapter class does NOT imply a shared live authorisation or a shared capability.** ✅ **Shop A may be `CONNECTED` while Shop B is `REAUTH_REQUIRED`; Shop A may declare a field readable while Shop B has no usable connection at all** (`API-068`). ⚠ **An absent declaration remains UNDECLARED, never assumed support.**
+> **d.** ✅ **INGESTION IS INITIATED AND EXECUTED FOR ONE EXPLICIT CHANNEL INSTANCE SCOPE.** **Whatever a future domain pulls — listings, orders, returns, conversations, settlement — is pulled for one account, and each domain persists its OWN normalised business facts** (`SYS-110.b`). 🔴 **Polling frequency, schedulers, cursors, webhooks, batching, checkpoints and retry systems are NOT designed here** and belong to their own later contracts.
+> **e.** ✅ **ONE AUTHORISED CONNECTION SERVES THAT ACCOUNT'S SUPPORTED OPERATIONS.** **A separate OAuth identity is NOT created merely because different business domains call different provider APIs** — subject to permission and to what the provider's capability actually allows. 🔴 **THIS IS SHARED ACCOUNT AUTHORISATION, NOT SHARED BUSINESS-DOMAIN OWNERSHIP** (`SYS-110.b`): **the connection is one, the owning domains stay several.**
+
 # 24. Version History
 
 | Version | Date | Change |
@@ -549,6 +698,10 @@ Adapter responsibilities · capability declaration across its ratified dimension
 | **1.2.3** | **2026-08-09** | **`API-033`'s event count updated — no rule changed.** **One hundred and one events across fifteen domains** after `EVT-101` registered the first `Accounting.*` event |
 | **1.2.2** | **2026-08-09** | **`API-033`'s event count updated — no rule changed.** **One hundred events across fourteen domains** after `EVT-096` – `EVT-100` registered the Trade-In set |
 | **1.2.1** | **2026-08-09** | **`API-033`'s event count updated — no rule changed.** **Ninety-five events across thirteen domains** after `EVT-089` – `EVT-095` registered the Warranty & Repair set. **`API-034` remains directly relevant**: `EVT-093` is externally originated — the supplier decides and Trioloo records — and external origin still does not imply an automatic trigger |
+| **1.7.0** | **2026-08-15** | ✅ **`API-071` ADDED — ONE ADAPTER CLASS, MANY ACCOUNTS, routed under `DOC-079` as the execution consequence of `DM-085`.** 🔴 **Every seller-account-specific operation carries an explicit `channelInstanceId` that resolves that instance's own connection and authorisation and returns results scoped to it; NO shared mutable "current account" context may exist, because an ambient current-shop variable is precisely how Shop A's authorisation reads Shop B's data** (`AGV-016`). 🔴 **No sibling inference in either direction: a shared adapter class implies neither shared live authorisation nor shared capability — Shop A may be `CONNECTED` while Shop B is `REAUTH_REQUIRED`** (`PRD-125`, `API-063`, `API-068`). ✅ **Future ingestion is initiated and executed for ONE explicit Channel Instance scope, each domain persisting its own normalised facts; 🔴 polling, schedulers, cursors, webhooks, batching, checkpoints and retry are NOT designed here.** ✅ **One authorised connection serves that account's supported operations across future provider APIs — shared ACCOUNT AUTHORISATION, never shared business-domain ownership** (`SYS-110.b`). 🔴 **No endpoint, provider, payload, transport technology, entity, field, table, constraint or event is created; `API-062`–`API-070` unchanged.** |
+| **1.6.0** | **2026-08-15** | ✅ **CHANNEL CONNECTION — `§23C`, `API-068`–`API-070`, routed under `DOC-079` from the Shops & Channels contract extraction.** ✅ **`API-068` ratifies the connection lifecycle as INTEGRATION-owned and one-to-one with a Channel Instance — `NOT_CONNECTED`, `CONNECTED`, `REAUTH_REQUIRED`, `ERROR` — and 🔴 keeps it distinct from `record_status` (configuration, `SYS-108`) and from the `§7.1` per-record sync lifecycle; `AUTHORIZING` is transient and never persisted, and `DISABLED` is configuration, not connection.** ✅ **`API-069` fixes the Shops & Channels / Integration ownership split without merging the two ratified Administration destinations: the business surface owns the `E-016` record, its identities, its configuration lifecycle and the ENTRY POINT to Connect; Integration owns OAuth execution, App Key/Secret, tokens, callback, transport, signing and capability.** ⚠ **This applies `PRD-194` to the administration surfaces it did not address; no existing boundary moves.** 🔴 **`API-070` states the secret boundary — no App Secret, token, password or equivalent reaches any frontend, ordinary business API, browser storage, log, Git or document, and `E-016`'s credentials reference is an opaque pointer, never secret material** (`INV-16.8`, `API-044`). 🔴 **No endpoint, provider, payload, transport technology, entity or event is created; `API-062`–`API-067` unchanged.** |
+| **1.5.0** | **2026-08-13** | ✅ **CHANNEL LISTING OPERATIONS — `§23B`, `API-062`–`API-067`, routed under `DOC-079` for Product `§39`.** ✅ **`API-062` fixes the channel-neutral listing PORTS as the core's, with the adapter implementing them: 🔴 an adapter REPORTS onto the reported side and NEVER writes Product-owned intent, and 🔴 no channel name, endpoint, field name, error code, pagination token or credential crosses into the core.** ✅ **`API-063` makes field support DECLARED per operation and direction — 🔴 unsupported is `MANUAL_REQUIRED`, not failure, and 🔴 unreadable is NOT empty, because coalescing the two would manufacture a divergence on every listing.** 🔴 **`API-064` forbids any local save implicitly triggering an outbound call, requires idempotency on every attempt, and states that a retried publish must not create a second listing.** 🔴 **`API-065` records that a REMOTE bulk operation is NOT atomic — `API-060`'s atomic commit governs a LOCAL CSV import and does not extend across an external party — with per-item outcomes retained, no aggregate hiding failures, targetable retry, and native-batch availability treated as capability that changes no business semantics.** ✅ **`API-066` keeps pagination, cursors, rate limiting and chunking with the adapter and 🔴 requires an incomplete run to be reported as incomplete, because `PRD-177`'s absence-is-not-deletion guarantee depends on it.** 🔴 **`API-067` keeps channel taxonomy, attribute schema and the variation axis out of the core entirely.** 🔴 **No endpoint, channel, payload, transport technology or event is created; `API-003`, `API-024`–`API-029`, `API-043`, `API-057`–`API-061` unchanged.** |
+| **1.4.0** | **2026-08-11** | ✅ **BULK FILE INTERCHANGE — `§23A`, `API-057`–`API-061`, routed under `DOC-079`.** ✅ **`API-057` fixes CSV as the ONLY V1 bulk format — `XLSX`, `XML`, bulk `JSON` and spreadsheet-service integrations are excluded and never added silently.** ✅ **`API-058` gives the serialisation contract: UTF-8, RFC 4180, deterministic header order, identifiers as TEXT so leading zeros survive, money as plain decimal text with NO rounding by the importer because `DB-079` remains the sole rounding owner, and canonical date/time with ambiguous local forms prohibited. 🔴 `API-058.e` states the general rule that EXPORTABLE DOES NOT IMPLY IMPORTABLE.** ✅ **`API-059` requires reversible export sanitisation against spreadsheet formula execution while 🔴 NEVER mutating the stored value — protection belongs to serialisation, not to the record.** ✅ **`API-060` RECONCILES atomic commit with `API-043`/`SYS-033`/`RPT-047`: those rules govern per-record ENFORCEMENT, AUDIT and REPORTING GRANULARITY and fix no transaction boundary, so a confirmed job commits atomically while still validating, authorising, auditing and reporting every row individually. 🔴 Accidental partial success is prohibited and validation never writes.** ✅ **`API-061` fixes idempotency by canonical row identifiers rather than filename, keeps a content hash an engineering aid and never business identity, requires write-time attribution, ⚠ invents NO file retention and ⚠ leaves execution model, row limits and file size as engineering deliverables — no queue invented for CSV.** **No endpoint, payload shape, entity, event or permission code created.** |
 | **1.2.0** | **2026-08-09** | **`API-033`'s event count corrected — no rule changed.** It read *“eighty-seven events across eleven domains”*; `EVT-088` registered the `Product.*` catalogue on 2026-08-09, making it **eighty-eight across twelve**. **The rule's substance is unchanged** — the register is `EVENT_ARCHITECTURE.md` and this document still adds no event |
 | **1.1.0** | **2026-08-09** | **Status reference corrected — no rule changed.** `SM-6` Marketplace Settlement was ratified into `OM §18.2` on 2026-08-09 (`BR-142`); its row no longer describes it as an unratified proposed extension. **`API-055` stands unchanged** — no machine is defined or ratified here |
 | **1.0.0** | **2026-08-08** | **Initial ratification.** Consolidates `SYSTEM_ARCHITECTURE.md` §4.4, §7.1, §12, §13, §20 – §22 with `BUSINESS_DISCOVERY.md` §20 and §23, and the reconciliations at `OM §9.11`, `PRD §31` and `EVENT_ARCHITECTURE.md`. **57 rules (`API-000` – `API-056`), all traceable; no business rule, entity, state machine, lifecycle or interface contract introduced.** **`API-001` records the hard boundary this document must not cross — endpoints, payloads, protocols, schemas and transport are engineering deliverables** (`SYS §17`, `SYS-076`). `API-052` reproduces the external party register **for navigation only**; `SYS §12.3` governs. **The seven capability dimensions, the eight adapter responsibilities and the sync lifecycle are consolidated exactly as ratified and are not extended.** Nine open items carried; **`GAP-085`, `GAP-086`, `GAP-098` and `GAP-070` explicitly not converted into rules**, and the `DIVERGED`-versus-expected-lag question is recorded as carried |

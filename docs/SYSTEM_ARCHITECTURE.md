@@ -1,7 +1,7 @@
 # System Architecture
 
 **Owner:** Trioloo Technology · **Scope:** Whole ERP · **Status:** Canonical
-**Version:** 1.15.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; Accounting §19; Marketplace §20; Chat §21; Notifications §22; Trade-In §23; Fund Transfer §24)
+**Version:** 1.17.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-15 (**`SYS-110`, `SYS-111` — cross-domain Channel Instance ownership and lifecycle boundary**) · **Amended:** 2026-08-15 (**`SYS-108`, `SYS-109` — Channel Instance configuration lifecycle consequences**) · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; Accounting §19; Marketplace §20; Chat §21; Notifications §22; Trade-In §23; Fund Transfer §24)
 
 ---
 
@@ -667,6 +667,41 @@ stateDiagram-v2
 
 > **SYS-024 — Master and configuration records are archived, never deleted.** A product, customer, supplier, warehouse, courier, or channel referenced by any historical transaction remains permanently resolvable. `ARCHIVED` prevents new use; it does not remove the record.
 
+> **SYS-108 — ✅ THE CHANNEL INSTANCE CONFIGURATION LIFECYCLE, AND WHAT EACH STATE ACTUALLY STOPS. Ratified 2026-08-15.**
+>
+> **`SYS-024` already forbids deletion. What it did not state is what the intermediate states DO — and an enforced state whose meaning is unwritten is a rule the implementation invents.**
+>
+> | State | Available for new operational use | Consequences |
+> |---|---|---|
+> | **`DRAFT`** | ❌ | **Configuration exists and is being prepared.** ✅ Historical references remain valid. ✅ Connection or configuration preparation may occur where explicitly supported. |
+> | **`ACTIVE`** | ✅ | **May be selected as a target or source, subject to permission and integration capability.** 🔴 **`ACTIVE` DOES NOT MEAN `CONNECTED`** (`API-068`). |
+> | **`SUSPENDED`** | ❌ | 🔴 **Cannot receive new Listings. Outbound push/publish BLOCKED. Inbound refresh BLOCKED. Channel-wide sync BLOCKED. Scheduled integration work BLOCKED.** ✅ **Existing Listings, history and business facts remain intact and locally readable.** ⚠ **Suspension never silently deletes remote identity or history** — it stops new work, it does not undo old work. |
+> | **`ARCHIVED`** | ❌ | **Terminal configuration retirement.** 🔴 No new operational use and no new remote integration execution. ✅ Excluded from ordinary active selectors. ✅ **Existing Listings, orders once implemented, history and audit remain valid and permanently resolvable** (`SYS-024`). 🔴 **Never a hard delete.** |
+>
+> **a.** 🔴 **THIS LIFECYCLE IS CONFIGURATION, NOT CONNECTION.** **Whether a shop is authorised with its marketplace is a separate, Integration-owned fact** (`API-068`, `DM-084.c`). ⚠ **`DISABLED` is deliberately NOT a connection state: disabling is what `SUSPENDED` already means, and duplicating it would create two switches for one intent.**
+> **b.** ✅ **Administration → Shops & Channels is the business-facing management surface for `E-016`**, which remains System / configuration owned (`DM-084.b`).
+
+> **SYS-109 — 🔴 A SUSPENDED OR ARCHIVED CHANNEL INSTANCE BLOCKS NEW WORK; IT NEVER REASSIGNS EXISTING WORK. Ratified 2026-08-15.**
+>
+> **Its Listings are not moved, re-targeted, unmapped or reattributed to a sibling shop.** ⚠ **`INV-16.3` makes the channel instance part of a Listing's identity, so "where does its work go?" has exactly one honest answer: nowhere — it stays, and it stops.**
+
+> **SYS-110 — ✅ SHOPS & CHANNELS OWNS THE ACCOUNT, NOT THE MARKETPLACE. Ratified 2026-08-15.**
+>
+> **The cross-domain consequence of `DM-085`, stated where module ownership is settled.**
+>
+> **a.** ✅ **SHOPS & CHANNELS OWNS ONLY:** Channel Instance identity · business configuration · lifecycle (`SYS-108`) · Market · internal identity · external shop/account identity · the business-facing connection summary.
+> **b.** 🔴 **IT MUST NOT BECOME A MARKETPLACE AGGREGATE.** **Business ownership stays exactly where it already is:** **Product** owns Listings · **Order Management** owns orders · the **reverse-order domain** owns returns · **Chat** owns conversations · **Finance** owns settlement and financial facts · **Integration** owns external communication, transport, authorisation and adapter execution. ⚠ **Those domains REFERENCE `E-016`** (`INV-16.12`); **they do not duplicate it, and it does not absorb them.**
+> **c.** ✅ **A SHOP DETAIL SURFACE MAY SHOW DERIVED PROJECTIONS** — listing count, order count, return count, conversation count, settlement summary, recent integration activity — **and may navigate to the owning module pre-filtered by Channel Instance.** 🔴 **A projection is computed for presentation and is never stored as authoritative state** (`SYS-027`), **and showing a number never transfers ownership of what produced it** (`UX-273.b`).
+> **d.** ✅ **THE MINIMUM BUILD LEAVES ROOM FOR THEM WITHOUT IMPLEMENTING THEM.** ⚠ **No field, table or constraint is created for a domain that does not exist yet** (`DM-085.b`).
+
+> **SYS-111 — 🔴 THE LIFECYCLE BOUNDARY BINDS EVERY DOMAIN THAT REFERENCES A CHANNEL INSTANCE. Ratified 2026-08-15.**
+>
+> **`SYS-108` and `SYS-109` are stated once and apply wherever `E-016` is referenced, so a future domain cannot quietly grant itself an exemption.**
+>
+> **a.** **`SUSPENDED`** — 🔴 **no new external operational execution for that Channel Instance in ANY domain.** ✅ **Existing business records remain, nothing is reassigned, nothing is deleted.**
+> **b.** **`ARCHIVED`** — 🔴 **no new operational use and no new integration execution.** ✅ **Historical records remain permanently attributable to that exact Channel Instance** (`SYS-024`, `INV-16.10`).
+> **c.** ⚠ **WHAT A SUSPENSION MEANS INSIDE A DOMAIN'S OWN WORKFLOW IS NOT DECIDED HERE.** **Whether an in-flight order may still be fulfilled, or a conversation still answered, belongs to that domain's contract when it is designed.** 🔴 **This rule fixes the EXTERNAL boundary only: no new remote execution for a shop that has been stopped.**
+
 ### Integration sync lifecycle
 
 ```mermaid
@@ -726,6 +761,10 @@ The order module establishes seven independent business state machines and the r
 | SYS-022 | Every exception has an owning role and a resolution path |
 | SYS-023 | Exceptions are visible, aggregated, and aged |
 | SYS-024 | Master and configuration records are archived, never deleted |
+| SYS-108 | The Channel Instance configuration lifecycle and what each state stops |
+| SYS-109 | A suspended or archived Channel Instance blocks new work, never reassigns existing work |
+| SYS-110 | Shops & Channels owns the account, not the marketplace; domains reference it |
+| SYS-111 | The Channel Instance lifecycle boundary binds every domain that references it |
 | SYS-025 | `MANUAL_REQUIRED` is a normal state, not a failure |
 | SYS-026 | Mirror divergence is always an exception |
 | SYS-027 | No module stores an aggregate of another module's state |

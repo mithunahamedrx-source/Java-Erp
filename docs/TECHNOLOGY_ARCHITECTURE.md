@@ -1,7 +1,7 @@
 # Technology Architecture
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting · **Status:** Canonical
-**Version:** 1.1.0 · **Ratified:** 2026-08-10 · **Rule prefix:** `TEC-`
+**Version:** 1.2.0 · **Ratified:** 2026-08-10 · **Amended:** 2026-08-13 (`TEC-104` evidence-store scope clarified; `TEC-105` commercial media storage undefined) · **Rule prefix:** `TEC-`
 
 ---
 
@@ -298,6 +298,21 @@
 > **TEC-102 — A reprint reproduces historical content** (`PRN-009`). ✅ **Guaranteed by `TEC-023`'s effective-dated rows, not by a rendering trick.**
 > **TEC-103 — Nine documents have no numbering rule and none may be invented** (`PRN-012`, `PRN-015`).
 > **TEC-104 — `E-054` Attachment is the only evidence store** (`PRN-021`, `BD-445`). ⚠ **No second document store, scanning workflow, OCR or mandatory upload.** **Object-storage technology is `NOT DEFINED BY SOURCE`.**
+>
+> ✅ **SCOPE CLARIFIED 2026-08-13 (`DOC-079`) — the rule is UNCHANGED and is not weakened.** 🔴 **"Only evidence store" is a statement about EVIDENCE AND DOCUMENT STORAGE SEMANTICS, not about every file the business holds.** **`E-054` exists to retain what PROVES something about a record — proof of delivery, settlement reports as received, supplier invoices, QC evidence photographs, correspondence, claim documentation — under `INV-54.1`'s unaltered-as-received discipline.**
+>
+> ⚠ **PRODUCT COMMERCIAL MEDIA IS NOT EVIDENCE MERELY BECAUSE IT IS AN IMAGE.** **Authored marketing media answers *what does the business publish about what it sells*, proves nothing, and is reusable across records — none of which is true of evidence.** ✅ **It is `E-105` Media Asset, Product-owned** (`DM-082`, `PRD-167`).
+>
+> 🔴 **NOTHING HERE RELAXES `TEC-104`.** **No second EVIDENCE store is created, and the prohibition on a scanning workflow, OCR and mandatory upload is untouched.** 🔴 **No storage technology is selected by this clarification** — see `TEC-105`.
+
+> **TEC-105 — 🔴 COMMERCIAL MEDIA STORAGE TECHNOLOGY IS `NOT DEFINED BY SOURCE`. Ratified 2026-08-13.**
+>
+> **`E-105` Media Asset may carry a storage/reference concept sufficient to IDENTIFY the media and nothing more** (`PRD-167.c`, `INV-105.5`).
+>
+> **a.** 🔴 **NO PROVIDER OR MECHANISM IS SELECTED.** **Not S3, not DigitalOcean Spaces, not MinIO, not local filesystem, not any CDN vendor, not any cloud provider, not a signed-URL scheme and not an upload framework.**
+> **b.** 🔴 **A DATABASE REFERENCE FIELD IS NEVER PROOF OF A STORAGE TECHNOLOGY** — the `RULE 3.15.a.b` principle applied to persistence: *a reference is not a schema*, and a schema is not a hosting decision.
+> **c.** ✅ **Any authoritative provider or hosting mechanism requires a LATER Technology Architecture amendment** under `TEC-003` and the normal governance process. ⚠ **Convenience is not a proven requirement.**
+> **d.** ⚠ **Upload size limits, accepted image formats, resizing, compression and CDN behaviour are ALL undecided** and are not inferable from this rule (`PRD-172.f` records the parallel content-side openings).
 
 ---
 
@@ -341,6 +356,7 @@ Interest · deduction priority engines · mobile and tablet · leave entitlement
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-08-13** | ✅ **`TEC-104` SCOPE CLARIFIED AND `TEC-105` ADDED — routed under `DOC-079` for Product `PRD-167`.** 🔴 **`TEC-104` IS UNCHANGED AND NOT WEAKENED: "only evidence store" is a statement about EVIDENCE AND DOCUMENT STORAGE SEMANTICS, and the prohibition on a second evidence store, scanning workflow, OCR and mandatory upload stands exactly as written.** ✅ **The clarification records that PRODUCT COMMERCIAL MEDIA IS NOT EVIDENCE MERELY BECAUSE IT IS AN IMAGE — authored marketing media proves nothing, is reusable across records and is `E-105` Media Asset, Product-owned** (`DM-082`). ✅ **`TEC-105` keeps commercial media storage `NOT DEFINED BY SOURCE`: 🔴 no S3, Spaces, MinIO, local filesystem, CDN vendor, cloud provider, signed-URL scheme or upload framework is selected, and a database reference field is never proof of a storage technology.** ⚠ **Upload size limits, accepted formats, resizing, compression and CDN behaviour remain undecided.** 🔴 **No stack element added, removed or changed; `TEC-003`'s amendment requirement governs any future provider selection.** |
 | **1.0.1** | **2026-08-10** | ✅ **`TEC-011` now CONSUMES the canonical ERP-wide rounding policy at `DB-079` instead of being the sole authority for it.** **The propagation `TEC-011` flagged as owed is complete** — **`DB-079` created in `DATABASE_ARCHITECTURE.md` §10.1 as the canonical non-technology owner**, consumed by `ACC-098`, `ICO-036`/`ICO-037` and `HRP-025`. ✅ **No technology requirement removed** — `BigDecimal`, PostgreSQL `NUMERIC` and decimal-safe REST representation (`TEC-015`) all stand. ✅ **No stack change** |
 | **1.0.0** | **2026-08-10** | **Initial ratification. `TEC-000` – `TEC-115`.** **Locks the V1 stack** — Java 25 LTS · Spring Boot 4.1.x · Maven · Spring Data JPA/Hibernate · Jakarta Bean Validation · Spring Security · Flyway · PostgreSQL 18.x · React 19.x · TypeScript · Vite · **modular monolith, one deployable backend, one authoritative database, no microservices.** 🔴 **`SYS-076` amended with a single scoped exception so this remains the only technology-naming document and the rest of the corpus stays portable.** ✅ **Resolves three carried items: ERP-wide rounding (`TEC-011`), timezone (`TEC-050`), payroll binding moment (`TEC-044`).** 🔴 **Records the sharpest stack/corpus frictions rather than glossing them** — **`TEC-015` money must cross REST as a string because Jackson+JavaScript would silently break `DB-037`**; **`TEC-022` JPA's dirty-checking default contradicts the immutability discipline**; **`TEC-026` derived positions resist ORM aggregation and the balance-caching temptation is permanent**; **`TEC-064` last-write-wins sync is explicitly prohibited**; **`TEC-093` viewport-driven data fetching violates `RULE 7.3.a`.** ✅ **`TEC-040` keeps `EVA-034` absolute: the settlement commit is synchronous and transactional, never event-driven.** **No business rule created, altered or reinterpreted.** |
 

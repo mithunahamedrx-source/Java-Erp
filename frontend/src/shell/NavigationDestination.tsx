@@ -39,6 +39,12 @@ export default function NavigationDestination({
       to={path}
       data-testid={variant === 'top-level' ? `nav-leaf-${label}` : `nav-child-${label}`}
       tabIndex={focusable ? undefined : -1}
+      /*
+        🔴 `RULE 3.21.d` — the shared state transition, so a row's emphasis ARRIVES rather
+        than snapping. Colour only: nothing here animates size or position, so the nav list
+        never moves while an operator is reading it.
+      */
+      className="state-transition"
       style={({ isActive }) => (variant === 'top-level' ? topLevelRowStyle(isActive) : childRowStyle(isActive))}
     >
       {({ isActive }: { isActive: boolean }) => (

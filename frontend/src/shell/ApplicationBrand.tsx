@@ -33,10 +33,18 @@ export default function ApplicationBrand({
 }: {
   readonly surface?: 'sidebar' | 'auth';
 }): React.JSX.Element {
-  // Sidebar: 40px canvas -> ~26px of visible mark inside the 64px brand block (§3.7), and
-  // ~140px wide against the 184px available between the block's 16px gutters.
-  // Auth: larger, because the login card has room and the logo is the only branding there.
-  const height = surface === 'sidebar' ? 40 : 50;
+  /*
+    🔴 `RULE 3.7.c` v2.13.0 — THE MARK IS SECONDARY TO THE WORKSPACE. It is reduced ~10%
+    and softened, so it identifies the product without competing with the operator's data for
+    attention. Superseded: sidebar 40px, auth 50px, full opacity.
+
+    ⚠ ARTWORK UNTOUCHED. Only `height` is declared and `width: auto` derives the rest, so the
+    643 × 184 aspect ratio cannot be distorted; the file itself is not re-rendered or cropped.
+
+    Sidebar: 36px canvas -> ~23px of visible mark inside the 64px brand block (§3.7).
+    Auth: larger, because the login card has room and the logo is the only branding there.
+  */
+  const height = surface === 'sidebar' ? 36 : 45;
 
   const logo = (
     <img
@@ -46,6 +54,11 @@ export default function ApplicationBrand({
       style={{
         height: `${height}px`,
         width: 'auto',
+        /*
+          🔴 HIERARCHY, NOT DISABLEMENT. 0.86 reads as deliberately quiet; anything lower
+          starts to look washed out or switched off, which is a different message entirely.
+        */
+        opacity: 0.86,
         // Belt and braces: even if a parent ever constrains the width, the aspect ratio holds
         // and the logo shrinks rather than squashing.
         maxWidth: '100%',

@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import Sidebar from './Sidebar';
 import HeaderUtilities from './HeaderUtilities';
 import PageContentTransition from './PageContentTransition';
+import { PageActionsProvider, usePublishedPageActions } from './PageActions';
 
 /**
  * The authenticated application shell.
@@ -17,6 +18,7 @@ export default function AppShell(): React.JSX.Element {
   const user = session.status === 'authenticated' ? session.user : null;
 
   return (
+    <PageActionsProvider>
     <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: 'var(--color-app-background)' }}>
       <Sidebar permissions={user?.permissions ?? []} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -30,9 +32,17 @@ export default function AppShell(): React.JSX.Element {
         <main
           className="erp-scroll"
           data-testid="content-region"
-          style={{ flex: 1, overflowY: 'auto', padding: '24px var(--content-gutter) 64px' }}
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px var(--content-gutter) 64px' }}
         >
-          <div style={{ maxWidth: 'var(--content-max-width)', margin: '0 auto' }}>
+          <div
+            data-testid="main-workspace"
+            style={{
+              width: '100%',
+              minWidth: 'var(--workspace-min-width)',
+              maxWidth: 'var(--content-max-width)',
+              margin: '0 auto',
+            }}
+          >
             <PageContentTransition>
               <Outlet />
             </PageContentTransition>
@@ -40,6 +50,7 @@ export default function AppShell(): React.JSX.Element {
         </main>
       </div>
     </div>
+    </PageActionsProvider>
   );
 }
 
@@ -62,19 +73,25 @@ export function PageHeader({
   readonly subtitle?: string;
   readonly actions?: React.ReactNode;
 }): React.JSX.Element {
+  // UX-016.b - a surface may pass actions directly, or publish them from a nested route via
+  // usePageActions. The header renders whichever exists; it never learns which module sent it.
+  const published = usePublishedPageActions();
+  const pageActions = actions ?? published;
+
   return (
     <div
+      data-testid="page-header"
       style={{
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 'var(--space-8)',
         // Page REGION - reflow is permitted here and only here.
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         marginBottom: 'var(--space-8)',
       }}
     >
-      <div>
+      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
         <h1
           style={{
             fontSize: '25px',
@@ -93,9 +110,26 @@ export function PageHeader({
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-5)' }}>
-        {actions}
-        <span style={{ width: '1px', height: '28px', background: 'var(--color-divider-vertical)' }} />
+      {/*
+        §3.8 - `14px` between clusters, and the ratified `1px x 28px` separator sits BETWEEN
+        ACTIONS AND UTILITY. 🔴 UX-016: two regions with two owners sharing one row. The
+        separator is what keeps a module's buttons from reading as shell furniture.
+      */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-5)', flexWrap: 'nowrap', flexShrink: 0 }}>
+        {pageActions && (
+          <div
+            data-testid="page-header-actions"
+            // §3.8 - `10px` within a button pair. Never wraps: RULE 7.4 applies to the header
+            // action group as much as to an operational row.
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'nowrap' }}
+          >
+            {pageActions}
+          </div>
+        )}
+        <span
+          data-testid="header-utility-divider"
+          style={{ width: '1px', height: '28px', background: 'var(--color-divider-vertical)', flexShrink: 0 }}
+        />
         <HeaderUtilities />
       </div>
     </div>

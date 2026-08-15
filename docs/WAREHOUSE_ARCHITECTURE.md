@@ -1,7 +1,7 @@
 # Warehouse Architecture
 
 **Owner:** Trioloo Technology · **Module:** Warehouse · **Status:** Canonical
-**Version:** 1.4.1 · **Ratified:** 2026-08-08 · **Rule prefix:** `WHS-`
+**Version:** 1.6.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `WHS-`
 
 ---
 
@@ -721,6 +721,120 @@ The business described **what a count produces**, not the states it passes throu
 
 ---
 
+---
+
+# 21A. Order-Specific Build Configuration — ratified 2026-08-11
+
+**Source:** business decision 2026-08-11 resolving **`GAP-129`** by **Option C**, routed under `DOC-079`. **Entities `E-103` and `E-104` are registered in `DOMAIN_MODEL.md` and are Warehouse-owned by `DM-081`.**
+
+## 21A.1 What it is, and what it is not
+
+> **WHS-075 — ✅ AN ORDER-SPECIFIC BUILD CONFIGURATION IS A BUILD SPECIFICATION THAT IS AUTHORITATIVE FOR ONE ORDER AND NOTHING ELSE.**
+>
+> **It exists so the business can assemble and fulfil a configuration for which no applicable reusable Build Template version exists** — **without creating a catalogue entry to make it possible.**
+>
+> | It IS | It is NOT |
+> |---|---|
+> | A confirmed component plan for **one** Order Item's build requirement | A `E-058` Sellable Product |
+> | The specification an `E-065` Build Job may execute | A `E-059` Channel Listing |
+> | Non-reusable by default | A reusable `E-060` Build Template |
+> | Warehouse-owned (`DM-081`) | An `E-062` As-Built Record |
+> | | An inventory movement, a stock balance or an accounting record |
+>
+> 🔴 **It creates no catalogue entry.** **Completing an assembled order NEVER adds a product to the Sellable Product catalogue** — that requires explicit promotion (`PRD-147`).
+
+## 21A.2 The two specification sources
+
+> **WHS-076 — ✅ A BUILD JOB EXECUTES EXACTLY ONE IMMUTABLE SPECIFICATION SOURCE, FIXED AT JOB CREATION** (`INV-65.1` as amended).
+>
+> | Source | Path |
+> |---|---|
+> | **A** — a fixed reusable **Build Template version** | Order Item → Sellable Product → ACTIVE Build Template version → Build Job |
+> | **B** — a fixed confirmed **`E-103`** | Order Item → confirmed Order-Specific Build Configuration → Build Job |
+>
+> 🔴 **NEVER BOTH SIMULTANEOUSLY.** ✅ **Path A is unchanged and remains the normal path for a catalogued `ASSEMBLED` Sellable Product** — **path B is an ADDITIONAL legitimate source, not a replacement.**
+>
+> 🔴 **Fixing is absolute in both directions:** **a later Build Template version never reaches a job already bound to an earlier one** (`PRD-071`), **and a later configuration never reaches a job already bound to an earlier one** (`INV-103.5`). ⚠ **A recommendation changing after confirmation reaches nothing at all** — it was never authoritative (`WHS-077`).
+
+## 21A.3 Draft, confirmation and authority
+
+> **WHS-077 — 🔴 A DRAFT CONFIGURATION IS NOT AUTHORITATIVE. ONLY EXPLICIT CONFIRMATION MAKES IT SO.**
+>
+> **A draft — however it was produced, including by the recommendation engine (`PRD-146`) — reserves no stock, consumes no stock, authorises no assembly, binds no Build Job, creates no mapping and creates no product.**
+>
+> **a.** **Confirmation is the `DRAFT → ACTIVE` transition** (`INV-103.3`) **and is attributable to an Operational User Profile** (`AGV-001`, `AUD-004`).
+> **b.** ✅ **Before confirming, staff may accept the draft, replace components, add or remove lines, start from a different reusable template, or construct the configuration manually** — **subject to the authority rules below and to compatibility guidance, which WARNS and never blocks** (`PRD-118`).
+> **c.** 🔴 **A confirmed configuration is IMMUTABLE** (`INV-103.4`, `DB-003`). **A different plan is a NEW configuration and the earlier one becomes `SUPERSEDED`** — **the mechanism `PRD-069` already applies to templates, reused rather than duplicated.**
+> **d.** ⚠ **AUTHORITY IS NOT FULLY DETERMINED BY CANON AND IS NOT INVENTED HERE.** **`PRD §24` establishes assembly-side component authority** — **substitution within a group: warehouse technician; substitution outside a group: warehouse supervisor, with a recorded reason** (`PRD-039`). 🔴 **Whether confirming an `E-103` requires the supervisor bound, and whether a separately grantable capability is required, is NOT canonically established** — **recorded as `GAP-130`, not decided** (`PRM-007`, `DOC-024`).
+
+## 21A.4 Execution is unchanged
+
+> **WHS-078 — ✅ ONCE A BUILD JOB IS BOUND, EVERY EXISTING WAREHOUSE, INVENTORY AND COSTING RULE APPLIES UNCHANGED.**
+>
+> **Component reservation stays atomic** (`INV-65.2`, `PRD-026`) · **components are consumed at assembly, not at dispatch** (`INV-65.3`, `PRD-045`, `BR-143`) · **substitution DURING execution remains governed by `PRD-038`–`PRD-041` and is recorded on the As-Built** · **the As-Built Record is produced per unit** (`INV-65.5`) **and accounts for every non-optional line of whichever source was executed** (`INV-62.2`, `PRD-088` as amended).
+>
+> 🔴 **NO NEW STOCK MECHANISM IS CREATED.** **No new movement type, no new ledger, no stored balance, no costing rule and no accounting entry** (`IVN-017` — *no movement type exists outside this set*, `DB-001`, `ICO-000`).
+
+## 21A.5 As-Built remains historical truth
+
+> **WHS-079 — 🔴 AN AS-BUILT RECORD IS NEVER REWRITTEN BY ANYTHING THAT HAPPENS AFTERWARDS.**
+>
+> **Not by a changed recommendation, not by a superseded configuration, not by a later Build Template version, not by a later listing mapping, not by a change to a Sellable Product, and not by promotion of the configuration to reusable form** (`INV-62.4`, `DM-008`, `DB-003`, `PRD-068`).
+>
+> ⚠ **This is why `INV-103.7` retains a superseded configuration permanently: it is the specification an As-Built was measured against, and discarding it would make a historical build unreproducible.**
+
+---
+
+## 21A.6 Authority — ratified 2026-08-11, resolving `GAP-130`
+
+> **WHS-080 — ✅ FIVE CAPABILITIES, AND THEY ARE NOT AUTOMATICALLY THE SAME.**
+>
+> | | Capability | Governed by |
+> |---|---|---|
+> | **A** | **View recommendation evidence** | Access to the owning operational workspace — no separate capability |
+> | **B** | **Prepare and edit a `DRAFT` `E-103`** | Authority to prepare the relevant order/build |
+> | **C** | **Confirm `DRAFT → ACTIVE`** | **`WHS-081`** |
+> | **D** | **Substitute components during assembly** | **`PRD-038`–`PRD-041`, unchanged** |
+> | **E** | **Promote a configuration to reusable catalogue definition** | **`PRD-147`, Product administration** |
+>
+> 🔴 **Holding one confers none of the others.** ⚠ **A person who may confirm a configuration does NOT thereby receive unlimited execution-time substitution authority, and a person who may substitute during assembly does NOT thereby receive confirmation authority.**
+>
+> **a. VIEWING GRANTS NOTHING.** **A user with legitimate access to the owning workspace may see the recommendation evidence that work requires.** 🔴 **Viewing implies no authority to confirm, reserve, execute, substitute, create a Sellable Product or activate a Build Template version.** ⚠ **No standalone recommendation-viewer role exists and none is created.**
+>
+> **b. PREPARATION IS NOT APPROVAL.** **Operational staff authorised to prepare the relevant order or build may create and edit a `DRAFT`.** 🔴 **While `DRAFT` it is non-authoritative, reserves nothing, cannot become a Build Job source, cannot consume stock, cannot authorise assembly and posts nothing** (`INV-103.2`, `WHS-077`, `IVN-054.b`). ✅ **Recommendation output remains editable evidence throughout.**
+
+> **WHS-081 — ✅ CONFIRMING AN ORDER-SPECIFIC BUILD CONFIGURATION REQUIRES WAREHOUSE SUPERVISOR AUTHORITY, OR AN EXPLICITLY GRANTED EQUIVALENT CAPABILITY. Ratified 2026-08-11 by business decision** (`GAP-130`).
+>
+> **`DRAFT → ACTIVE` is an authoritative operational approval, because an `ACTIVE` configuration may enter reservation and build execution** (`WHS-076`, `IVN-054`, `BR-177`).
+>
+> **a.** 🔴 **PREPARATION AUTHORITY NEVER IMPLIES CONFIRMATION AUTHORITY.** **A technician or order-preparation user does not acquire it by being able to edit the draft.** ⚠ **This is the same separation `PRD-039` already draws between substituting inside a group and substituting outside one** — **the person doing the work is not automatically the person approving its scope.**
+>
+> **b.** 🔴 **ENFORCEMENT IS A PERMISSION, NEVER A ROLE NAME.** **The unit of enforcement is a capability resolved through the four-part composition — Operational User Profile + Assigned Roles + Scope Assignments + Permission Overrides** (`AGV-018`, `PRM-057`). ⚠ **`Warehouse Supervisor` is a BASELINE ROLE that carries the capability by configuration; it is not the security rule.** 🔴 **A role-name test is prohibited** (`PRM-004` — authorisation is enforced by the module that owns the action, on every entry point).
+>
+> **c.** ✅ **The capability is grantable to another actor WITHOUT granting the whole role** — that is precisely what `AGV-023`'s grant direction exists for. ⚠ **And revocable the same way, which is what prevents role proliferation.**
+>
+> **d.** 🔴 **ADMINISTRATOR RECEIVES NOTHING IMPLICITLY.** **`PRM-068` — Administrator is a role holding permissions, never a mode that suspends checking.** **An Administrator confirms a configuration only where effective permissions actually grant the capability** (`AGV-018`, `PRM-003` — absence of a grant is a denial). **No hidden superuser, no title shortcut.**
+>
+> **e.** ⚠ **SCOPE BOUNDS; IT NEVER GRANTS** (`AGV-021` — *permissions define WHAT, scope defines WHERE*). 🔴 **A Warehouse scope assignment is not a substitute for the capability, and scope dimensions that `PRM-051`/`BD-377` record as not operationally enforced today are not activated by this rule.**
+>
+> **f.** 🔴 **THE RECOMMENDATION ENGINE MAY NEVER CONFIRM.** **It produces evidence and nothing else** (`PRD-146`). ⚠ **Automated actors ARE actors and carry identity, permissions and audit** (`AGV-001`, `PRM-005`) — **but no automated actor is granted this capability in V1, and autonomous confirmation is not introduced.** **Future automation would require separately granted canonical authority and is outside this amendment.**
+
+> **WHS-082 — ✅ CONFIRMATION IS ATTRIBUTABLE, AND NO NEW AUDIT MECHANISM IS CREATED.**
+>
+> **The authoritative record preserves WHO confirmed and WHEN** — already required by `INV-103.3` and carried by the existing attribution architecture (`AGV-001`, `AUD-004`, and `E-103`'s confirmation actor and timestamp attributes).
+>
+> 🔴 **NO REASON IS REQUIRED FOR ORDINARY CONFIRMATION, AND NONE IS INVENTED HERE.** ⚠ **`PRD-039` requires a reason for substitution OUTSIDE an approved group and `IVN-018` requires one for a stock adjustment — those obligations are untouched and neither is extended to confirmation** (`DOC-024`).
+>
+> ✅ **No duplicate audit infrastructure, no activity log substituting for canonical audit facts** (`AUD-001`).
+
+> **WHS-083 — 🔴 ASSEMBLY-TIME SUBSTITUTION AUTHORITY IS UNCHANGED BY THIS AMENDMENT.**
+>
+> **`PRD-038`–`PRD-041` stand exactly as written:** **within an approved substitution group, existing technician authority applies; outside one, warehouse supervisor authority plus a mandatory recorded reason applies** (`PRD-039`), **every substitution is recorded on the As-Built with intended and actual component** (`PRD-040`), **and a substitution changing the advertised specification still requires customer agreement before dispatch** (`PRD-041`).
+>
+> 🔴 **Confirming an `E-103` grants no broader substitution authority at execution time**, **and holding substitution authority grants no confirmation authority** (`WHS-080`).
+
+---
+
 # 22. Version History
 
 | Version | Date | Change |
@@ -730,6 +844,8 @@ The business described **what a count produces**, not the states it passes throu
 | **1.3.0** | **2026-08-09** | **One cross-reference added — `WHS-073`; no process, rule or boundary changed.** `EVT-091 Warranty.ReplacementAuthorised` names Warehouse as a consumer, whose confirmed reaction is *“the applicable controlled process for picking, required QC/verification, and handover or dispatch”* (`BD-426`). **That process already exists in full** at `WHS-026` – `WHS-037`, so **no warranty-specific process was created** — `WHS-073` records only that a warranty replacement enters the existing one, and that **the trigger is warranty-specific while the process is not.** Reservation and deduction remain Inventory's figures |
 | **1.2.0** | **2026-08-09** | **Trade-In pointers corrected — no warehouse rule changed.** The `SM-19` register row and the `E-081` custody row now name [`TRADE_IN_ARCHITECTURE.md`](TRADE_IN_ARCHITECTURE.md) (`DOC-063`). **`WHS-069` is unchanged and is now reciprocated**: the custody state belongs to the owning process, and both owning processes — `E-072` Repair and `E-081` Trade-In Case — have registered documents that accept it (`WAR-060`, `TRD-028`) |
 | **1.1.0** | **2026-08-09** | **`SM-3` and `SM-11` RATIFIED — status references corrected, no rule changed.** `OM §18.2` was amended to register them (`BR-142`), discharging `SMA-001`, `SMA-011` and `SMU-11`. **This document did not ratify them** and did not need to change to accommodate them: `WHS-003` and §15 carried the proposed status faithfully while it applied, and only the status wording is updated. **`SM-11`'s scope is confirmed as `SMA-045` drew it** — Return QC always, inbound supplier-receipt QC at the warehouse's discretion (`WHS-018`, *"an operational decision, not a rule"*). **No warehouse rule, state, transition or boundary changed** |
+| **1.5.0** | **2026-08-11** | ✅ **ORDER-SPECIFIC BUILD CONFIGURATION — `§21A`, `WHS-075`–`WHS-079`. `GAP-129` resolved by business decision (Option C), routed under `DOC-079`.** ✅ **Warehouse becomes the owner of `E-103` and `E-104` by `DM-081`, because it already owns the WORK (`E-065`) and the EVIDENCE (`E-062`) that this specification sits between.** ✅ **`WHS-076` fixes exactly ONE immutable specification source per Build Job — a reusable Build Template version OR a confirmed configuration, never both — with the reusable path explicitly unchanged and the new path ADDITIONAL rather than a replacement.** 🔴 **`WHS-077` makes a draft non-authoritative in every respect and confirmation an attributable act; a confirmed configuration is immutable and is replaced by supersession, reusing `PRD-069`'s mechanism rather than inventing revision semantics.** ⚠ **`WHS-077.d` records that the exact confirmation AUTHORITY is not canonically established and registers `GAP-130` rather than inventing a permission.** ✅ **`WHS-078` keeps every execution rule unchanged and creates no stock mechanism; `WHS-079` restates As-Built immutability against six specific later events.** **No movement type, ledger, balance, costing rule, accounting entry, event or permission code created.** |
+| **1.6.0** | **2026-08-11** | ✅ **`GAP-130` RESOLVED — confirmation authority for `E-103`. `§21A.6`, `WHS-080`–`WHS-083`, routed under `DOC-079`.** ✅ **`WHS-080` separates FIVE capabilities — viewing evidence, preparing a draft, confirming, substituting at assembly, and promoting to catalogue — and records that holding one confers none of the others.** ✅ **`WHS-081` makes `DRAFT → ACTIVE` require WAREHOUSE SUPERVISOR authority or an explicitly granted equivalent capability, because an `ACTIVE` configuration may enter reservation and build execution.** 🔴 **Enforcement is a PERMISSION resolved through `AGV-018`'s four-part composition, NEVER a role-name test — `Warehouse Supervisor` is a baseline role carrying the capability by configuration, not the security rule.** 🔴 **Administrator receives nothing implicitly** (`PRM-068`, `PRM-003`); **scope bounds but never grants** (`AGV-021`); **the recommendation engine may never confirm, and no automated actor is granted the capability in V1.** ✅ **`WHS-082` reuses existing attribution — who and when — and creates no audit mechanism; 🔴 NO reason is invented for ordinary confirmation, and `PRD-039`/`IVN-018`'s reason obligations are neither weakened nor extended.** 🔴 **`WHS-083` leaves `PRD-038`–`PRD-041` exactly as written: confirmation grants no execution-time substitution authority and substitution authority grants no confirmation authority.** ⚠ **The literal permission-code string remains UNDEFINED — no canonical vocabulary generates it, and implementation must not invent one** (`PRM-007`). **No entity, event, state, inventory rule, costing rule or accounting rule created or changed.** |
 | **1.0.0** | **2026-08-08** | **Initial ratification.** Consolidates `BUSINESS_DISCOVERY.md` §17 Warehouse & Assembly (`BD-278` – `BD-292`) with the reconciliations at `OM §9.9`, `PRD §29`, `SMA §19.4` and `DOMAIN_MODEL.md` `DM-039` – `DM-044`. **73 rules (`WHS-000` – `WHS-072`), all traceable; no business rule, entity, state machine or lifecycle introduced.** `WHS-000` records the ownership boundary; **`DOC-058`'s stock-count split and custody boundary are consolidated at §11 and §13**. **`WHS-001` and `WHS-009` record that bin locations, wave picking and multi-warehouse operation were excluded from discovery by the business and are not reconstructed.** **`SM-3` and `SM-11` are carried as unratified proposed extensions** (`SMA-001`) — this document does not ratify them. Fifteen open items carried; `GAP-045`, `GAP-047`, `GAP-076`, `GAP-103` and `PRDU-6` explicitly not converted into rules |
 
 **Amendment procedure.** Proposals state the business problem, the affected sections and rules, the proposed change, alternatives considered, and the operational impact. **Business rules are never silently altered** — a changed rule is a changed contract with the operation.

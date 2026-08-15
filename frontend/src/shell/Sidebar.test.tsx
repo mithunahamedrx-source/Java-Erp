@@ -52,7 +52,7 @@ describe('frozen navigation register (UX-024)', () => {
     const expected = [
       'Dashboard',
       'Inventory',
-      'Purchasing',
+      // 🔴 `Purchasing` is deliberately ABSENT — UX-024 as amended has no such parent.
       'Sales & Orders',
       'Finance & Accounting',
       'HR & Payroll',
@@ -150,13 +150,13 @@ describe('operator-controlled disclosure (UX-026.f, amended 2026-08-11)', () => 
 
   it('opens and re-closes a group that does not own the active route', () => {
     renderSidebar('/inventory/products');
-    expect(childVisible('Suppliers')).toBe(false);
+    expect(childVisible('Orders')).toBe(false);
 
-    fireEvent.click(screen.getByTestId('nav-group-Purchasing'));
-    expect(childVisible('Suppliers')).toBe(true);
+    fireEvent.click(screen.getByTestId('nav-group-Sales & Orders'));
+    expect(childVisible('Orders')).toBe(true);
 
-    fireEvent.click(screen.getByTestId('nav-group-Purchasing'));
-    expect(childVisible('Suppliers')).toBe(false);
+    fireEvent.click(screen.getByTestId('nav-group-Sales & Orders'));
+    expect(childVisible('Orders')).toBe(false);
   });
 
   /**
@@ -165,16 +165,16 @@ describe('operator-controlled disclosure (UX-026.f, amended 2026-08-11)', () => 
    */
   it('points the chevron DOWN while the group is folded', () => {
     renderSidebar('/inventory/products');
-    const chevron = within(screen.getByTestId('nav-group-Purchasing')).getByTestId('nav-chevron');
+    const chevron = within(screen.getByTestId('nav-group-Sales & Orders')).getByTestId('nav-chevron');
     expect(chevron.getAttribute('data-direction')).toBe('down');
     expect(chevron.getAttribute('style')).toContain('rotate(0deg)');
   });
 
   it('points the chevron UP while the group is unfolded', () => {
     renderSidebar('/inventory/products');
-    fireEvent.click(screen.getByTestId('nav-group-Purchasing'));
+    fireEvent.click(screen.getByTestId('nav-group-Sales & Orders'));
 
-    const chevron = within(screen.getByTestId('nav-group-Purchasing')).getByTestId('nav-chevron');
+    const chevron = within(screen.getByTestId('nav-group-Sales & Orders')).getByTestId('nav-chevron');
     expect(chevron.getAttribute('data-direction')).toBe('up');
     expect(chevron.getAttribute('style')).toContain('rotate(180deg)');
   });
@@ -189,7 +189,7 @@ describe('operator-controlled disclosure (UX-026.f, amended 2026-08-11)', () => 
   /** UX-026.d - the parent is a disclosure control, never a destination. */
   it('renders group parents as buttons, never links', () => {
     renderSidebar('/inventory/products');
-    expect(screen.getByTestId('nav-group-Purchasing').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('nav-group-Inventory').tagName).toBe('BUTTON');
   });
 });
 
@@ -255,14 +255,31 @@ describe('shell regions', () => {
   });
 
   /** Aspect ratio is preserved by declaring height only and letting width derive. */
+  /**
+   * 🔴 `RULE 3.7.c` v2.13.0 — THE MARK IS SECONDARY TO THE WORKSPACE: ~10% smaller and
+   * softened to 0.86. Superseded: 40px at full opacity.
+   */
   it('sizes the logo without distorting or recolouring it', () => {
     renderSidebar('/inventory/products');
     const logo = screen.getByTestId('application-logo');
-    expect(logo.style.height).toBe('40px');
+    expect(logo.style.height).toBe('36px');
+    // ⚠ Only height is declared, so the 643 × 184 aspect ratio cannot be distorted.
     expect(logo.style.width).toBe('auto');
     expect(logo.style.objectFit).toBe('contain');
+    expect(logo.style.opacity).toBe('0.86');
     // 🔴 No recolouring and no CSS filter of any kind.
     expect(logo.style.filter).toBe('');
+  });
+
+  /** ⚠ Hierarchy, not decoration: the brand region gains no container of its own. */
+  it('gives the brand region no card, border, shadow or panel', () => {
+    renderSidebar('/inventory/products');
+    const brand = screen.getByTestId('application-brand');
+    expect(brand.style.background).toBe('');
+    expect(brand.style.boxShadow).toBe('');
+    expect(brand.style.borderRadius).toBe('');
+    // The one hairline that separates the block from the nav is kept.
+    expect(brand.style.borderBottom).toContain('var(--color-divider-inner)');
   });
 
   /** 🔴 The shared scroll treatment, not a sidebar-private one. */
@@ -283,13 +300,184 @@ describe('shell regions', () => {
   it('gives every top-level module a distinct icon', () => {
     renderSidebar('/inventory/products');
     const icons = screen.getByTestId('sidebar-nav').querySelectorAll('svg');
-    // Dashboard + 6 MAIN groups + Reports leaf + Administration = 9, plus chevrons.
-    expect(icons.length).toBeGreaterThanOrEqual(9);
+    // Dashboard + 5 MAIN groups + Reports leaf + Administration = 8, plus chevrons.
+    // 🔴 Was 9 while `Purchasing` was a parent; UX-024 as amended removed that group.
+    expect(icons.length).toBeGreaterThanOrEqual(8);
   });
 
   /** 🔴 ONE icon system. Every top-level label resolves through the shared semantic map. */
   it('maps every top-level navigation label to a semantic icon', () => {
     const missing = NAVIGATION.map((i) => i.label).filter((label) => !(label in MODULE_ICON));
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * `UX-024` as amended 2026-08-11 — INVENTORY NAVIGATION CONSOLIDATION.
+ *
+ * 🔴 These tests pin COMPOSITION AND ORDER. They deliberately assert nothing about ownership
+ * being transferred, because `UX-025` guarantees the opposite: a shared parent row is a place
+ * to click and moves no domain, aggregate, transaction boundary or authority.
+ */
+describe('inventory navigation consolidation (UX-024 amended, UX-025)', () => {
+  it('has no standalone Purchasing parent anywhere in the sidebar', () => {
+    renderSidebar('/inventory/products');
+    expect(screen.queryByTestId('nav-group-Purchasing')).toBeNull();
+    expect(screen.queryByTestId('nav-leaf-Purchasing')).toBeNull();
+  });
+
+  /** 🔴 The register itself, not just what happens to render. */
+  it('declares no Purchasing group in the navigation register', () => {
+    expect(NAVIGATION.some((item) => item.label === 'Purchasing')).toBe(false);
+  });
+
+  it('gives Inventory exactly five children in the ratified order', () => {
+    const inventory = NAVIGATION.find((item) => item.label === 'Inventory');
+    expect(inventory && isGroup(inventory)).toBe(true);
+    const children = (inventory as { children: readonly { label: string }[] }).children;
+    expect(children.map((c) => c.label)).toEqual([
+      'Products',
+      'Stock Control',
+      'Purchasing',
+      'Suppliers',
+      'Warehouses',
+    ]);
+  });
+
+  it('renders the five Inventory children in that order in the DOM', () => {
+    renderSidebar('/inventory/products');
+    const region = screen.getByTestId('nav-disclosure-Inventory');
+    const rendered = Array.from(region.querySelectorAll('[data-testid^="nav-child-"]')).map((node) =>
+      node.getAttribute('data-testid'),
+    );
+    expect(rendered).toEqual([
+      'nav-child-Products',
+      'nav-child-Stock Control',
+      'nav-child-Purchasing',
+      'nav-child-Suppliers',
+      'nav-child-Warehouses',
+    ]);
+  });
+
+  it('does not render the old Stock or Purchases sidebar labels', () => {
+    renderSidebar('/inventory/products');
+    const inventoryRegion = screen.getByTestId('nav-disclosure-Inventory');
+    const childLabels = Array.from(inventoryRegion.querySelectorAll('[data-testid^="nav-child-"]')).map((node) =>
+      node.textContent,
+    );
+    expect(childLabels).not.toContain('Stock');
+    expect(childLabels).not.toContain('Purchases');
+  });
+
+  /** 🔴 A move, not a copy. A duplicated destination would be two places to click one thing. */
+  it.each(['Purchasing', 'Suppliers'])('renders %s exactly once', (label) => {
+    renderSidebar('/inventory/products');
+    expect(screen.queryAllByTestId(`nav-child-${label}`)).toHaveLength(1);
+  });
+
+  it.each([
+    ['/purchasing/purchases', 'Purchasing'],
+    ['/purchasing/suppliers', 'Suppliers'],
+  ])('marks Inventory active on %s', (path, label) => {
+    renderSidebar(path);
+    expect(screen.getByTestId('nav-group-Inventory').getAttribute('data-active')).toBe('true');
+    expect(childVisible(label)).toBe(true);
+  });
+
+  /**
+   * 🔴 THE OWNERSHIP SAFEGUARD (`UX-025`). The destinations keep their Procurement-owned
+   * paths: the URL still names the owning module, so nothing in the address suggests
+   * Inventory acquired procurement.
+   */
+  it('keeps the purchasing destinations on their Procurement-owned paths', () => {
+    const inventory = NAVIGATION.find((item) => item.label === 'Inventory');
+    const children = (inventory as { children: readonly { label: string; path: string }[] }).children;
+    expect(children.find((c) => c.label === 'Purchasing')?.path).toBe('/purchasing/purchases');
+    expect(children.find((c) => c.label === 'Suppliers')?.path).toBe('/purchasing/suppliers');
+  });
+
+  /** 🔴 No `inventory.purchases.*` / `inventory.suppliers.*` code invented (`PRM-089`). */
+  it('creates no Inventory-owned purchasing permission code', () => {
+    const declared = NAVIGATION.flatMap((item) =>
+      isGroup(item) ? item.children.map((c) => c.permission) : [item.permission],
+    );
+    expect(declared.every((p) => p === null)).toBe(true);
+    const source = JSON.stringify(NAVIGATION);
+    expect(source).not.toMatch(/inventory\.(purchases|suppliers)/);
+  });
+
+  /**
+   * 🔴 No role-name security shortcut and no wildcard.
+   *
+   * <p>⚠ Asserted over the AUTHORITY fields only. The `ADMIN` section label is the ratified
+   * `UX-024` navigation section and is not a role test — matching it would be a false positive.
+   */
+  it('uses no role-name shortcut and no wildcard authority', () => {
+    const authorities = NAVIGATION.flatMap((item) =>
+      isGroup(item) ? item.children.map((c) => c.permission) : [item.permission],
+    );
+    for (const authority of authorities) {
+      expect(authority === null || !/hasRole|ROLE_|\*/.test(authority)).toBe(true);
+    }
+  });
+
+  /** UX-027 - a relocated child stays permission-aware exactly as before. */
+  it('still hides a permission-gated child and keeps the rest', () => {
+    const gated = {
+      label: 'Inventory',
+      section: 'MAIN' as const,
+      children: [
+        { label: 'Products', path: '/inventory/products', permission: null },
+        { label: 'Purchasing', path: '/purchasing/purchases', permission: 'never.granted' },
+      ],
+    };
+    expect(visibleChildren(gated, []).map((c) => c.label)).toEqual(['Products']);
+    expect(visibleChildren(gated, ['never.granted']).map((c) => c.label)).toEqual([
+      'Products',
+      'Purchasing',
+    ]);
+  });
+
+  /** 🔴 Two levels only (`RULE 4.3.a`) - five children add no third level. */
+  it('adds no third navigation level', () => {
+    renderSidebar('/inventory/products');
+    const region = screen.getByTestId('nav-disclosure-Inventory');
+    expect(region.querySelectorAll('.nav-disclosure')).toHaveLength(0);
+  });
+
+  /** 🔴 The entity-class tabs are workspace tabs and never sidebar destinations. */
+  it.each(['Stock Items', 'Sellable Products', 'Listings'])(
+    'does NOT create a %s sidebar child',
+    (label) => {
+      renderSidebar('/inventory/products');
+      expect(screen.queryByTestId(`nav-child-${label}`)).toBeNull();
+    },
+  );
+
+  /** 🔴 `Products` and `Stock` are different destinations; neither absorbs the other. */
+  it('keeps Products and Stock Control as separate destinations', () => {
+    renderSidebar('/inventory/products');
+    const products = screen.getByTestId('nav-child-Products');
+    const stock = screen.getByTestId('nav-child-Stock Control');
+    expect(products.getAttribute('href')).toBe('/inventory/products');
+    expect(stock.getAttribute('href')).toBe('/inventory/stock');
+    expect(products).not.toBe(stock);
+  });
+
+  it.each(['/inventory/products', '/inventory/products/stock', '/inventory/products/sellable', '/inventory/products/listings'])(
+    'keeps Products active and Stock Control inactive on %s',
+    (path) => {
+      renderSidebar(path);
+      expect(screen.getByTestId('nav-child-Products').getAttribute('aria-current')).toBe('page');
+      expect(screen.getByTestId('nav-child-Stock Control').getAttribute('aria-current')).toBeNull();
+      expect(screen.getByTestId('nav-group-Inventory').getAttribute('data-active')).toBe('true');
+    },
+  );
+
+  it('makes Stock Control active and Products inactive on the Stock Control destination', () => {
+    renderSidebar('/inventory/stock');
+    expect(screen.getByTestId('nav-child-Stock Control').getAttribute('aria-current')).toBe('page');
+    expect(screen.getByTestId('nav-child-Products').getAttribute('aria-current')).toBeNull();
+    expect(screen.getByTestId('nav-group-Inventory').getAttribute('data-active')).toBe('true');
   });
 });

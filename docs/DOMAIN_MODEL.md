@@ -1,7 +1,7 @@
 # Domain Model
 
 **Owner:** Trioloo Technology · **Type:** Canonical business domain model · **Status:** Canonical
-**Version:** 3.23.0 · **Updated:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; discount policy `BD-255`; Warehouse & Assembly §17; Purchase & Supplier §18; revenue recognition `BD-304`; Accounting §19; Marketplace; Warranty; Return & Exchange; Chat; Access; Notifications; Trade-In; Fund Transfers) · **Entity prefix:** `E-` · **Rule prefix:** `DM-`
+**Version:** 3.33.0 · **Updated:** 2026-08-15 (**`INV-16.4` sharpened — the internal code is ERP-ASSIGNED, not operator-typed**) · **Updated:** 2026-08-15 (**`E-016` cross-domain account scope — `INV-16.11`–`INV-16.13`; `DM-085`**) · **Updated:** 2026-08-15 (**`E-016` Shops & Channels ratification — `market` and `internal code` attributes; `INV-16.4`–`INV-16.10`; `DM-084`**) · **Updated:** 2026-08-14 (**`INV-106.10` added — Listing package publishing facts on `E-106`; `INV-59.12` added — English/Bangla listing content with derived fallback; Product `PRD-201`, `PRD-202`**) · **Updated:** 2026-08-14 (**`INV-106.3` / `INV-106.8` amended and `INV-106.9` added — Listing `Sale Price` + optional time-bounded `Promotion Price`; Product `PRD-199` supersedes `PRD-197`; 🔴 `MRP` is no longer a Listing price**) · **Updated:** 2026-08-14 (**`INV-106.3` amended and `INV-106.8` added — Listing `MRP` / `Sale Price`; Product `PRD-197`**) · **Updated:** 2026-08-13 (**`E-106` Channel Listing SKU, `E-107` Operation, `E-108` Operation Batch; `INV-59.1`/`INV-59.2` amended; Product `PRD-173`-`PRD-196`**) · **Updated:** 2026-08-13 (**`E-105` Media Asset; commercial content and media invariants for `E-058`/`E-059`; Product `PRD-163`-`PRD-172`**) · **Updated:** 2026-08-11 (**ASSEMBLED finished Product Variant identity for `E-058`; Product `PRD-156`-`PRD-161`) · **Updated:** 2026-08-11 (**Order-Specific Build Configuration — `E-103`, `E-104`; `GAP-129` resolved**) · **Updated:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; discount policy `BD-255`; Warehouse & Assembly §17; Purchase & Supplier §18; revenue recognition `BD-304`; Accounting §19; Marketplace; Warranty; Return & Exchange; Chat; Access; Notifications; Trade-In; Fund Transfers) · **Entity prefix:** `E-` · **Rule prefix:** `DM-`
 
 ---
 
@@ -224,7 +224,7 @@ flowchart TB
 | **DM-023** | **Only physical inventory holds stock.** A sellable product, build definition, or marketplace listing never has a stock quantity (`PRD-003`) |
 | **DM-024** | **Sellable availability is always derived from component inventory, never taken from a marketplace quantity** (`PRD-023`). A marketplace's stock figure is a mirror of what Trioloo published, not a source |
 | **DM-025** | **A finished PC need not exist before fulfillment.** It comes into being at assembly and is not stock beforehand (`PRD-045`) |
-| **DM-026** | One sellable product has many marketplace listings; one listing belongs to exactly one sellable product and one channel instance (`PRD-028`) |
+| **DM-026** | One sellable product has many marketplace listings; one listing belongs to exactly one sellable product and one channel instance (`PRD-028`) — ⚠ **AMENDED v3.27.0: the channel-instance half is unchanged; the sellable-product mapping moves to the ORDERABLE CHANNEL SKU (`E-106`) and is ZERO while `UNMAPPED`, exactly ONE once `MAPPED`** (`PRD-178`, `PRD-190.d`, `INV-59.1`). *Original retained (`DOC-009`).* |
 | **DM-027** | A build definition references **physical inventory only**, never another sellable product (`PRD-032`, `PRD-034`) |
 
 > **DM-024 is the invariant most at risk of being violated in implementation.** The tempting shortcut is to read stock back from Daraz, because Daraz reports a number. That number is Trioloo's own published figure returned to it — using it as a source creates a loop in which the system confirms its own guess.
@@ -571,12 +571,24 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 | **Parents / Children** | Channel Type, Business Unit / Order, Channel Listing |
 | **Lifecycle** | Configuration lifecycle, dated versions |
 
-**Key attributes** — name; channel type; business unit; external shop identifier; **commission structure (versioned)**; settlement cycle; default warehouse; courier preference; credentials reference.
+**Key attributes** — name; channel type; business unit; **market**; **internal code**; **external shop identifier**; **commission structure (versioned)**; settlement cycle; default warehouse; courier preference; credentials reference.
+
+> ⚠ **AMENDED 2026-08-15 — `market` and `internal code` added; the superseded attribute list is retained** (`DOC-009`). **Neither is a new concept: `internal code` names the ERP-owned identifier the instance is already selected by, and `market` names the territory context the business already operates per shop.**
 
 **Invariants**
 - `INV-16.1` Every order records both channel type **and** instance (`BR-002`).
 - `INV-16.2` Commission structure is effective-dated; a rate change never alters historical margin (`DB-022`).
 - `INV-16.3` A channel listing belongs to exactly one channel instance (`PRD-028`).
+- `INV-16.4` **TWO IDENTITIES, NEVER INTERCHANGED. Ratified 2026-08-15.** The **internal code** is ERP-owned and is what the ERP selects the instance by; the **external shop identifier** is the marketplace's own business identity for that account. 🔴 **Neither is ever presented as the other**, and 🔴 **an internal UUID, an internal code, a Listing's `external_listing_id` or a Seller SKU is NEVER substituted for the external shop identifier.** ⚠ **SHARPENED 2026-08-15 — the superseded wording above is retained** (`DOC-009`): **ERP-OWNED MEANS ERP-ASSIGNED.** **The internal code is allocated by the system when the Channel Instance is created, is unique and stable, and is not an operator-typed field.** 🔴 **No allocation format, algorithm or concurrency strategy is prescribed by the domain model** — **that is implementation** (`SCS-091`).
+- `INV-16.5` **THE EXTERNAL SHOP IDENTIFIER IS BOUND FROM AUTHORITY, NOT TYPED. Ratified 2026-08-15.** It is set only from an authoritative external authorisation or readback, and ⚠ **MAY BE ABSENT** until one has occurred. ✅ **It is a business fact, not a credential**, and is therefore safe for ordinary business-facing display.
+- `INV-16.6` **REAUTHORISATION MAY NOT MOVE A CHANNEL INSTANCE TO A DIFFERENT ACCOUNT. Ratified 2026-08-15.** 🔴 Where an external shop identifier is already bound, a reconnect that authorises a DIFFERENT external account is **REJECTED**. ⚠ **A different seller account is a DIFFERENT Channel Instance** — because every Listing and, once implemented, every order is attributed to this exact instance (`INV-16.1`, `BR-002`), silently rebinding would reattribute the entire operating history of a shop. **Any exceptional identity-replacement workflow is out of scope and must be separately ratified.**
+- `INV-16.7` **ONE INSTANCE, ONE MARKET. Ratified 2026-08-15.** A Channel Instance belongs to exactly one market or territory context. ⚠ **Market is BUSINESS CONFIGURATION** — never a credential, an endpoint, a provider enumeration or a transport field. **An integration MAY read it when choosing provider-specific behaviour; the domain does not model that behaviour.**
+- `INV-16.8` **THE CREDENTIALS REFERENCE IS A REFERENCE. Ratified 2026-08-15.** 🔴 It is an OPAQUE pointer to Integration-owned connection material and is **never itself an App Secret, an access token, a refresh token, a marketplace password or a raw authorisation payload.** ⚠ **No secret material enters the domain model, a Product response or any business-facing surface** (`API-062`, `PRD-194`).
+- `INV-16.9` **IDENTITY-SENSITIVE FACTS ARE NOT ORDINARY EDITS. Ratified 2026-08-15.** ✅ Ordinary local metadata — the display name and other explicitly ratified descriptive fields — is mutable. 🔴 **Channel type is immutable once the instance is in operational use; market is immutable once remote identity is bound or dependent operational facts exist; and the bound external shop identifier is NEVER offered for replacement by ordinary Edit** (`INV-16.6`).
+- `INV-16.10` **NO HARD DELETE. Ratified 2026-08-15.** A Channel Instance is retired through its configuration lifecycle and is never removed (`SYS-024`). ⚠ **Listings, history, audit and — once implemented — orders that reference it remain permanently resolvable.**
+- `INV-16.11` **`E-016` IS THE PERMANENT SCOPE OF ONE EXTERNAL OPERATING ACCOUNT. Ratified 2026-08-15.** **One Channel Instance represents exactly one external operating account, shop or store instance** — one Daraz seller account, one website storefront, one Facebook commerce account, one WhatsApp commerce account — **where the applicable Channel Type supports such an account.** 🔴 **NO PARALLEL ACCOUNT IDENTITY IS EVER CREATED.** ⚠ **A `MarketplaceAccount`, `SellerAccount`, `OrderShop`, `ChatShop`, `ReturnShop` or `ListingShop` that means the same operating account is a DUPLICATE of `E-016`, and duplicate identities are how one shop silently becomes five.**
+- `INV-16.12` **DOMAINS REFERENCE THE CHANNEL INSTANCE; THEY DO NOT REPRODUCE IT. Ratified 2026-08-15.** **Any business domain that receives remote facts attributable to one exact account references the canonical Channel Instance** — Listings, and once implemented Orders, Returns, Chat conversations, settlement contexts and seller-account-scoped promotions. 🔴 **THE REFERENCE CONFERS NO OWNERSHIP IN EITHER DIRECTION:** **`E-016` does not become the owner of an order, a return or a conversation, and those domains do not become second homes for account identity.** ✅ **The same external account resolves to the SAME Channel Instance in every domain that touches it** (`INV-16.11`).
+- `INV-16.13` **A REMOTE IDENTIFIER IS SCOPED BY ITS ACCOUNT UNLESS THE PROVIDER GUARANTEES OTHERWISE. Ratified 2026-08-15.** 🔴 **Global uniqueness of a provider's remote object identifier across all seller accounts is NEVER ASSUMED**; it holds only where that provider's authoritative contract actually guarantees it. ✅ **For an account-scoped remote object the conceptual identity is CHANNEL INSTANCE + REMOTE IDENTIFIER** — *Instance A + Order 12345* is not *Instance B + Order 12345*. ⚠ **Each owning domain fixes its own persistence and uniqueness constraint when it is designed; none is created here.** ✅ **`INV-59.2`'s existing per-instance uniqueness for a listing's external identifier is this rule already applied, not an exception to it.**
 
 ---
 
@@ -771,17 +783,21 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 | **Purpose** | The commercial offering the business sells — what an order line refers to |
 | **Ownership** | Product |
 | **Responsibility** | Carries commercial identity and the resolution path to physical inventory |
-| **Parents / Children** | Sellable Category / Channel Listing, Build Template, Bundle Member |
+| **Parents / Children** | Sellable Category, finished Product Variant for `ASSEMBLED` / Channel Listing, Build Template, Bundle Member |
 | **Lifecycle** | Master record lifecycle |
 
-**Key attributes** — sellable SKU; **nature** (`SIMPLE`, `ASSEMBLED`, `BUNDLE`); market-facing name; description; **marketplace metadata — highlights, feature bullets, specification summary, media references**; sellable category; warranty offering; **resolution target**; lifecycle status.
+**Key attributes** — sellable SKU; **nature** (`SIMPLE`, `ASSEMBLED`, `BUNDLE`); market-facing name; description; **marketplace metadata — highlights, feature bullets, specification summary, media references**; sellable category; warranty offering; **nature-specific resolution target** (`simple_target_variant_id` for `SIMPLE`, `assembled_finished_variant_id` plus Build Template semantics for `ASSEMBLED`, Bundle Members for `BUNDLE`); lifecycle status.
 
 **Invariants**
 - `INV-58.1` **Never holds stock** (`DM-023`, `PRD-003`).
-- `INV-58.2` Declares exactly one nature, and a resolution target consistent with it (`PRD-080`).
+- `INV-58.2` Declares exactly one nature, and resolution relationship(s) consistent with it: `SIMPLE` has only its simple target; `ASSEMBLED` has exactly one finished Product Variant plus Build Template semantics; `BUNDLE` has members and neither Inventory target column (`PRD-080`, `PRD-156`, `PRD-158`).
 - `INV-58.3` **Nature is immutable** — a `SIMPLE` product never becomes `ASSEMBLED`; that is a new product (`PRD-070`).
-- `INV-58.4` **Availability is always derived from component inventory**, never stored and never taken from a marketplace figure (`DM-024`).
+- `INV-58.4` **Availability is always derived from Inventory availability and Product-owned resolution relationships**, never stored and never taken from a marketplace figure (`DM-024`, `PRD-159`).
 - `INV-58.5` An `ASSEMBLED` product references exactly one `ACTIVE` Build Template (`PRD-081`).
+- `INV-58.6` An `ASSEMBLED` product references exactly one finished `E-020` Product Variant for ready-built inventory identity; the relationship creates no stock, movement, WAC or balance and is immutable after creation (`PRD-156`, `PRD-157`, `PRD-161`).
+- `INV-58.7` *(v3.26.0)* **Media is a SET of references to `E-105`, each carrying a role and an explicit position.** 🔴 **At most ONE reference holds `PRIMARY`; multiple `PRIMARY` references are invalid** (`PRD-168.a`). ✅ **`PRIMARY` is OPTIONAL and is never auto-selected** (`PRD-168.b`, `PRD-168.c`). 🔴 **Order is explicit and is never inferred from insertion, upload time, identifier or storage order** (`PRD-168.d`).
+- `INV-58.8` *(v3.26.0)* 🔴 **Media presence is NEVER a lifecycle precondition.** **A Sellable Product may be created, become and remain `ACTIVE`, and be sold with no media at all** (`PRD-168.b`). ⚠ **`PRD-062`–`PRD-065` gain no media gate.**
+- `INV-58.9` *(v3.26.0)* **The commercial content set — market-facing name, description, highlights, feature bullets, specification summary, media references — is Product-authored INTENT** (`PRD-163`). 🔴 **It never holds Stock Item technical identity, Inventory truth or channel-reported content, and no reported marketplace value ever writes into it** (`PRD-163.a`–`.c`, `PRD-128`). **Highlights and feature bullets are two attributes, not one, each explicitly ordered** (`PRD-164`, `PRD-165`).
 
 **Notes** — Trioloo's catalogue: smart TVs, monitors, and accessories are `SIMPLE`; desktop computers are `ASSEMBLED`; promotional packages are `BUNDLE`.
 
@@ -799,12 +815,21 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 
 **Key attributes** — sellable product; channel instance; **external listing identifier**; channel-side title and description; channel-specific price; listing status; **sync state and last sync time**; channel category mapping; listing media.
 
+> ✅ **CLARIFIED v3.26.0 — *listing media* is INTENDED media, Trioloo-authored** (`PRD-170`). 🔴 **There is no reported counterpart in V1** (`INV-59.7`, `PRD-172.a`). ⚠ **The line is unchanged; `INV-59.6` and `INV-59.7` say which side it sits on.**
+
 **Invariants**
-- `INV-59.1` Belongs to exactly one sellable product and exactly one channel instance (`PRD-085`).
-- `INV-59.2` **Carries exactly one external identifier**, unique within its channel instance — not globally (`PRD-086`).
+- `INV-59.1` ⚠ *(AMENDED v3.27.0 — `PRD-178`)* ~~Belongs to exactly one sellable product and exactly one channel instance~~ **Belongs to exactly ONE channel instance. Its Sellable Product mapping is carried per ORDERABLE CHANNEL SKU (`E-106`, `INV-106.2`) and is ZERO while `UNMAPPED`, exactly ONE once `MAPPED`; two or more simultaneous mappings for one orderable SKU are invalid** (`PRD-085` as amended, `PRD-190.d`). *Superseded wording retained (`DOC-009`).*
+- `INV-59.2` ⚠ *(AMENDED v3.27.0 — `PRD-188`)* ~~**Carries exactly one external identifier**~~ **Carries AT MOST ONE external identifier. It MAY BE ABSENT before a successful remote creation; once assigned it is unique within its channel instance — not globally — and is mirrored exactly as received** (`PRD-086` as amended, `PRD-012`, `DB-046`). *Superseded wording retained (`DOC-009`).*
+- `INV-59.8` *(v3.27.0)* **A Listing known to the ERP is RETAINED when the channel reports it as non-active, and is never hard-deleted** (`PRD-176`, `SYS-024`). 🔴 **Absence from a discovery run is never, by itself, a destructive state change** (`PRD-177`).
+- `INV-59.9` *(v3.27.0)* **For every marketplace-editable fact the adapter can read, intended and reported values are retained SEPARATELY** (`PRD-181`). 🔴 **Inbound data writes the REPORTED side only and never overwrites intent**; the sole path from reported to intended is an explicit *Accept Marketplace* (`PRD-184`). ⚠ **An unreadable field has no reported twin, and absent is not empty** (`SYS-034`).
+- `INV-59.10` *(v3.27.0)* **Channel-reported media is an ordered set of mirrored channel references with the time each was reported** (`PRD-182`). 🔴 **It is NOT `E-105` Media Asset**, 🔴 **never writes into `E-058` master media**, and 🔴 **never writes into intended listing media automatically.**
+- `INV-59.12` ✅ **LISTING CONTENT IS AUTHORED IN ENGLISH WITH AN OPTIONAL BANGLA OVERRIDE on title, description and highlights** (`PRD-202.b`). 🔴 **The EFFECTIVE Bangla is DERIVED — the override where one exists, otherwise the English content — and the fallback is NEVER materialised into Bangla storage** (`PRD-202.c`, `PRD-202.d`, `DB-001`). 🔴 **Highlights fall back as a WHOLE SET, all-or-nothing, with no per-line merge** (`PRD-202.f`). 🔴 **The fallback is ONE-DIRECTIONAL: English is never derived from Bangla** (`PRD-202.g`), **and nothing here translates** (`PRD-202.h`).
+- `INV-59.11` *(v3.27.0)* **A local save updates intended content only and NEVER constitutes or implies a remote operation** (`PRD-185`). ✅ **The unsent-change condition is DERIVED** — intended content changed after the last successful outbound operation — 🔴 **and is never a stored mutable flag** (`DB-001`).
 - `INV-59.3` Listing status is **channel-authoritative**; divergence raises an exception and is never silently reconciled (`PRD-030`, `SYS-026`).
-- `INV-59.4` Availability published is the **derived** figure, computed at push time (`PRD-073`).
+- `INV-59.4` ⚠ *(AMENDED v3.27.0 — propagation defect corrected)* ~~Availability published is the **derived** figure, computed at push time (`PRD-073`).~~ 🔴 **What is published is PUBLISHED MARKETPLACE STOCK — a MANUALLY maintained channel-facing figure carried per orderable channel SKU, never a derived one** (`PRD-073` **as amended 2026-08-06 by `BD-280`**, `PRD-126`, `PRD-193`, `INV-106.3`, `INV-106.4`). ⚠ **It may deliberately exceed available quantity** (`PRD-112`). **This invariant restated the pre-`BD-280` rule and was never propagated when `PRD-073` was amended and `PRD-079` withdrawn; corrected here.** *Superseded wording retained (`DOC-009`).*
 - `INV-59.5` A sync failure on one listing never blocks other listings or the sale (`PRD-074`).
+- `INV-59.6` *(v3.26.0)* **Listing intended media is an ALL-OR-NOTHING OVERRIDE SET of `E-105` references** (`PRD-170.d`). ✅ **Effective intended media is DERIVED on read: the Listing's own set where it has one, otherwise the mapped Sellable Product's master media** (`PRD-170`). 🔴 **The fallback is NEVER materialised, NEVER copied into the Listing, and NEVER transfers media ownership from `E-058`** (`PRD-170.b`, `PRD-170.c`, `DB-001`).
+- `INV-59.7` *(v3.26.0)* 🔴 **V1 holds NO channel-reported media.** **The mirrored side remains channel-reported title and description only** (`DM-060`, `PRD-172.a`). 🔴 **Media therefore never participates in `DIVERGED`** — there is no reported value to compare against, and a comparison against absence would raise a permanent false exception (`PRD-172.b`, `SYS-026`).
 
 **Notes** — This is what makes multiple Daraz shops and multiple websites work without duplicating product definitions.
 
@@ -864,7 +889,8 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 
 **Invariants**
 - `INV-62.1` Every assembled unit has exactly one As-Built Record (`PRD-035`).
-- `INV-62.2` **Accounts for every non-optional BOM line** of the template version used (`PRD-088`).
+- `INV-62.2` **Accounts for every non-optional component line of the BUILD SPECIFICATION SOURCE the job executed** — a Build Template version's BOM lines, or a confirmed `E-103`'s `E-104` lines (`PRD-088` as amended).
+  🔴 **AMENDED 2026-08-11** (`GAP-129`, Option C). **v3.23.0 read:** ~~*"Accounts for every non-optional BOM line of the template version used"*~~ ⚠ **retained** (`DOC-009`). ✅ **The completeness obligation is unchanged; only the source it is measured against is generalised.**
 - `INV-62.3` **Captures actual component serials, not merely types** (`PRD-036`).
 - `INV-62.4` Immutable once recorded (`DM-008`).
 - `INV-62.5` Retained for the longest applicable obligation — warranty from delivery (`PRD-097`).
@@ -925,7 +951,8 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 **Key attributes** — order item; sellable product; **build template version**; warehouse; quantity to build; assigned technician; component reservation references; start and completion time; test outcome; resulting As-Built Records.
 
 **Invariants**
-- `INV-65.1` **A build job executes exactly one Build Template version**, fixed at job creation (`PRD-071`).
+- `INV-65.1` **A build job executes exactly ONE IMMUTABLE BUILD SPECIFICATION SOURCE, fixed at job creation** — **either a reusable Build Template version OR a confirmed `E-103` Order-Specific Build Configuration, never both** (`PRD-071`, `WHS-076`).
+  🔴 **AMENDED 2026-08-11** (`GAP-129`, Option C). **v3.23.0 read:** ~~*"A build job executes exactly one Build Template version, fixed at job creation"*~~ — **which made a pre-existing reusable template a precondition of every build.** ⚠ **The superseded wording is retained here, not erased** (`DOC-009`). ✅ **What did NOT change: exactly ONE source, and FIXED AT JOB CREATION. A later change to either a template or a configuration never reaches a job already bound to it.**
 - `INV-65.2` **Component reservation is atomic** — either every component is reserved or none is (`PRD-026`).
 - `INV-65.3` **Components are consumed from stock at assembly, not at dispatch** (`PRD-045`).
 - `INV-65.4` **The assembled unit is not stock** unless build-to-stock is adopted (`DM-025`, `PRDU-5`).
@@ -933,6 +960,215 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 - `INV-65.6` Cannot complete while any non-optional BOM line is unaccounted for (`INV-62.2`).
 
 **Notes** — Build Job is the *work*; As-Built Record is the *evidence*. `PRODUCT_ARCHITECTURE.md` specified the evidence but not the work instruction; this entity closes that gap. It is **new in this model and requires registration in `PRODUCT_ARCHITECTURE.md`** (`DMU-20`).
+
+---
+
+## E-103 · Order-Specific Build Configuration — **new**
+
+*Added v3.24.0 — business decision 2026-08-11, resolving `GAP-129` by Option C. **Warehouse-owned** (`DM-081`).*
+
+| | |
+|---|---|
+| **Purpose** | The **staff-confirmed component plan for ONE order's build requirement**, where no applicable reusable Build Template version governs it |
+| **Ownership** | **Warehouse** (`DM-081`) |
+| **Responsibility** | Carries a build specification that is authoritative for **one order only** — it says what *should* be used, for *this* order |
+| **Parents / Children** | Order Item / `E-104` Configuration Line, `E-065` Build Job |
+| **Lifecycle** | `DRAFT → ACTIVE → SUPERSEDED` — **the ratified Build Template lifecycle shape** (`PRD §15.3`), reused rather than duplicated (`SYS-016`, `SMA-002`, precedent `PRD-066`) |
+
+**Key attributes** — order item; **confirmation actor and timestamp**; configuration lines; **recommendation provenance** *(which evidence produced the draft — `PRD-146`)*; originating Build Template version *(optional, where the draft began from one)*; status.
+
+**Invariants**
+- `INV-103.1` **Belongs to exactly ONE Order Item.** 🔴 **It is never shared between orders and is non-reusable by default** — reuse happens only by explicit promotion (`PRD-147`).
+- `INV-103.2` 🔴 **A `DRAFT` configuration is NOT authoritative.** **It reserves nothing, consumes nothing, authorises no assembly and binds no Build Job** (`WHS-077`).
+- `INV-103.3` **Confirmation is the `DRAFT → ACTIVE` transition and is attributable to an Operational User Profile** (`AGV-001`, `AUD-004`).
+- `INV-103.4` 🔴 **An `ACTIVE` configuration is IMMUTABLE** (`DM-008`, `DB-003`). **A different plan is a NEW configuration; the earlier one becomes `SUPERSEDED`** — the same mechanism `PRD-069` applies to templates, not a new one.
+- `INV-103.5` **A configuration bound to an `E-065` Build Job can never be superseded away from that job** — the job's source is fixed at creation (`INV-65.1`).
+- `INV-103.6` 🔴 **It is NOT a Sellable Product, NOT a Channel Listing, NOT a reusable Build Template and NOT an As-Built Record.** **It creates no catalogue entry** (`PRD-145`).
+- `INV-103.7` **Retained permanently** — it is the specification an As-Built Record was measured against (`SYS-024`, `DB-028`, `INV-62.2`).
+
+**Notes** — **Build Template is REUSABLE intended composition; `E-103` is intended composition for ONE order; `E-062` As-Built Record is what was ACTUALLY installed.** Three different facts at three different times, and the model keeps all three.
+
+---
+
+## E-104 · Order-Specific Build Configuration Line — **new**
+
+*Added v3.24.0. **Warehouse-owned** (`DM-081`).*
+
+| | |
+|---|---|
+| **Purpose** | One confirmed component requirement within an `E-103` |
+| **Ownership** | **Warehouse** (`DM-081`) |
+| **Responsibility** | Names a physical component, its quantity and its role **for one order's build** |
+| **Parents / Children** | `E-103` Order-Specific Build Configuration / None |
+| **Lifecycle** | Follows its configuration |
+
+**Key attributes** — **product variant reference**; quantity required; component role; **optional flag**; position.
+
+**Invariants**
+- `INV-104.1` **References a Product Variant, never a Sellable Product** — a build consumes physical things (the `INV-61.1` / `PRD-032` principle, applied here).
+- `INV-104.2` Quantity is positive and in the component's unit of measure (`PRD-083`).
+- `INV-104.3` References an `ACTIVE` variant (`PRD-084`, `SYS-024`).
+- `INV-104.4` 🔴 **It is NOT an `E-061` BOM Line and is never presented, queried or reused as one.** **`E-061` belongs to a versioned reusable template; `E-104` belongs to one order** (`DM-081`).
+
+> **DM-081 — ✅ `E-103` AND `E-104` ARE WAREHOUSE-OWNED. Ratified 2026-08-11.**
+>
+> **The owner was derived, not assumed** (`DOC-005` — one owner, and navigation grouping never decides it).
+>
+> | Candidate | Verdict |
+> |---|---|
+> | **Product** | ❌ **No.** **Product owns REUSABLE definition** — Sellable Products, Build Templates, BOM lines, bundles, substitution groups (`PRD §20`). **A non-reusable one-off is not catalogue data, and placing it here would make every one-off build a catalogue entry** — the exact outcome `PRD-081` and the business decision both refuse |
+> | **Order Management** | ❌ **No.** 🔴 **`INV-32.1` deliberately keeps Order Management away from Product Variants** — *a catalogued line references a Sellable Product, never a Product Variant directly.* **Owning a variant-level component plan would contradict that boundary** |
+> | **Inventory** | ❌ **No.** **`IVN-000` scopes Inventory to what exists, who owns it, whether it is available and what moved it.** **A specification is none of those** |
+> | **Warehouse** | ✅ **Yes.** **Warehouse already owns the WORK (`E-065`) and the EVIDENCE (`E-062`); this is the SPECIFICATION those two consume and are measured against.** **All three share one lifetime, one actor community and one authority model** (`PRD §24` substitution authority) |
+>
+> ⚠ **The Order Item remains the COMMERCIAL requirement and is unchanged.** **`E-103` hangs off it as the build specification; it does not move ownership of the order line.**
+
+**Notes** — **A deliberately separate line entity, not a reuse of `E-061`.** ⚠ **Attaching order-specific lines to `E-061` would make a one-off configuration indistinguishable from reusable catalogue definition** — the precise failure `PRD-002` and `PRD-081` exist to prevent. **The attribute shapes are near-identical on purpose: same concept, different reusability, different owner, different lifetime.**
+
+---
+
+## E-105 · Media Asset — **new**
+
+*Added v3.26.0 — business decision 2026-08-13, propagated from Product `PRD-167` – `PRD-169` under `DOC-079`. **Product-owned** (`DM-082`).*
+
+| | |
+|---|---|
+| **Purpose** | **Reusable authored COMMERCIAL media for Product-owned content** — what the business publishes about what it sells |
+| **Ownership** | **Product** (`DM-082`) |
+| **Responsibility** | Carries the identity of one piece of commercial media so it can be referenced, ordered and given a role by `E-058` and `E-059` **without being duplicated** |
+| **Parents / Children** | None / referenced by `E-058` Sellable Product media and `E-059` Channel Listing intended media |
+| **Lifecycle** | **`ACTIVE → ARCHIVED`** (`PRD-169`) — **deliberately minimal; no draft, pending or approval state** |
+
+**Key attributes** — media identity; **media type**; **storage reference** *(sufficient to IDENTIFY the media and nothing more — `PRD-167.c`)*; descriptive metadata; lifecycle status; created-by actor and time (`AGV-001`).
+
+**Invariants**
+- `INV-105.1` 🔴 **It is NOT `E-054` Attachment and is never used as evidence.** **The boundary is PURPOSE, not file type: an image is not evidence merely because it is an image** (`PRD-167`). ⚠ **`E-054`'s `INV-54.1` unaltered-as-received rule and `INV-54.2` retention rule are untouched and are not inherited here.**
+- `INV-105.2` ✅ **Reusable by design** — one asset may be referenced by many Sellable Products and many Channel Listings. **A reference is never a copy** (`PRD-170.b`).
+- `INV-105.3` 🔴 **A referenced asset is never destructively hard-deleted in ordinary business operation** — archived, never deleted (`PRD-169.b`, `SYS-024`, `DB-028`).
+- `INV-105.4` 🔴 **Replacement is a NEW asset and a NEW reference, never an in-place rewrite**; existing historical references are preserved where history or audit requires them (`PRD-169.c`, `DB-003`).
+- `INV-105.5` 🔴 **It carries NO storage technology, provider, hosting mechanism or URL scheme as a business fact** (`PRD-167.c`, `TEC-105`). ⚠ **The storage reference identifies the media; it is not evidence that any storage decision has been made.**
+- `INV-105.6` 🔴 **It holds no role and no order.** **Role (`PRIMARY`/`GALLERY`) and sequence belong to the REFERENCE from `E-058` or `E-059`, never to the asset** — the same asset may be `PRIMARY` for one product and `GALLERY` for another (`PRD-168`).
+- `INV-105.7` 🔴 **No retention duration and no purge schedule is defined** (`PRD-169.e`).
+
+> **DM-082 — ✅ `E-105` IS PRODUCT-OWNED, AND COMMERCIAL MEDIA IS NOT AUDIT'S. Ratified 2026-08-13.**
+>
+> **The owner was derived, not assumed** (`DOC-005`).
+>
+> | Candidate | Verdict |
+> |---|---|
+> | **Audit** | ❌ **No.** **Audit owns `E-054` because EVIDENCE is retained to prove what happened** (`INV-54.1`, `AUD-009`). **Commercial media proves nothing and is authored rather than received** — it answers *what do we publish*, not *what happened* |
+> | **System** | ❌ **No.** **`SYS-076` keeps technology out of the business model; a media store is not a configuration participant** |
+> | **Each consuming module** | ❌ **No.** **That is duplication by definition** — the reuse in `INV-105.2` is the entire reason the asset is a separate entity |
+> | **Product** | ✅ **Yes.** **Product already owns the commercial content this media belongs to** — `E-058`'s market-facing name, description, highlights, feature bullets and specification summary (`PRD-163`), and `E-059`'s intended listing content (`PRD-018`). **The media is the same authored commercial fact in a different medium** |
+>
+> ⚠ **`E-054` Attachment is unchanged and remains Audit's.** 🔴 **This creates no second EVIDENCE store** — `TEC-104`'s prohibition is on evidence storage and is not relaxed (`TEC-105`).
+
+---
+
+## E-106 · Channel Listing SKU — **new**
+
+*Added v3.27.0 — business decision 2026-08-13, propagated from Product `PRD-190` under `DOC-079`. **Product-owned** (`DM-083`).*
+
+| | |
+|---|---|
+| **Purpose** | **One ORDERABLE unit of a Channel Listing** — what a customer can actually buy on the channel |
+| **Ownership** | **Product** (`DM-083`) |
+| **Responsibility** | Carries the channel-side SKU identity, its per-SKU commercial figures, and its Sellable Product mapping |
+| **Parents / Children** | `E-059` Channel Listing / None |
+| **Lifecycle** | Follows its Listing |
+
+**Key attributes** — channel-side SKU identifier; **Sellable Product mapping** *(zero or one)*; **channel price** (`PRD-029`); **published marketplace stock** (`PRD-126`); intended and reported counterparts where the adapter can read them (`PRD-181`); position.
+
+**Invariants**
+- `INV-106.1` **Belongs to exactly one `E-059`.** ✅ **A Listing has AT LEAST ONE orderable channel SKU; a listing without variations has exactly ONE** — the degenerate case and the shape of every listing held today (`PRD-190.a`).
+- `INV-106.2` 🔴 **THE ORDERABLE SKU IS THE MAPPING UNIT.** **It maps to ZERO Sellable Products while `UNMAPPED` and exactly ONE once `MAPPED`** (`PRD-178`, `PRD-190.d`). ✅ **Several orderable SKUs MAY map to the same Sellable Product;** 🔴 **one orderable SKU NEVER maps to two.**
+- `INV-106.3` ⚠ *(AMENDED v3.29.0 — `PRD-199`; previously amended v3.28.0 by the now-superseded `PRD-197`)* 🔴 **~~CHANNEL PRICE~~ ~~THE TWO COMMERCIAL PRICES — `MRP` AND `SALE PRICE`~~ THE COMMERCIAL PRICING — `SALE PRICE`, THE OPTIONAL `PROMOTION PRICE` AND ITS WINDOW — AND PUBLISHED MARKETPLACE STOCK ATTACH HERE, NOT TO THE LISTING** (`PRD-190.b`, `PRD-199.i`). ⚠ **`PRD-029` and `PRD-126` are refined, not contradicted — for a single-SKU listing the two are indistinguishable, which is why the originals were correct.** *Superseded wording retained (`DOC-009`).*
+- `INV-106.8` ⚠ *(AMENDED v3.29.0 — `PRD-199` supersedes `PRD-197`; `MRP` is no longer a Listing price)* 🔴 **~~`MRP >= SALE PRICE`, AND EQUALITY IS VALID~~ `PROMOTION PRICE <= SALE PRICE`, AND EQUALITY IS VALID** (`PRD-199.e`). ✅ **`SALE PRICE` is the normal base selling price; `PROMOTION PRICE` is a temporary selling price in force only while its window is open.** 🔴 **Any may be ABSENT — absence is not zero** (`SYS-034`). 🔴 **NO stored "current price" exists: the EFFECTIVE selling price is DERIVED at read time from the clock** (`PRD-199.d`, `DB-001`). 🔴 **Each is an INDEPENDENT adapter-capability field and one is NEVER substituted for another** (`PRD-199.h`). *Superseded wording retained (`DOC-009`).*
+- `INV-106.9` 🔴 **A `PROMOTION PRICE` REQUIRES BOTH WINDOW BOUNDS, AND `PROMOTION ENDS` MUST BE LATER THAN `PROMOTION STARTS`** (`PRD-199.c`). ⚠ **A promotion price with no window would be a permanent second price.**
+- `INV-106.10` 🔴 **THE PACKAGE PUBLISHING FACTS ATTACH HERE** — weight, length, width, height and package content (`PRD-201.c`). ✅ **A non-variation Listing has exactly one orderable SKU and therefore one set; a variation Listing may carry a different set per SKU.** 🔴 **Weight is KILOGRAMS and dimensions are CENTIMETRES, stored once; a channel needing other units converts in its adapter** (`PRD-201.e`). 🔴 **They are AUTHORABLE with no channel, adapter or schema** (`PRD-201.b`), **are NOT product physical dimensions and NEVER derive from an Inventory quantity** (`PRD-201.d`, `INV-106.4`). 🔴 **An unset value is ABSENT, never zero** (`SYS-034`, `PRD-201.f`).
+- `INV-106.4` 🔴 **Published marketplace stock remains MANUAL and is never derived from Inventory** (`PRD-126`, `PRD-193`, `INV-58.4`).
+- `INV-106.5` 🔴 **It confers NO variant structure on `E-058`.** **A Sellable Product acquires no variant axis, no parent/child relation and no channel-derived shape** (`PRD-190.f`, `INV-58.3`).
+- `INV-106.6` 🔴 **It is NOT `E-020` Product Variant.** ⚠ **`E-020` is Trioloo's transaction-level physical granularity (`PRD-014`); `E-106` is a channel-side orderable unit. `BD-321` records the reconciliation between them as an ADAPTER MAPPING, and no automatic correspondence between the two exists.**
+- `INV-106.7` 🔴 **The variation AXIS SCHEMA — option names and permitted values — is channel taxonomy and is NOT modelled here** (`PRD-190.g`, `PRD-194`).
+
+---
+
+## E-107 · Channel Listing Operation — **new**
+
+*Added v3.27.0 — propagated from Product `PRD-186` under `DOC-079`. **Product-owned** (`DM-083`).*
+
+| | |
+|---|---|
+| **Purpose** | **One requested remote operation against ONE Channel Listing, and its outcome** |
+| **Ownership** | **Product** (`DM-083`) |
+| **Responsibility** | Makes *what was requested, by whom, when, and what actually happened* a first-class fact per listing |
+| **Parents / Children** | `E-059` Channel Listing · optional `E-108` batch / None |
+| **Lifecycle** | `REQUESTED → IN_PROGRESS → SUCCEEDED` · `FAILED` · `MANUAL_REQUIRED` |
+
+**Key attributes** — listing; **operation kind** *(discover · refresh · push update · publish create · withdraw)*; direction; optional batch reference; **requesting actor and time** (`AGV-001`); outcome; result detail; **adapter provenance** (`SYS-046`, `API-029`).
+
+**Invariants**
+- `INV-107.1` 🔴 **ONE RECORD PER LISTING PER REQUESTED REMOTE ACT.** **Per-listing outcomes are retained individually and are NEVER collapsed into an aggregate** (`PRD-186.b`).
+- `INV-107.2` 🔴 **A FAILED SIBLING NEVER MAKES A SUCCEEDED RECORD APPEAR FAILED**, and vice versa.
+- `INV-107.3` ✅ **It is an ACTIVITY record, not an audit record** (`AUD-001`, `PRD-129`), **and replaces no audit obligation** (`PRD-095`, `AUD §12.2`).
+- `INV-107.4` 🔴 **It never carries or duplicates the SYSTEM-owned listing sync state** (`SYS §7.1`, `PRD-185.d`). ⚠ **An operation is an attempt with an outcome; the sync state is the listing's standing position relative to the channel.**
+- `INV-107.5` **Attribution is captured at write time and is never reconstructed** (`PRJ-130`, `INV-77.1`).
+- `INV-107.6` **Retained permanently as operational history** (`SYS-024`, `DB-028`).
+
+---
+
+## E-108 · Channel Listing Operation Batch — **new**
+
+*Added v3.27.0 — propagated from Product `PRD-186` under `DOC-079`. **Product-owned** (`DM-083`).*
+
+| | |
+|---|---|
+| **Purpose** | **The grouping of `E-107` records produced by one requested bulk operation** |
+| **Ownership** | **Product** (`DM-083`) |
+| **Responsibility** | Gives a bulk request one identity so its members can be reviewed, reported and retried as a set |
+| **Parents / Children** | None / `E-107` Channel Listing Operation |
+| **Lifecycle** | Follows its members |
+
+**Key attributes** — **requesting actor and time**; operation kind; requested scope *(the explicit selection — `PRD-187.c`)*; channel instance(s) addressed.
+
+**Invariants**
+- `INV-108.1` 🔴 **A BATCH IS NOT ATOMIC ACROSS AN EXTERNAL PARTY.** **Partial success is the NORMAL outcome, not an anomaly** (`PRD-186.c`). ⚠ **`API-060`'s atomic commit governs a LOCAL file import and does not extend here.**
+- `INV-108.2` 🔴 **The batch's aggregate outcome is DERIVED from its members and is NEVER stored** (`DB-001`, `PRD-186.c`).
+- `INV-108.3` ✅ **Retry is targetable to failed or eligible members and does not repeat successful work** (`PRD-186.d`). 🔴 **Every attempt is idempotent** (`PRD-075`, `SYS-045`) — ⚠ **a retried publish must not create a second channel listing.**
+- `INV-108.4` 🔴 **Its scope is an EXPLICIT SELECTION.** **A batch never expands itself to sibling listings sharing a Sellable Product** (`PRD-187.c`).
+- `INV-108.5` 🔴 **Every control governing a single update applies unchanged** (`PRD-131`, `PRM-004`, `AUD §12.2`, `PRD-095`).
+
+> **DM-083 — ✅ `E-106`, `E-107` AND `E-108` ARE PRODUCT-OWNED. Ratified 2026-08-13.**
+>
+> **The owner was derived, not assumed** (`DOC-005`).
+>
+> | Candidate | Verdict |
+> |---|---|
+> | **Marketplace Integration / adapter** | ❌ **No.** **`API-003` and `SYS-009` put the ADAPTER at the edge to absorb external variation — it owns transport, credentials, pagination and endpoints.** **A canonical listing representation, a Sellable Product mapping and a durable business history are core facts the core must keep when an adapter is replaced** (`PRD-194`) |
+> | **Order Management** | ❌ **No.** **`INV-32.1` keeps Order Management away from product-layer identity; a listing is not an order** |
+> | **Inventory** | ❌ **No.** **`IVN-000` scopes Inventory to existence, ownership, availability and movement.** 🔴 **`PRD-193` explicitly severs marketplace stock from Inventory stock** |
+> | **Audit** | ❌ **No for `E-107`/`E-108`.** **These are OPERATIONAL activity records, not audit records** (`AUD-001`, `INV-107.3`); the audit obligation is separate and unchanged |
+> | **Product** | ✅ **Yes.** **Product already owns `E-059`** (`DM §18`), **its mapping to `E-058`, its intended content and its activity history** (`PRD-129`). **All three entities are facts ABOUT a Channel Listing and share its owner, its lifetime and its authority model** |
+>
+> ⚠ **`E-016` Channel Instance remains System's and is unchanged.** 🔴 **No adapter, credential, endpoint or transport concept enters the domain model.**
+
+> **DM-084 — ✅ THE CHANNEL INSTANCE IS THE SHOP, AND ITS CONNECTION IS NOT ITS CONFIGURATION. Ratified 2026-08-15.**
+>
+> **Derived from the Shops & Channels contract extraction, which found the entity model complete and the CONNECTION model entirely absent.**
+>
+> **a.** 🔴 **NO "PROVIDER" ENTITY IS CREATED.** ⚠ **`E-015` Channel Type is already the category and `E-016` is already the account** — "one operating account of a channel type — a single Daraz shop, a single website". ✅ **`DM-059` proved this sufficient: seven seller accounts resolve onto `E-016` as CONFIGURATION, NOT STRUCTURE, and six more Daraz shops require no model change.** 🔴 **`INV-15.1` still forbids workflow branching on a channel's identity, so a marketplace BRAND is never promoted to an entity.** ✅ **A surface may DISPLAY a friendly name such as *Daraz*; the canonical field names remain Channel Type and Channel Instance.**
+> **b.** 🔴 **`E-016` REMAINS SYSTEM / CONFIGURATION OWNED.** **Administration → Shops & Channels is its business-facing management surface.** ⚠ **Product REFERENCES it — `channel_instance_id` on a Listing — and does not own it.** 🔴 **The current placement of `channel_instance` persistence under a Product package is IMPLEMENTATION DEBT, not a change of ownership** (`DOC-080` — code is never ratification).
+> **c.** 🔴 **THE CONNECTION LIFECYCLE IS A SEPARATE FACT AND IS INTEGRATION-OWNED** (`API-068`). ⚠ **It is NOT `record_status`, which is the CONFIGURATION lifecycle** (`SYS-108`), **and it is NOT the per-record sync lifecycle of `§7.1`, which describes one record's agreement with a counterparty.** 🔴 **`ACTIVE` DOES NOT MEAN `CONNECTED`**: a shop may be perfectly well-configured and not authorised, and conflating the two would tell an operator a marketplace is reachable because someone filled in a form.
+> **d.** ⚠ **NO ENTITY IS CREATED BY THIS DECISION.** **`INV-16.4`–`INV-16.10` add invariants to an existing entity; where the connection record itself lives is an Integration persistence question and is deliberately not answered here.**
+
+> **DM-085 — ✅ ONE SHOP IS ONE SHOP IN EVERY DOMAIN. Ratified 2026-08-15.**
+>
+> **A forward-looking addendum to `DM-084`. It settles nothing about Orders, Returns, Chat or Finance except WHERE THEIR ACCOUNT IDENTITY COMES FROM, and it does so now because that is the decision which becomes unfixable later.**
+>
+> **a.** 🔴 **THE FAILURE THIS PREVENTS.** **Each domain, arriving on its own roadmap stage, meets the same external account and is tempted to model it locally — an `OrderShop` for orders, a `ChatShop` for conversations, a settlement account for finance.** ⚠ **Five records for one Daraz shop cannot be reconciled afterwards: nothing in the data says they are the same shop, and every cross-domain question — *what did Shop A actually earn?* — becomes a join nobody can trust.** ✅ **`INV-16.11` and `INV-16.12` close that door before it opens.**
+> **b.** ✅ **THIS COSTS NOTHING NOW.** **`DM-059` already proved `E-016` sufficient for seven seller accounts as CONFIGURATION, and `INV-16.3` already binds a Listing to exactly one instance.** 🔴 **NO FIELD, TABLE OR CONSTRAINT IS CREATED BY THIS DECISION** — **speculative persistence for domains that do not exist is exactly what `DB-001` and `PRJ-*` discipline forbid.**
+> **c.** ✅ **OWNERSHIP IS UNCHANGED AND STAYS DISTRIBUTED** (`SYS-110`). **Product owns Listings, Order Management owns orders, the reverse-order domain owns returns, Chat owns conversations, Finance owns settlement, Integration owns transport and authorisation.** 🔴 **Shops & Channels owns the ACCOUNT, and must not become a marketplace aggregate that quietly absorbs them.**
+> **d.** ⚠ **`AGV-016` IS PRESERVED, NOT EXTENDED.** **It already requires per-shop actor isolation — "a Shop 1 adapter cannot read or write Shop 2's data" — and this decision depends on it rather than restating it.**
 
 ---
 
@@ -1114,7 +1350,8 @@ Defined in full in [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) §
 
 **Invariants**
 - `INV-32.1` **A catalogued line references a Sellable Product, never a Product Variant directly** (`PRD-022`) — the customer bought the offering, not the components.
-- `INV-32.2` A non-catalogued line **cannot reserve or deduct inventory** (`BR-006`).
+- `INV-32.2` A non-catalogued line **cannot reserve or deduct inventory WHILE ITS BUILD REQUIREMENT IS UNRESOLVED** (`BR-006` as amended by `BR-177`).
+  🔴 **AMENDED 2026-08-11** (`GAP-129`, Option C). **v3.23.0 read:** ~~*"A non-catalogued line cannot reserve or deduct inventory"*~~ ⚠ **retained, not erased** (`DOC-009`). ✅ **The protection is unchanged in substance: a RAW or unresolved line still reserves nothing.** ✅ **What changed is that a confirmed `E-103` is now a resolved build specification, so the line's build requirement participates in the ordinary reservation and build workflow through its `E-065` Build Job** (`BR-177`, `IVN-054`). 🔴 **A DRAFT `E-103` resolves nothing and reserves nothing.**
 - `INV-32.3` A line for an `ASSEMBLED` product creates a Build Job (`INV-65.1`).
 - `INV-32.4` **An unknown cost is unknown, not zero** (`SYS-034`).
 - `INV-32.5` Payment obligation follows **delivered** goods, never ordered goods (`BR-033`).
@@ -2453,10 +2690,10 @@ Must agree with `SYS §5.4`. ✅ **Every owning module in this index now has a r
 | **Permission** | E-007 – E-014 |
 | **Audit** | E-052 Activity Log · E-053 Audit Log · E-054 Attachment |
 | **Order Management** | E-031 Order · E-032 Order Item · E-033 Verification · E-034 Order Timeline |
-| **Product** ✅ | E-017 Brand · E-018 Category · E-019 Product Family · E-020 Product Variant · E-022 Price List · **E-058 Sellable Product** · **E-059 Channel Listing** · **E-060 Build Template** · **E-061 BOM Line** · **E-063 Bundle Member** · **E-064 Substitution Group** · E-051 Warranty (terms) |
+| **Product** ✅ | E-017 Brand · E-018 Category · E-019 Product Family · E-020 Product Variant · E-022 Price List · **E-058 Sellable Product** · **E-059 Channel Listing** · **E-060 Build Template** · **E-061 BOM Line** · **E-063 Bundle Member** · **E-064 Substitution Group** · E-051 Warranty (terms) · **E-105 Media Asset** *(`DM-082`)* · **E-106 Channel Listing SKU** · **E-107 Channel Listing Operation** · **E-108 Channel Listing Operation Batch** *(`DM-083`)* |
 | **Customer** | E-023 Customer · E-024 Customer Address |
 | **Inventory** | E-021 Serial Number · E-026 Stock · E-027 Stock Reservation · E-028 Inventory Movement |
-| **Warehouse** | E-004 Warehouse · E-005 Stock Location · E-035 Pick Task · E-049 QC Inspection · **E-062 As-Built Record** · **E-065 Build Job** |
+| **Warehouse** | E-004 Warehouse · E-005 Stock Location · E-035 Pick Task · E-049 QC Inspection · **E-062 As-Built Record** · **E-065 Build Job** · **E-103 Order-Specific Build Configuration** · **E-104 Configuration Line** |
 | **Procurement** | E-025 Supplier · E-029 Purchase Order · **E-066 Purchase Order Item** · E-030 Goods Receipt |
 | **Delivery** | E-036 Courier · E-037 Shipment · E-038 Tracking Event |
 | **Payment** | E-040 Receivable · E-041 Payment Transaction · E-042 Remittance Batch · E-043 Marketplace Settlement · E-044 Settlement Line · E-045 Refund |
@@ -2488,6 +2725,7 @@ Must agree with `SYS §5.4`. ✅ **Every owning module in this index now has a r
 | Sellable Product → Channel Listing | One to **many** | `PRD-028` |
 | Channel Listing → Sellable Product | **Exactly one** | `INV-59.1` |
 | Channel Listing → external identifier | **Exactly one** | `INV-59.2` |
+| ASSEMBLED Sellable Product → finished Product Variant | **Exactly one** | `INV-58.6`, `PRD-156` |
 | Sellable Product → Build Template versions | One to many; **one `ACTIVE`** | `INV-60.1` |
 | Build Template → BOM Line | One to many | — |
 | BOM Line → Product Variant | **Exactly one** | `INV-61.1` |
@@ -2538,7 +2776,7 @@ Consolidated for testing. Each is an assertion checkable against any system stat
 
 | # | Invariant | Entity |
 |---|---|---|
-| 1 | **Sellable availability is derived from component inventory, never from a marketplace figure** | `INV-58.4`, `DM-024` |
+| 1 | **Sellable availability is derived from Inventory availability and Product resolution relationships, never from a marketplace figure** | `INV-58.4`, `DM-024` |
 | 2 | **Only physical inventory holds stock** | `INV-20.1`, `DM-023` |
 | 3 | **Stock is derived from movements, never adjusted in place** | `INV-26.1` |
 | 4 | **Reservation reduces availability without reducing stock** | `INV-26.2` |
@@ -3133,7 +3371,7 @@ Rules arising from Sales discovery. Each cites the `BD-` answer it derives from.
 >
 > **`INV-59.x` addition:** publication intent must never overwrite listing status. A marketplace suspension erased by an intent push destroys the fact that the listing was refused.
 
-**Product & Build** E-058 Sellable Product · E-059 Channel Listing · E-060 Build Template · E-061 BOM Line · E-062 As-Built Record · E-063 Bundle Member · E-064 Substitution Group *(advisory — `PRD-114`)* · **E-065 Build Job** · **E-067 Stock Count**
+**Product & Build** E-058 Sellable Product · E-059 Channel Listing · E-060 Build Template · E-061 BOM Line · E-062 As-Built Record · E-063 Bundle Member · E-064 Substitution Group *(advisory — `PRD-114`)* · **E-065 Build Job** · **E-067 Stock Count** · **E-103 Order-Specific Build Configuration** · **E-104 Order-Specific Build Configuration Line** · **E-105 Media Asset** · **E-106 Channel Listing SKU** · **E-107 Channel Listing Operation** · **E-108 Channel Listing Operation Batch**
 **Inventory** E-026 Stock · E-027 Stock Reservation · E-028 Inventory Movement
 **Procurement** E-029 Purchase Order · **E-066 Purchase Order Item** · E-030 Goods Receipt
 **Commercial** E-031 Order · E-032 Order Item · E-033 Verification · E-034 Order Timeline
@@ -3143,6 +3381,8 @@ Rules arising from Sales discovery. Each cites the `BD-` answer it derives from.
 **Cross-Cutting** E-052 Activity Log · E-053 Audit Log · E-054 Attachment · E-055 Notification · E-056 Exception · E-057 Configuration Version
 
 **66 entities.**
+
+> ⚠ **THIS AGGREGATE COUNT IS STALE AND IS NOT RECOMPUTED HERE.** **It states the v2.0.0 total and was already not updated when `E-103` and `E-104` were added at v3.24.0**, so it understated the model before this amendment and continues to. 🔴 **Reported as a pre-existing deterministic documentation defect rather than silently corrected** (`PRJ-011`, `DOC-079`): **this appendix's grouping does not enumerate every registered entity, so recomputing the figure would require deciding that appendix's scope — a separate governed decision.** **The authoritative ownership register is §18, which is current.**
 
 # Appendix B — Amendments This Version Requires
 
@@ -3158,6 +3398,10 @@ Rules arising from Sales discovery. Each cites the `BD-` answer it derives from.
 
 | Version | Date | Change |
 |---|---|---|
+| **3.24.0** | **2026-08-11** | ✅ **ORDER-SPECIFIC BUILD CONFIGURATION — `GAP-129` resolved by business decision (Option C), routed as a post-freeze amendment** (`DOC-079`, `DOC-081`). 🔴 **The blocker: `INV-32.3` + `INV-65.1` + `PRD-081` + `PRD-088` + `BR-006` together required a pre-existing reusable Sellable Product and ACTIVE Build Template before ANY assembly could occur, so a one-off configuration was unbuildable and the only workaround would have polluted the catalogue.** ✅ **NEW `E-103` Order-Specific Build Configuration and `E-104` Configuration Line, both WAREHOUSE-owned by `DM-081` — an ownership DERIVED rather than assumed: Product owns reusable definition, `INV-32.1` deliberately keeps Order Management away from Product Variants, `IVN-000` scopes Inventory to existence and movement, and Warehouse already owns the work (`E-065`) and the evidence (`E-062`) that this specification sits between.** ✅ **`E-103` reuses the ratified Build Template lifecycle shape `DRAFT → ACTIVE → SUPERSEDED` rather than inventing a machine — the `PRD-066` precedent applied exactly** (`SYS-016`, `SMA-002`). 🔴 **`E-104` is deliberately NOT `E-061`: identical attribute shape, different reusability, different owner, different lifetime — merging them would make a one-off indistinguishable from catalogue definition.** ✅ **THREE invariants AMENDED, each retaining its superseded wording** (`DOC-009`): **`INV-65.1` now fixes exactly ONE immutable specification SOURCE — template version OR confirmed configuration, never both, still fixed at job creation; `INV-32.2` keeps RAW and unresolved lines reserving nothing while a CONFIRMED configuration resolves the build requirement; `INV-62.2` measures As-Built completeness against whichever source the job executed.** ⚠ **What deliberately did NOT change: exactly one source per job · fixed at creation · As-Built immutability · the reusable-template path · `PRD-056` title matching · no stored stock balance · no accounting rule.** **No permission code invented; no event created; no GAP closed except `GAP-129` itself.** |
+| **3.25.0** | **2026-08-11** | ✅ **E-058 ASSEMBLED FINISHED INVENTORY IDENTITY — propagated from Product `PRD-156`-`PRD-161` under `DOC-085`.** ✅ **`INV-58.2` and `INV-58.4` now name the nature-specific relationship matrix and the final availability sources precisely: SIMPLE uses only the SIMPLE target, ASSEMBLED uses `assembled_finished_variant_id` plus Build Template semantics, and BUNDLE uses members.** ✅ **`INV-58.6` records the exactly-one finished `E-020` Product Variant relationship for ready-built ASSEMBLED units, with no stock ownership transfer, no stock creation side effect and no persisted Sellable Product availability.** 🔴 **No new entity, E-103/E-104 implementation, Listing implementation, stock column, movement, valuation rule, permission, event or GAP is created.** |
+| **3.27.0** | **2026-08-13** | ✅ **CONNECTED LISTINGS — `E-106`, `E-107`, `E-108` and `DM-083`, propagated from Product `PRD-173`–`PRD-196` under `DOC-079`.** 🔴 **TWO `E-059` INVARIANTS AMENDED, BOTH RETAINING THEIR SUPERSEDED WORDING** (`DOC-009`): **`INV-59.1` no longer requires a Sellable Product at all times — mapping moves to the ORDERABLE CHANNEL SKU and is ZERO while `UNMAPPED`, exactly ONE once `MAPPED`, never two; `INV-59.2` no longer requires an external identifier at all times — it MAY BE ABSENT before remote creation, with uniqueness-once-assigned untouched.** ⚠ **Both invariants made the real business impossible: a listing cannot be required to know its Sellable Product before anyone has decided what it is, and a channel cannot issue an identifier for a listing that does not exist yet.** ✅ **`INV-59.8`–`INV-59.11` add retention of non-active listings, the capability-aware intended/reported pair with no blind overwrite, channel-reported media as mirrored references that are NOT `E-105`, and local-save-is-not-push with the unsent-change condition DERIVED rather than stored.** ✅ **`E-106` Channel Listing SKU makes the ORDERABLE unit the mapping, price and stock unit — at least one per listing, single-SKU being the degenerate default — while 🔴 `INV-106.5` keeps `E-058` free of any variant axis and 🔴 `INV-106.6` keeps it distinct from `E-020`, whose reconciliation `BD-321` assigns to the adapter.** ✅ **`E-107`/`E-108` make requested remote operations and their per-listing outcomes first-class: 🔴 outcomes never collapsed, 🔴 remote batches NOT atomic, 🔴 aggregates DERIVED never stored, ✅ retry targetable and idempotent, 🔴 scope an explicit selection that never expands to siblings.** ✅ **`DM-083` derives Product ownership against adapter, Order Management, Inventory and Audit alternatives.** ⚠ **`E-016` Channel Instance remains System's; no adapter, credential, endpoint or transport concept enters the model.** 🔴 **No existing entity beyond `E-059` altered; `E-058`, `E-105`, `DM-060`, `DM-082` and `INV-58.*` confirmed unchanged.** |
+| **3.26.0** | **2026-08-13** | ✅ **`E-105` MEDIA ASSET AND THE COMMERCIAL CONTENT INVARIANTS — propagated from Product `PRD-163`–`PRD-172` under `DOC-079`.** ✅ **NEW `E-105` Media Asset, PRODUCT-owned by `DM-082` — an ownership DERIVED rather than assumed: Audit owns `E-054` because EVIDENCE proves what happened, while commercial media proves nothing and is AUTHORED; Product already owns the commercial content the media belongs to.** 🔴 **The boundary is PURPOSE, NOT FILE TYPE — an image is not evidence merely because it is an image.** 🔴 **`E-054` IS UNCHANGED AND UNWEAKENED: `INV-54.1` unaltered-as-received and `INV-54.2` longest-obligation retention stand, and `TEC-104`'s second-EVIDENCE-store prohibition is not relaxed** (`TEC-105`). ✅ **`INV-105.1`–`INV-105.7` fix the asset as reusable-by-reference, archived-never-deleted, replaced-never-rewritten, role-less and order-less — 🔴 role and sequence belong to the REFERENCE, so one asset may be `PRIMARY` for one product and `GALLERY` for another — carrying no storage technology and no retention duration.** ✅ **`INV-58.7`–`INV-58.9` added: media is a set of role-bearing, explicitly ordered references with AT MOST ONE `PRIMARY`; 🔴 `PRIMARY` is OPTIONAL, never auto-selected, and media presence is NEVER a lifecycle precondition — `PRD-062`–`PRD-065` gain no gate; the commercial content set is Product-authored intent that never holds Stock Item technical identity, Inventory truth or channel-reported content.** ✅ **`INV-59.6`/`INV-59.7` added: Listing intended media is an ALL-OR-NOTHING OVERRIDE with a DERIVED effective-media resolution that is never materialised and never moves ownership from `E-058`; 🔴 V1 holds NO channel-reported media, so media never participates in `DIVERGED`.** ⚠ **`E-059`'s *listing media* attribute CLARIFIED as the intended side; the attribute line itself is unchanged.** ⚠ **Appendix A's stale `66 entities` count is REPORTED, not recomputed — it was already stale before this amendment.** 🔴 **No existing entity, invariant, lifecycle, state machine, event, permission or GAP is altered or closed; `E-054`, `DM-060`, `INV-58.1`–`INV-58.6` and `INV-59.1`–`INV-59.5` are confirmed unchanged.** |
 | 1.0.0 | 2026-08-04 | Initial ratification. 57 entities, 18 unknowns |
 | **2.0.0** | **2026-08-05** | **66 entities. Four-way distinction (§3); identity strategy expanded to six classes (§4); Product & Build group added; invariants on every entity with a consolidated register (§21); state machine index 7 → 11; "Marketplace Product" terminology collision resolved (§3.4). 24 unknowns, none filled** |
 | **2.1.0** | **2026-08-06** | **Sales discovery reconciliation (§23).** `DM-029` – `DM-033` added; `DMU-8`, `DMU-9`, `DMU-11`, `DMU-14`, `DMU-23` closed; `DMU-25` – `DMU-27` opened. `DM-032` records the serial-optionality correction (`BD-095`) affecting 12 rules across 5 documents |

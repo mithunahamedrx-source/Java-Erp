@@ -1,7 +1,7 @@
 # Inventory Architecture
 
 **Owner:** Trioloo Technology · **Module:** Inventory · **Status:** Canonical
-**Version:** 1.5.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `IVN-`
+**Version:** 1.8.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-08-12 (Stock Control UI boundary `IVN-056`) · **Rule prefix:** `IVN-`
 
 ---
 
@@ -163,11 +163,34 @@ The inventory ownership model · physical versus logical stock · availability d
 | **Pending supplier resolution** | A receiving discrepancy awaiting the supplier | Supplier Return, Exchange or Credit (`BR-112`) |
 | **QC Pending** | Returned goods awaiting inspection and disposition | One of four dispositions (§13) |
 
+> **IVN-055 — ✅ `OUT OF STOCK` IS A DERIVED DISPLAY AND QUERY PREDICATE. Ratified 2026-08-11 by business decision.**
+>
+> ### `available_quantity <= 0`
+>
+> **evaluated over the canonical Available Quantity of an Inventory Product** (`IVN-007`, `IVN-009`).
+>
+> **a.** 🔴 **IT IS NOT A FOURTH `IVN-012` CONDITION, AND `IVN-013` REMAINS INTACT.** ✅ **The not-sellable vocabulary is still exactly Reserved, Pending supplier resolution and QC Pending.** ⚠ **`Out of Stock` describes an availability OUTCOME; the three conditions describe WHY stock is unavailable. Different kinds of statement.**
+> **b.** 🔴 **EVALUATED, NEVER PERSISTED.** **No `out_of_stock`, `is_out_of_stock` or `stock_status` column, flag or cached figure exists** (`IVN-002`, `DB-001`). ✅ **The posture `NOT-013` already takes with Low Stock — a query over current state, not a stored fact.**
+> **c.** 🔴 **NOT A PRODUCT LIFECYCLE STATE AND NOT A MOVEMENT TYPE.** **`SYS §7.1` and `IVN-017`'s closed set are untouched.**
+> **d.** 🔴 **PHYSICAL AND AVAILABLE REMAIN DISTINCT; THIS PREDICATE READS ONLY AVAILABLE.** **Physical `5`, fully reserved, gives Available `0` and `Out of Stock` TRUE** — ✅ **deliberately, because the operator cannot sell it, which is the question the predicate answers.**
+> **e.** ✅ **`<=` rather than `=` is deliberate.** **`BD-441` confirms deliberate over-publication may drive availability negative** (`PRD-126`); **a negative availability is out of stock.** 🔴 **No negative-stock BEHAVIOUR is invented — the predicate is only evaluated.**
+> **f.** 🔴 **ONE DEFINITION EVERYWHERE** — summary counts, the Out-of-Stock filter, backend queries, card presentation and tests. ⚠ **A second definition anywhere is a defect.**
+
 > **IVN-013 — No further not-sellable condition is established.** *Damaged* and *quarantine* are **not separate inventory states in the ratified architecture** — damage is a **QC finding** (`BD-325`) resolving to a disposition, and quarantine is expressed as **QC Pending**. **Nothing is invented here to fill that vocabulary.**
 
 ## 6.1 Reservation follows commitment
 
 > **IVN-014 — Stock is reserved at order confirmation, not at release** (`BR-052` as amended, `BD-278`).
+
+> **IVN-054 — ✅ RESERVATION MAY FOLLOW A CONFIRMED ORDER-SPECIFIC BUILD CONFIGURATION. Ratified 2026-08-11** (`GAP-129`, Option C).
+>
+> **`PRD-025` reserves each component named in a Build Template. Where a Build Job's specification source is a confirmed `E-103` instead, reservation follows that configuration's `E-104` lines** (`WHS-076`, `BR-177`).
+>
+> **a.** ✅ **Reservation remains ATOMIC — either every component is reserved or none is** (`PRD-026`, `INV-65.2`). **Unchanged.**
+> **b.** 🔴 **A DRAFT configuration RESERVES NOTHING** (`INV-103.2`). **A recommendation is not a commitment.**
+> **c.** 🔴 **NO NEW MOVEMENT TYPE IS CREATED.** **`IVN-017`'s set is closed and this amendment adds nothing to it** — **components are consumed by a build exactly as before** (`SM-12`, `PRD-045`).
+> **d.** 🔴 **NO STOCK FIGURE BECOMES STORED.** **Every quantity remains derived from movements** (`IVN-002`, `DB-001`).
+> **e.** ⚠ **Costing is untouched** — **`ICO-` continues to own valuation and `IVN-011` keeps availability and cost independent.**
 
 **Commitment reserves; fulfilment consumes.** The same pattern applies at exchange approval (`RET-025`).
 
@@ -590,6 +613,20 @@ The inventory ownership model · physical versus logical stock · availability d
 
 ---
 
+# 26A. Stock Control UI Boundary
+
+> **IVN-056 — `Stock Control` is the user-facing UI label for Inventory-owned operational stock work.**
+>
+> It covers the Inventory-owned concerns this document already owns: positions, movements, reservations, adjustments/reconciliation, and transfer or location movement where canon permits (`IVN-000`, `IVN-005`, `IVN-007`, `IVN-015`, `IVN-018`, `IVN-019`).
+>
+> **a.** **This is a boundary rule, not a new feature rule.** It creates no entity, movement type, stored balance, permission, screen, API, migration, warehouse operation, purchasing capability or costing rule.
+>
+> **b.** **Product `Stock Items` and Inventory `Stock Control` remain different workspaces.** Product owns SKU, technical identity, category, barcode, serialization policy, lifecycle/master status and Product-owned CSV operations; Inventory owns what exists, whether it is available and what moved it. Read-only display across that boundary transfers no ownership (`DOC-005`).
+>
+> **c.** **Warehouse and Inventory Costing boundaries are unchanged.** Warehouse owns physical location structure and execution; Inventory Costing owns valuation and WAC. Their facts may be referenced or projected only under their owning rules.
+
+---
+
 # 27. Cross-Domain Invariants
 
 | # | Invariant | Source |
@@ -703,6 +740,9 @@ The inventory ownership model · physical versus logical stock · availability d
 
 | Version | Date | Change |
 |---|---|---|
+| **1.8.0** | **2026-08-12** | ✅ **`IVN-056` — Stock Control UI boundary.** **`Stock Control` is the user-facing label for Inventory-owned operational stock work: positions, movements, reservations, adjustments/reconciliation, and transfer or location movement where canon permits.** 🔴 **Boundary only: no entity, movement type, stored balance, permission, screen, API, migration, Warehouse operation, Purchasing capability or costing rule is created.** ✅ **Product `Stock Items` and Inventory `Stock Control` remain different workspaces; Product owns SKU/master facts and Product CSV, Inventory owns what exists, whether it is available and what moved it. Warehouse and Inventory Costing boundaries remain unchanged.** |
+| **1.6.0** | **2026-08-11** | ✅ **`IVN-054` — reservation may follow a CONFIRMED Order-Specific Build Configuration.** **`GAP-129` resolved by business decision (Option C), routed under `DOC-079`.** ✅ **Where a Build Job's specification source is a confirmed `E-103` rather than a Build Template version, reservation follows that configuration's `E-104` lines; atomicity is unchanged (`PRD-026`).** 🔴 **A DRAFT configuration reserves nothing — a recommendation is not a commitment.** 🔴 **`IVN-017`'s movement-type set stays CLOSED and gains nothing; no stock figure becomes stored (`IVN-002`, `DB-001`); costing is untouched and `IVN-011` keeps availability and cost independent.** **No new ledger, mechanism, event or permission.** |
+| **1.7.0** | **2026-08-11** | ✅ **`IVN-055` — `Out of Stock` ratified as a DERIVED display and query predicate, `available_quantity <= 0`.** 🔴 **NOT a fourth `IVN-012` condition and `IVN-013` REMAINS INTACT — it describes an availability OUTCOME while the three conditions describe WHY stock is unavailable.** 🔴 **Evaluated, never persisted — no `out_of_stock` or `stock_status` column, the posture `NOT-013` takes with Low Stock — and neither a lifecycle state nor a movement type.** ✅ **Physical and Available stay distinct: physical 5 fully reserved gives Available 0 and Out of Stock TRUE, deliberately.** ✅ **`<=` because `BD-441` confirms availability may go negative; no negative-stock behaviour invented.** 🔴 **One definition everywhere.** |
 | **1.5.0** | **2026-08-09** | ✅ **`GAP-016` CLOSED — `BD-441`, pre-freeze blocker A4. §14.4 added, `IVN-051` – `IVN-053`; `IVN-041` SCOPED. No existing rule weakened.** **Physical stock may go NEGATIVE and that is a supported condition** — **`DB-001` already permitted it structurally**, since a position is derived from movements and never maintained, so **no rule had to be relaxed and none is added.** **When stock arrives the balance adjusts naturally from negative toward zero.** **`IVN-052`: a sales-order reservation is NEVER refused merely because stock is insufficient.** ⚠ **`IVN-041` is scoped, not weakened** — it says *no reservation is made and none is fabricated*, and **`BD-426` answered WARRANTY REPLACEMENT and nothing wider**, stating outright that the system *“must not create imaginary or negative replacement stock”*. **The difference is whose promise is at stake**: a **sales order is a commitment already made to a customer** and proceeds; a **warranty replacement is a remedy being selected** and waits. **`IVN-053`: shortage visibility is permissive and gates nothing** — *may show* — so **no Action Queue entry, notification rule, threshold or SLA is created.** ✅ **Procurement is not a gate** — `PRC-013`'s demand figure already exists and informs buying, never holds orders |
 | **1.4.0** | **2026-08-09** | ✅ **`GAP-018` reservation half ANSWERED — `BD-436`/`BD-437`, pre-freeze blocker A2. `IVN-047` – `IVN-050` added; no existing rule amended.** **`ON_HOLD` releases nothing** — a held order **is active**, so `BR-097`, `BD-279`, `SMA-031` and `DM-041` all stand and **automatic release remains cancellation only.** **`IVN-048` adds the one thing a person may do to a reservation** — an **explicit, permission-controlled** release, **deliberately NOT owner-only**, with **escalation where the performer lacks authority** (`PRM-033`/`PRM-034` unchanged). ⚠ **This narrows `PRM-051`** — the owner/administrator concentration is **current staffing, not a rule**, stated outright for the first time. **`IVN-049` records ten facts**, and ⚠ **performer and approver stay separate *even when the same person is entitled to be both*** — stronger than `BD-110`, `BD-111`, `BD-275` or `BD-282`, and it makes `PRM-050`'s accepted overlap **visible rather than erased.** **No new entity** — `E-028` already records **commitment-stage** changes and already carries `Release reservation`. **`IVN-050`: only the selected quantity goes, other reservations are untouched, and a released reservation is SPENT** — re-reservation goes through the normal path and **may be refused** (`SYS-032`, `IVN-041`) |
 | **1.3.1** | **2026-08-09** | **`IVN-046` added — build-component deduction timing now ratified.** Components are deducted **at assembly** and **never again at dispatch** (`BR-143`, `BR-144`); `BR-054` continues to govern ordinary finished and sellable goods. **This timing was specification-ahead-of-ratification from `PRODUCT_ARCHITECTURE.md` v1.0.0 until `OM §14.4` was amended today.** **The movement is recorded without an event** — no module has a confirmed reaction beyond Inventory recording its own movement (`EVA-027`) |

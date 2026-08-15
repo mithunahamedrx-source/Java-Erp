@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Boxes,
-  ShoppingCart,
   ReceiptText,
   Wallet,
   Users,
@@ -12,6 +11,15 @@ import {
   MessageSquare,
   Bell,
   User,
+  FileDown,
+  Import as ImportIcon,
+  RefreshCw,
+  Plus,
+  Save,
+  Search,
+  ArrowLeft,
+  Pencil,
+  CloudUpload,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -44,6 +52,9 @@ export const CHEVRON_STROKE = 1.5;
 export const UTILITY_ICON_SIZE = 17;
 export const UTILITY_ICON_STROKE = 1.5;
 
+export const ACTION_ICON_SIZE = 15;
+export const ACTION_ICON_STROKE = 1.5;
+
 /**
  * Semantic module icons, keyed by the ratified navigation label.
  *
@@ -53,7 +64,9 @@ export const UTILITY_ICON_STROKE = 1.5;
 export const MODULE_ICON: Readonly<Record<string, LucideIcon>> = {
   Dashboard: LayoutDashboard, // grid / dashboard
   Inventory: Boxes, // boxes / package
-  Purchasing: ShoppingCart, // purchase / cart
+  // 🔴 No `Purchasing` entry: `UX-024` as amended has no Purchasing parent, and `Purchases`
+  // and `Suppliers` are now CHILD destinations, which carry no icon (§3.7). Keeping a
+  // top-level purchasing glyph would preserve the appearance of a removed group.
   'Sales & Orders': ReceiptText, // order / receipt
   'Finance & Accounting': Wallet, // wallet / ledger
   'HR & Payroll': Users, // employees
@@ -72,6 +85,29 @@ export const UTILITY_ICON = {
   chat: MessageSquare,
   notifications: Bell,
   profile: User,
+} as const;
+
+/**
+ * Page-header action icons (`§3.8`).
+ *
+ * <p>🔴 Each glyph is SEMANTIC — it depicts the act its label names and nothing else. No
+ * decorative or generic glyph appears in the action region, and no surface reaches past this
+ * registry for its own icon vocabulary.
+ *
+ * <p>⚠ `add` is the Lucide `Plus`, not a typed "+" character. `RULE 3.17` establishes ONE
+ * icon system; a text glyph standing in for an icon would sit outside it and would not
+ * inherit the action size or stroke.
+ */
+export const ACTION_ICON = {
+  export: FileDown, // download a file out of the ERP
+  import: ImportIcon, // bring a file into the ERP
+  syncNow: RefreshCw, // re-read / re-send against a counterparty
+  add: Plus, // create a new record
+  search: Search, // narrow a result set
+  back: ArrowLeft, // return to the surface this one was opened from
+  edit: Pencil, // change a record's own values
+  push: CloudUpload, // send ERP intent outward to a channel
+  save: Save, // commit a local edit - deliberately NOT `push`
 } as const;
 
 /**

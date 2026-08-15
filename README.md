@@ -94,6 +94,23 @@ Get-Content backend\.env | Where-Object { $_ -notmatch '^\s*#' -and $_ -match '=
   ForEach-Object { $k,$v = $_ -split '=',2; Set-Item -Path "env:$k" -Value $v }
 ```
 
+For local development review, `backend/.env` may also enable the development-only identity
+provisioner:
+
+```dotenv
+SPRING_PROFILES_ACTIVE=dev-authority
+TRIOLOO_DEV_IDENTITY_PROVISION=true
+DEV_USERNAME=devuser
+DEV_PASSWORD=your-local-dev-password
+```
+
+When enabled, the backend idempotently ensures `devuser` exists as a real Operational User
+Profile, stores a real encoded credential from `DEV_PASSWORD`, keeps the account login-capable,
+and grants every currently defined permission through ordinary permission overrides. This is
+the local `.env` password as authority: changing `DEV_PASSWORD` intentionally changes the local
+development login on the next backend start. The provisioner fails closed if activated without
+a password and refuses to run with any production-like Spring profile.
+
 ## Running
 
 **Backend** — <http://localhost:8080>

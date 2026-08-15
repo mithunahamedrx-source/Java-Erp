@@ -12,10 +12,20 @@ const API_BASE_URL: string = import.meta.env['VITE_API_BASE_URL'] ?? 'http://loc
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(status: number, message: string) {
+  /**
+   * The server's error envelope, where it sent one.
+   *
+   * <p>A business refusal names the offending field and states the rule in the operator's
+   * language. Discarding it here would force every caller to invent its own message, which
+   * is how a precise canonical refusal turns into "something went wrong".
+   */
+  readonly payload: unknown;
+
+  constructor(status: number, message: string, payload: unknown = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.payload = payload;
   }
 
   /** Not authenticated — "who are you". */
@@ -56,7 +66,7 @@ async function ensureCsrfToken(): Promise<string | null> {
 }
 
 type RequestOptions = {
-  readonly method?: 'GET' | 'POST';
+  readonly method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   readonly body?: unknown;
 };
 
@@ -86,11 +96,24 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     method,
     headers,
     credentials: 'include',
-    ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    ...(options.body !== undefined
+      ? { body: typeof options.body === 'string' ? options.body : JSON.stringify(options.body) }
+      : {}),
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request failed with status ${response.status}`);
+    // The body is read defensively: an error response may legitimately carry no JSON at all.
+    let payload: unknown = null;
+    try {
+      payload = await response.clone().json();
+    } catch {
+      payload = null;
+    }
+    const message =
+      payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+        ? (payload as { message: string }).message
+        : `Request failed with status ${response.status}`;
+    throw new ApiError(response.status, message, payload);
   }
 
   if (response.status === 204) {

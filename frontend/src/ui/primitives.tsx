@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 /* ------------------------------------------------------------------ Buttons (§3.11) */
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost';
+export type ButtonSize = 'button' | 'row-action' | 'page-header';
 
 /**
  * `RULE 3.11.a` — the destructive button is a SEMANTIC VARIANT of the primary: identical
@@ -26,14 +27,38 @@ export function Button({
   type = 'button',
   disabled = false,
   size = 'button',
+  describedBy,
+  testId,
 }: {
   readonly children: ReactNode;
   readonly variant?: ButtonVariant;
   readonly onClick?: () => void;
   readonly type?: 'button' | 'submit';
   readonly disabled?: boolean;
-  readonly size?: 'button' | 'row-action' | 'page-header';
+  readonly size?: ButtonSize;
+  /** ⚠ Points at VISIBLE text — a disabled action's reason is never tooltip-only. */
+  readonly describedBy?: string;
+  readonly testId?: string;
 }): React.JSX.Element {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      aria-describedby={describedBy}
+      data-testid={testId}
+      style={buttonStyle(variant, size, disabled)}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function buttonStyle(
+  variant: ButtonVariant = 'secondary',
+  size: ButtonSize = 'button',
+  disabled = false,
+): React.CSSProperties {
   const height =
     size === 'row-action'
       ? 'var(--control-height-row-action)'
@@ -43,21 +68,39 @@ export function Button({
 
   const base: React.CSSProperties = {
     height,
-    padding: size === 'page-header' ? '0 18px' : '0 16px',
-    borderRadius: size === 'page-header' ? '10px' : 'var(--radius-control)',
-    fontSize: size === 'page-header' ? '13.5px' : '13px',
+    /*
+      🔴 `RULE 3.11.d` v2.13.0 — COMPACT. The page-header action was the largest control in
+      the ERP at 40px tall with 18px of side padding, which read as prominence bought with
+      geometry. Prominence comes from FILL, POSITION and LABEL; the button is only its label's
+      container. Superseded: height 40px, padding `0 18px`, font 13.5px.
+
+      ⚠ Still a comfortable desktop target: 36px tall is the shared button height, not a
+      shrunken one, and the label stays at a readable 13px.
+    */
+    padding: size === 'page-header' ? '0 13px' : '0 16px',
+    borderRadius: size === 'page-header' ? '9px' : 'var(--radius-control)',
+    fontSize: '13px',
     fontFamily: 'inherit',
     cursor: disabled ? 'not-allowed' : 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   };
 
   const byVariant: Record<ButtonVariant, React.CSSProperties> = {
-    primary: { background: 'var(--color-ink)', border: 'none', color: 'var(--color-surface)', fontWeight: 700 },
+    primary: {
+      background: 'var(--color-ink)',
+      border: 'none',
+      boxShadow: 'var(--elevation-card)',
+      color: 'var(--color-surface)',
+      fontWeight: 700,
+    },
     secondary: {
       background: 'var(--color-surface)',
-      border: '1px solid var(--color-border-secondary-button)',
+      border: 'none',
+      boxShadow: 'var(--elevation-card)',
       color: 'var(--color-secondary-text)',
       fontWeight: 600,
     },
@@ -67,14 +110,33 @@ export function Button({
       color: 'var(--color-surface)',
       fontWeight: 700,
     },
-    ghost: { background: 'transparent', border: 'none', color: 'var(--color-text-muted)', fontWeight: 500 },
+    ghost: { background: 'transparent', border: 'none', boxShadow: 'none', color: 'var(--color-text-muted)', fontWeight: 500 },
   };
 
-  return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...byVariant[variant] }}>
-      {children}
-    </button>
-  );
+  /*
+    🔴 A SOLID OR DARK FILL REPRESENTS AN EXECUTABLE ACTION. A disabled button therefore
+    NEVER keeps its variant's fill: a black "Push unavailable" reads as the one thing on the
+    surface the operator is meant to press, and the word "unavailable" is doing all the work
+    of contradicting it.
+
+    ✅ The treatment is the SHARED neutral disabled vocabulary the form controls already use
+    — light neutral surface, restrained neutral border, muted text — so a disabled action and
+    a disabled input are recognisably the same condition.
+
+    ⚠ Elevation goes with the fill. A raised neutral button still reads as pressable.
+
+    ⚠ `ghost` has no fill to remove and stays transparent; it is muted by its own variant.
+  */
+  const whenDisabled: React.CSSProperties = variant === 'ghost'
+    ? { boxShadow: 'none' }
+    : {
+        background: 'var(--color-divider-light)',
+        border: '1px solid var(--color-border-control)',
+        boxShadow: 'none',
+        color: 'var(--color-text-muted)',
+      };
+
+  return { ...base, ...byVariant[variant], ...(disabled ? whenDisabled : {}) };
 }
 
 /* ------------------------------------------------------- Form controls (§3.18) */

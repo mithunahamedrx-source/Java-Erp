@@ -1,7 +1,7 @@
 # Permission Architecture
 
 **Owner:** Trioloo Technology · **Module:** Permission · **Status:** Canonical
-**Version:** 1.11.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
+**Version:** 1.13.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
 
 ---
 
@@ -135,6 +135,37 @@ A permission is the right to perform one **action** on one **subject type**.
 | Subject type | Order, product, stock, shipment, receipt, return, user, configuration |
 
 > **PRM-007 — Actions are named from the canonical vocabulary of the owning module** (SYS-016). A permission named for a screen rather than a business action becomes meaningless the moment the interface changes.
+
+> **PRM-089 — ✅ THE PERMISSION CODE NAMING CONVENTION. Ratified 2026-08-11 by business decision.**
+>
+> **`PRM-007` fixed WHO names an action. This fixes HOW the name is written, so a code is DERIVED rather than invented.**
+>
+> ### `<owning-module>.<resource>.<action>`
+>
+> **Lower-case, dot-separated, hyphenated within a segment** — e.g. `product.stock-item.view`.
+>
+> **a.** ✅ **The FIRST segment is the OWNING MODULE**, which makes `PRM-004` legible in the code itself: the module that owns the action is the module that enforces it.
+> **b.** 🔴 **A CODE EXISTS ONLY WHERE A CANONICAL CAPABILITY EXISTS.** ⚠ **This is a SPELLING RULE, NOT A GENERATOR** — **it does NOT mean every CRUD verb must exist, that a resource automatically acquires `create`/`update`/`delete`, or that a future capability is pre-authorised.** **A missing code means the capability was never ratified, and `PRM-003` denies it.**
+> **c.** 🔴 **NO WILDCARD EXISTS, IN ANY SEGMENT.** **`product.*`, `*.*.view` and `admin.all` are prohibited** — **a wildcard is the mode `PRM-068` forbids, wearing a permission's clothes.**
+> **d.** 🔴 **ROLES AND PERMISSIONS REMAIN NON-INTERCHANGEABLE.** **A role is a configured bundle; a permission is the enforcement unit** (`AGV-018`). ⚠ **Administrator receives nothing implicitly** (`PRM-068`, `PRM-003`), **and a role-name test is never the security rule** (`PRM-004`).
+> **e.** ✅ **The owning architecture remains responsible for its own vocabulary** (`PRM-007`, `DOC-005`). **This document owns the SHAPE; it does not own another module's list.**
+> **f.** ⚠ **A capability whose code is not yet ratified is not implementable.** 🔴 **Implementation may never coin one** (`DOC-024`).
+
+> **PRM-090 — ✅ THE CHANNEL INSTANCE AND CHANNEL CONNECTION CAPABILITY CODES. Ratified 2026-08-15.**
+>
+> **Derived under `PRM-089` and named by the owning module** (`PRM-007`). ⚠ **The extraction found the Shops & Channels destination reachable with NO permission attached at all — these close that, and nothing implements them yet.**
+>
+> | Code | Grants | Explicitly does NOT grant |
+> |---|---|---|
+> | **`system.channel-instance.view`** | View Shops & Channels; view **non-secret** shop, account and connection-summary facts | Any change, any lifecycle act, any authorisation |
+> | **`system.channel-instance.manage`** | Create and update **mutable local** Channel Instance metadata | 🔴 **Lifecycle authority. Authorisation authority.** |
+> | **`system.channel-instance.lifecycle`** | Suspend, reactivate and archive Channel Instances (`SYS-108`) | 🔴 **OAuth / authorisation authority** |
+> | **`integration.channel-connection.authorize`** | Initiate and re-initiate external authorisation for a Channel Instance (`API-069.a`) | 🔴 **Ordinary shop metadata management** |
+>
+> **a.** 🔴 **THE FOUR ARE INDEPENDENT, IN THE SAME WAY THE LISTINGS FOUR ARE** (`PRD-196`). **MANAGE NEVER IMPLIES LIFECYCLE, AND NEITHER IMPLIES AUTHORIZE.** ⚠ **Editing a shop's display name and authorising it against a marketplace are not the same act and are rarely the same person.**
+> **b.** ✅ **The owning module differs between the first three and the fourth, and that is deliberate:** **the record is System's** (`DM-084.b`) **and the authorisation is Integration's** (`API-069`). **`PRM-089.a` makes that visible in the code itself.**
+> **c.** 🔴 **BACKEND ENFORCEMENT REMAINS MANDATORY** (`PRM-004`). **A hidden control is not an authorisation control.**
+> **d.** ⚠ **`PRM-064`'s Marketplace Shop SCOPE dimension is unaffected.** **These are CAPABILITIES; scope bounds which instances a capability reaches** (`PRM-009`, `SYS-020`), **and the two remain separate mechanisms.**
 
 ## 5.3 Authority magnitude
 
