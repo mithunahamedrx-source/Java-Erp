@@ -48,22 +48,22 @@ public class DarazProtocolException extends RuntimeException {
     private final String providerCode;
     private final String providerType;
     private final String requestId;
-    private final List<String> topLevelFields;
+    private final DarazResponseShape shape;
 
     public DarazProtocolException(Reason reason, String field, String providerCode,
-                                  String providerType, String requestId, List<String> topLevelFields) {
+                                  String providerType, String requestId, DarazResponseShape shape) {
         super(describe(reason, field, providerCode), null, false, false);
         this.reason = reason == null ? Reason.UNKNOWN : reason;
         this.field = field;
         this.providerCode = providerCode;
         this.providerType = providerType;
         this.requestId = requestId;
-        this.topLevelFields = topLevelFields == null ? List.of() : List.copyOf(topLevelFields);
+        this.shape = shape == null ? DarazResponseShape.UNKNOWN : shape;
     }
 
     /** For failures that happen before a response shape is known. */
     public DarazProtocolException(Reason reason) {
-        this(reason, null, null, null, null, List.of());
+        this(reason, null, null, null, null, DarazResponseShape.UNKNOWN);
     }
 
     /**
@@ -119,6 +119,21 @@ public class DarazProtocolException extends RuntimeException {
      * you immediately that the payload is wrapped, without anyone ever printing the body.
      */
     public List<String> topLevelFields() {
-        return topLevelFields;
+        return shape.topLevelFields();
+    }
+
+    /**
+     * One level of nested shape for the allow-listed container fields.
+     *
+     * <p>✅ Values are types and NAMES only — {@code OBJECT[seller_id,user_id]}, {@code ABSENT},
+     * {@code ARRAY<OBJECT>[country,seller_id]}. 🔴 Never a value from the response.
+     */
+    public java.util.Map<String, String> containers() {
+        return shape.containers();
+    }
+
+    /** The containers rendered for a log line. */
+    public String describeContainers() {
+        return shape.describeContainers();
     }
 }

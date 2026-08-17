@@ -123,14 +123,15 @@ public class DarazCallbackController {
             */
             log.warn("Daraz callback failed at the provider: type={} reason={} field={} "
                             + "providerCode={} providerType={} requestId={} topLevelFields={} "
-                            + "outcome=PROVIDER_ERROR",
+                            + "containers={} outcome=PROVIDER_ERROR",
                     e.getClass().getSimpleName(),
                     protocol.reason(),
                     protocol.field(),
                     protocol.providerCode(),
                     protocol.providerType(),
                     protocol.requestId(),
-                    protocol.topLevelFields());
+                    protocol.topLevelFields(),
+                    protocol.describeContainers());
         } else if (e instanceof DarazTransportException transport) {
             /* ⚠ httpStatus present = the provider answered badly; absent = it was never reached. */
             log.warn("Daraz callback failed in transport: type={} httpStatus={} reached={} "

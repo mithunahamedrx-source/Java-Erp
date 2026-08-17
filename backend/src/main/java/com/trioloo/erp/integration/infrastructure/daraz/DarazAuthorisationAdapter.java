@@ -1,6 +1,7 @@
 package com.trioloo.erp.integration.infrastructure.daraz;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeType;
 import tools.jackson.databind.ObjectMapper;
 import com.trioloo.erp.integration.application.ChannelAuthorisationPort;
 import com.trioloo.erp.integration.application.ChannelCredentialStore;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -163,7 +165,7 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
           payload ({@code [code, data, request_id]}) distinguishable from a flat one without anyone
           printing the body.
         */
-        List<String> shape = topLevelFieldNames(body);
+        DarazResponseShape shape = new DarazResponseShape(topLevelFieldNames(body), containerShapes(body));
         String requestId = text(body, "request_id");
         String providerType = text(body, "type");
 
@@ -193,6 +195,74 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
                         accessToken, accessExpiry, refreshToken, refreshExpiry)));
     }
 
+    /**
+     * The container fields whose one-level shape is worth knowing when identity extraction fails.
+     *
+     * <p>⚠ AN ALLOW-LIST, NOT EVERYTHING. Descending into arbitrary fields would eventually walk
+     * into one holding a token; these three are the containers the token contract can plausibly
+     * carry identity in.
+     */
+    private static final List<String> DIAGNOSTIC_CONTAINERS =
+            List.of("user_info", "country_user_info", "data");
+
+    /**
+     * Describes each allow-listed container by TYPE and, one level down, by FIELD NAME.
+     *
+     * <p>🔴 NO VALUE IS EVER READ. For an object this yields {@code OBJECT[seller_id,user_id]}; for
+     * an array of objects, the first element's names; for a scalar, only its type. Absent
+     * containers are reported as {@code ABSENT} so the log distinguishes "not there" from "empty".
+     */
+    private static Map<String, String> containerShapes(JsonNode body) {
+        Map<String, String> shapes = new LinkedHashMap<>();
+        for (String name : DIAGNOSTIC_CONTAINERS) {
+            shapes.put(name, describeNode(body == null ? null : body.get(name)));
+        }
+        return shapes;
+    }
+
+    private static String describeNode(JsonNode node) {
+        if (node == null) {
+            return "ABSENT";
+        }
+        if (node.isObject()) {
+            return "OBJECT" + fieldNamesOf(node);
+        }
+        if (node.isArray()) {
+            if (node.isEmpty()) {
+                return "ARRAY<EMPTY>";
+            }
+            JsonNode first = node.get(0);
+            return first != null && first.isObject()
+                    ? "ARRAY<OBJECT>" + fieldNamesOf(first)
+                    : "ARRAY<" + scalarTypeOf(first) + ">";
+        }
+        return scalarTypeOf(node);
+    }
+
+    /** 🔴 Names only, joined. Never a value. */
+    private static String fieldNamesOf(JsonNode object) {
+        List<String> names = new ArrayList<>();
+        object.properties().forEach(entry -> names.add(entry.getKey()));
+        return "[" + String.join(",", names) + "]";
+    }
+
+    /** ⚠ Jackson's own node type, so the vocabulary cannot drift from the parser. */
+    private static String scalarTypeOf(JsonNode node) {
+        if (node == null) {
+            return "UNKNOWN";
+        }
+        JsonNodeType type = node.getNodeType();
+        return switch (type) {
+            case STRING -> "STRING";
+            case NUMBER -> "NUMBER";
+            case BOOLEAN -> "BOOLEAN";
+            case NULL -> "NULL";
+            case OBJECT -> "OBJECT";
+            case ARRAY -> "ARRAY";
+            default -> "UNKNOWN";
+        };
+    }
+
     /** 🔴 Field NAMES only. No value is read. */
     private static List<String> topLevelFieldNames(JsonNode body) {
         List<String> names = new ArrayList<>();
@@ -216,7 +286,7 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
      * email, would corrupt the one fact {@code INV-16.6} tests every reauthorisation against.
      */
     private String bangladeshSellerId(JsonNode body, String providerType, String requestId,
-                                      List<String> shape) {
+                                      DarazResponseShape shape) {
         JsonNode entries = body.get("country_user_info");
         if (entries == null || !entries.isArray() || entries.isEmpty()) {
             throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO,
@@ -257,7 +327,7 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
     }
 
     private static String required(JsonNode body, String field, String providerType,
-                                   String requestId, List<String> shape) {
+                                   String requestId, DarazResponseShape shape) {
         JsonNode value = body.get(field);
         if (value == null || value.asText("").isBlank()) {
             throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_FIELD,
@@ -267,7 +337,7 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
     }
 
     private static long requiredSeconds(JsonNode body, String field, String providerType,
-                                        String requestId, List<String> shape) {
+                                        String requestId, DarazResponseShape shape) {
         JsonNode value = body.get(field);
         if (value == null || !value.canConvertToLong()) {
             throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_FIELD,

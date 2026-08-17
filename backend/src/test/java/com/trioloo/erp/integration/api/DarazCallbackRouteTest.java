@@ -492,4 +492,53 @@ class DarazCallbackRouteTest {
         /* And no raw body: the JSON punctuation of the payload never appears. */
         assertThat(captured).doesNotContain("\"access_token\":");
     }
+
+    // ============================================================ container shape in the log
+
+    /**
+     * 🔴 THE LIVE SHAPE, END TO END. The operator's journal must now say what {@code user_info}
+     * contained — and still not one value from it.
+     */
+    @Test
+    @DisplayName("the callback WARN reports container shape for the observed live response")
+    void callbackLogsContainerShape() throws Exception {
+        tokenResponse = """
+                {"access_token":"super-secret-access","country":"bd","refresh_token":"super-secret-refresh",
+                 "user_info":{"seller_id":"BD-SECRET-99","user_id":4242},"account_platform":"seller_center",
+                 "refresh_expires_in":604800,"expires_in":259200,"account":"seller@example.test",
+                 "code":"0","request_id":"0b8ded6517869365662936454","_trace_id_":"t-1"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).contains("reason=MISSING_COUNTRY_USER_INFO");
+        assertThat(captured).contains("containers=");
+        assertThat(captured).contains("user_info:OBJECT[seller_id,user_id]");
+        assertThat(captured).contains("country_user_info:ABSENT");
+        assertThat(captured).contains("requestId=0b8ded6517869365662936454");
+
+        /* 🔴 Nested values never appear. */
+        assertThat(captured).doesNotContain("BD-SECRET-99");
+        assertThat(captured).doesNotContain("4242");
+        assertThat(captured).doesNotContain("super-secret-access");
+        assertThat(captured).doesNotContain("super-secret-refresh");
+        assertThat(captured).doesNotContain("seller@example.test");
+    }
+
+    /** ⚠ Behaviour is unchanged: the live shape still binds nothing and stores nothing. */
+    @Test
+    @DisplayName("the live shape still binds nothing and stores no credential")
+    void liveShapeBindsNothing() throws Exception {
+        tokenResponse = """
+                {"access_token":"a","country":"bd","refresh_token":"r",
+                 "user_info":{"seller_id":"BD-1","user_id":7},
+                 "refresh_expires_in":604800,"expires_in":259200,"code":"0"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shop)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
+                Integer.class, shop)).isZero();
+    }
 }

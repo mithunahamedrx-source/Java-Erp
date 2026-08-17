@@ -425,4 +425,129 @@ class DarazAuthorisationAdapterTest {
                         .contains("access_token", "refresh_token")
                         .doesNotContain("data"));
     }
+
+    // ================================================================= container shape
+
+    /**
+     * 🔴 THE DIAGNOSTIC THE LIVE INCIDENT NEEDED. A real Bangladesh seller returned {@code user_info}
+     * where the documentation only ever described {@code country_user_info}, and nothing in the log
+     * could say what {@code user_info} held. Names one level down settle it without printing a token.
+     */
+    @Test
+    @DisplayName("an object container reports its nested field names, never their values")
+    void objectContainerReportsNestedNames() {
+        String body = json("{'access_token':'super-secret-access','refresh_token':'super-secret-refresh',"
+                + "'expires_in':1,'refresh_expires_in':2,"
+                + "'user_info':{'seller_id':'BD-SECRET-99','user_id':4242,'name':'Ryzen Builder'}}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.containers()).containsEntry("user_info", "OBJECT[seller_id,user_id,name]");
+                    assertThat(p.containers()).containsEntry("country_user_info", "ABSENT");
+                    assertThat(p.containers()).containsEntry("data", "ABSENT");
+                    /* 🔴 Not one nested VALUE appears anywhere. */
+                    String rendered = p.describeContainers();
+                    assertThat(rendered).doesNotContain("BD-SECRET-99");
+                    assertThat(rendered).doesNotContain("4242");
+                    assertThat(rendered).doesNotContain("Ryzen Builder");
+                    assertThat(rendered).doesNotContain("super-secret");
+                    assertThat(p.getMessage()).doesNotContain("BD-SECRET-99");
+                });
+    }
+
+    /**
+     * ⚠ THE EXACT LIVE SHAPE. Behaviour must not drift: this still refuses, because the identity
+     * rule is a reviewer decision that has not been made.
+     */
+    @Test
+    @DisplayName("the observed live shape still refuses with MISSING_COUNTRY_USER_INFO")
+    void liveShapeStillRefuses() {
+        String live = json("{'access_token':'a','country':'bd','refresh_token':'r',"
+                + "'user_info':{'seller_id':'BD-1','user_id':7},'account_platform':'seller_center',"
+                + "'refresh_expires_in':604800,'expires_in':259200,'account':'seller@example.test',"
+                + "'code':'0','request_id':'0b8ded6517869365662936454','_trace_id_':'t-1'}");
+
+        assertThatThrownBy(() -> adapter(live).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    /* 🔴 UNCHANGED BEHAVIOUR — no fallback identity was introduced. */
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO);
+                    assertThat(p.field()).isEqualTo("country_user_info");
+                    /* ✅ But now the log can say what user_info actually held. */
+                    assertThat(p.containers()).containsEntry("user_info", "OBJECT[seller_id,user_id]");
+                    assertThat(p.requestId()).isEqualTo("0b8ded6517869365662936454");
+                });
+    }
+
+    @Test
+    @DisplayName("an array container reports its element type and the first object's names")
+    void arrayContainerReportsElementShape() {
+        String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                + "'country_user_info':[{'country':'sg','seller_id':'SG-SECRET'},"
+                + "{'country':'my','seller_id':'MY-1'}]}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.containers())
+                            .containsEntry("country_user_info", "ARRAY<OBJECT>[country,seller_id]");
+                    assertThat(p.describeContainers()).doesNotContain("SG-SECRET");
+                });
+    }
+
+    @Test
+    @DisplayName("scalar, null, empty-array and absent containers each report their own type")
+    void everyNodeTypeIsReported() {
+        record Case(String container, String expected, String body) { }
+        var base = "'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2";
+        var cases = new Case[]{
+                new Case("user_info", "STRING", json("{" + base + ",'user_info':'a-string-value'}")),
+                new Case("user_info", "NUMBER", json("{" + base + ",'user_info':12345}")),
+                new Case("user_info", "BOOLEAN", json("{" + base + ",'user_info':true}")),
+                new Case("user_info", "NULL", json("{" + base + ",'user_info':null}")),
+                new Case("user_info", "ABSENT", json("{" + base + "}")),
+                new Case("user_info", "OBJECT[]", json("{" + base + ",'user_info':{}}")),
+                new Case("country_user_info", "ARRAY<EMPTY>", json("{" + base + ",'country_user_info':[]}")),
+                new Case("country_user_info", "ARRAY<STRING>",
+                        json("{" + base + ",'country_user_info':['x','y']}")),
+                new Case("data", "OBJECT[access_token]", json("{" + base + ",'data':{'access_token':'v'}}")),
+        };
+
+        for (Case c : cases) {
+            assertThatThrownBy(() -> adapter(c.body()).exchange(SHOP, "code"))
+                    .as("%s -> %s", c.container(), c.expected())
+                    .isInstanceOf(DarazProtocolException.class)
+                    .satisfies(e -> assertThat(((DarazProtocolException) e).containers())
+                            .containsEntry(c.container(), c.expected()));
+        }
+    }
+
+    /** ⚠ A container of an unexpected type must not become a NEW failure mode. */
+    @Test
+    @DisplayName("a non-object user_info changes nothing about the failure itself")
+    void nonObjectUserInfoIsNotANewFailure() {
+        String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                + "'user_info':'not-an-object'}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO);
+                    assertThat(p.containers()).containsEntry("user_info", "STRING");
+                    assertThat(p.describeContainers()).doesNotContain("not-an-object");
+                });
+    }
+
+    /** ✅ A well-formed documented response is unaffected by any of this. */
+    @Test
+    @DisplayName("the documented shape still binds successfully")
+    void documentedShapeStillWorks() {
+        assertThat(adapter(VALID_TOKEN).exchange(SHOP, "the-code").orElseThrow().accountIdentity())
+                .isEqualTo("BD-SELLER-1");
+    }
 }
