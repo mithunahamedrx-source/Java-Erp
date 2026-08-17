@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,10 +44,12 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
     static final String TOKEN_CREATE_PATH = "/auth/token/create";
 
     /**
-     * {@code DZC-010} — the venture whose {@code country_user_info} entry carries our identity.
+     * {@code DZC-010} — the only venture this integration will bind a shop to.
      *
-     * <p>⚠ A cross-border token returns SEVERAL entries. Taking the first would bind a Bangladesh
-     * shop to another venture's store, so the entry is selected by country explicitly.
+     * <p>⚠ IT GUARDS BOTH RESPONSE SHAPES, DIFFERENTLY. On a cross-border token it selects the
+     * Bangladesh entry out of SEVERAL in {@code country_user_info} — taking the first would bind a
+     * Bangladesh shop to another venture's store. On a local-seller token there is only one account,
+     * so it is matched against the TOP-LEVEL {@code country} instead.
      */
     static final String BANGLADESH_COUNTRY = "bd";
 
@@ -279,32 +280,83 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
     }
 
     /**
-     * {@code DZC-010} — the authoritative binding identity.
+     * {@code DZC-010} — the authoritative binding identity, on either of the two observed shapes.
      *
-     * <p>🔴 REFUSED RATHER THAN SUBSTITUTED. If no Bangladesh entry is present the authorisation
-     * fails: binding a Bangladesh shop to another venture's store, or falling back to the account
-     * email, would corrupt the one fact {@code INV-16.6} tests every reauthorisation against.
+     * <p>🔴 TWO SHAPES, ONE IDENTITY MEANING. The documentation only ever described
+     * {@code country_user_info}, an array carrying one entry per venture — which is what a
+     * CROSS-BORDER seller receives. A live Bangladesh LOCAL seller returns no such array at all;
+     * it returns a single {@code user_info} object and a top-level {@code country}. Both carry the
+     * same fact: the seller id of the store being authorised.
+     *
+     * <p>🔴 REFUSED RATHER THAN SUBSTITUTED, ON BOTH PATHS. If neither shape yields a seller id the
+     * authorisation fails. Falling back to the account email, {@code user_id}, {@code short_code}
+     * or the venture code would corrupt the one fact {@code INV-16.6} tests every reauthorisation
+     * against — and {@code V11}'s unique index would then permanently block the operator's second
+     * Daraz shop.
      */
     private String bangladeshSellerId(JsonNode body, String providerType, String requestId,
                                       DarazResponseShape shape) {
         JsonNode entries = body.get("country_user_info");
-        if (entries == null || !entries.isArray() || entries.isEmpty()) {
-            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO,
+
+        /*
+          The documented path, UNCHANGED. A cross-border token carries several ventures, so the
+          Bangladesh entry is selected explicitly — taking the first would bind a Bangladesh shop to
+          another venture's store.
+        */
+        if (entries != null && entries.isArray() && !entries.isEmpty()) {
+            for (JsonNode entry : entries) {
+                JsonNode country = entry.get("country");
+                if (country != null && BANGLADESH_COUNTRY.equalsIgnoreCase(country.asText(""))) {
+                    JsonNode sellerId = entry.get("seller_id");
+                    if (sellerId == null || sellerId.asText("").isBlank()) {
+                        throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_SELLER_ID,
+                                "seller_id", null, providerType, requestId, shape);
+                    }
+                    return sellerId.asText();
+                }
+            }
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_BD_ACCOUNT,
                     "country_user_info", null, providerType, requestId, shape);
         }
-        for (JsonNode entry : entries) {
-            JsonNode country = entry.get("country");
-            if (country != null && BANGLADESH_COUNTRY.equalsIgnoreCase(country.asText(""))) {
-                JsonNode sellerId = entry.get("seller_id");
-                if (sellerId == null || sellerId.asText("").isBlank()) {
-                    throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_SELLER_ID,
-                            "seller_id", null, providerType, requestId, shape);
-                }
-                return sellerId.asText();
-            }
+
+        return localSellerId(body, providerType, requestId, shape);
+    }
+
+    /**
+     * The local-seller path: no {@code country_user_info}, one {@code user_info} object.
+     *
+     * <p>🔴 THE TOP-LEVEL {@code country} IS THE VENTURE GUARD, AND IT IS NOT OPTIONAL. On the
+     * documented path each entry carries its own {@code country}, so Bangladesh can be picked out
+     * of several. Here there is only one account in the response and nothing inside
+     * {@code user_info} says which venture it belongs to — so the top-level field is the ONLY thing
+     * standing between a Bangladesh shop and a seller from another venture. Absent or non-Bangladesh
+     * is refused.
+     */
+    private String localSellerId(JsonNode body, String providerType, String requestId,
+                                 DarazResponseShape shape) {
+        JsonNode country = body.get("country");
+        if (country == null || !BANGLADESH_COUNTRY.equalsIgnoreCase(country.asText(""))) {
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_BD_ACCOUNT,
+                    "country", null, providerType, requestId, shape);
         }
-        throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_BD_ACCOUNT,
-                "country_user_info", null, providerType, requestId, shape);
+
+        JsonNode userInfo = body.get("user_info");
+        if (userInfo == null || !userInfo.isObject()) {
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_FIELD,
+                    "user_info", null, providerType, requestId, shape);
+        }
+
+        /*
+          🔴 seller_id AND NOTHING ELSE. user_info was observed to also carry country, user_id and
+          short_code; none of them is the store identity. user_id identifies a LOGIN, short_code is a
+          display handle, and country is the venture we just checked.
+        */
+        JsonNode sellerId = userInfo.get("seller_id");
+        if (sellerId == null || sellerId.asText("").isBlank()) {
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_SELLER_ID,
+                    "seller_id", null, providerType, requestId, shape);
+        }
+        return sellerId.asText();
     }
 
     private JsonNode parse(String body) {

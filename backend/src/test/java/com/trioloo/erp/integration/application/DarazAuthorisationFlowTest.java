@@ -46,6 +46,20 @@ class DarazAuthorisationFlowTest {
                 .formatted(sellerId, sellerId, sellerId);
     }
 
+    /**
+     * The LOCAL Bangladesh shape: no {@code country_user_info}, one {@code user_info}, venture named
+     * only at the top level. 🔴 This is what production actually returned.
+     */
+    private static String localTokenFor(String sellerId) {
+        return """
+                {"access_token":"access-for-%s","refresh_token":"refresh-for-%s",
+                 "expires_in":259200,"refresh_expires_in":604800,"country":"bd",
+                 "account":"seller@example.test","account_platform":"seller_center",
+                 "user_info":{"country":"bd","user_id":7,"seller_id":"%s","short_code":"SC-9"},
+                 "code":"0","request_id":"req-1"}"""
+                .formatted(sellerId, sellerId, sellerId);
+    }
+
     @TestConfiguration
     static class FakeDaraz {
 
@@ -382,5 +396,168 @@ class DarazAuthorisationFlowTest {
                 .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.NOT_COMPLETED);
         assertThat(replay.channelInstanceId()).isNull();
         assertThat(credentials.load(shopA)).isEmpty();
+    }
+
+    // ============================================== DZC-010 local Bangladesh seller
+
+    /**
+     * 🔴 THE PRODUCTION CASE, END TO END. The live seller returned no {@code country_user_info} at
+     * all, so this is the path a real Bangladesh shop actually takes to CONNECTED.
+     */
+    @Test
+    @DisplayName("a local seller binds from user_info.seller_id, stores its credential and connects")
+    void localSellerBindsAndConnects() {
+        tokenResponse = localTokenFor("BD-LOCAL-1");
+
+        var result = authorisation.complete("the-code", stateFor(shopA));
+
+        assertThat(result.outcome())
+                .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.AUTHORISED);
+        assertThat(result.channelInstanceId()).isEqualTo(shopA);
+        assertThat(result.boundAccount()).isEqualTo("BD-LOCAL-1");
+        assertThat(result.firstBinding()).isTrue();
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isEqualTo("BD-LOCAL-1");
+        assertThat(jdbc.queryForObject("SELECT bound_at FROM channel_instance WHERE id = ?",
+                Instant.class, shopA)).isNotNull();
+        assertThat(connectionOf(shopA)).isEqualTo("CONNECTED");
+        assertThat(credentials.load(shopA).orElseThrow().accessToken()).isEqualTo("access-for-BD-LOCAL-1");
+
+        /* 🔴 The account email was present in the response and is NOT what was bound. */
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isNotEqualTo("seller@example.test");
+    }
+
+    @Test
+    @DisplayName("re-authorising the same local seller renews the credential and keeps bound_at stable")
+    void localSellerReauthorisationRenews() {
+        tokenResponse = localTokenFor("BD-LOCAL-1");
+        authorisation.complete("code", stateFor(shopA));
+        Instant boundAt = jdbc.queryForObject(
+                "SELECT bound_at FROM channel_instance WHERE id = ?", Instant.class, shopA);
+
+        tokenResponse = localTokenFor("BD-LOCAL-1").replace("access-for-BD-LOCAL-1", "renewed-access");
+        var again = authorisation.complete("code2", stateFor(shopA));
+
+        assertThat(again.outcome())
+                .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.AUTHORISED);
+        assertThat(again.firstBinding()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT bound_at FROM channel_instance WHERE id = ?",
+                Instant.class, shopA)).isEqualTo(boundAt);
+        assertThat(credentials.load(shopA).orElseThrow().accessToken()).isEqualTo("renewed-access");
+        /* 🔴 Renewed in place — never a second credential row for one shop. */
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
+                Integer.class, shopA)).isEqualTo(1);
+    }
+
+    /** 🔴 INV-16.6 over the local path: a different seller must not silently take over the shop. */
+    @Test
+    @DisplayName("a different local seller is refused and the original binding survives intact")
+    void differentLocalSellerIsRefused() {
+        tokenResponse = localTokenFor("BD-LOCAL-1");
+        authorisation.complete("code", stateFor(shopA));
+
+        tokenResponse = localTokenFor("BD-LOCAL-2");
+        var result = authorisation.complete("code2", stateFor(shopA));
+
+        assertThat(result.outcome())
+                .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.DIFFERENT_ACCOUNT);
+        assertThat(result.boundAccount()).isEqualTo("BD-LOCAL-1");
+        assertThat(result.attemptedAccount()).isEqualTo("BD-LOCAL-2");
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isEqualTo("BD-LOCAL-1");
+        assertThat(credentials.load(shopA).orElseThrow().accessToken()).isEqualTo("access-for-BD-LOCAL-1");
+    }
+
+    /**
+     * 🔴 V11's unique index, reached through the local path. One Daraz store belongs to ONE shop —
+     * otherwise two shops would sync the same seller's products against each other.
+     */
+    @Test
+    @DisplayName("a local seller already claimed by another shop is refused")
+    void localSellerClaimedByAnotherShopIsRefused() {
+        tokenResponse = localTokenFor("BD-LOCAL-1");
+        authorisation.complete("code", stateFor(shopA));
+
+        var result = authorisation.complete("code2", stateFor(shopB));
+
+        assertThat(result.outcome())
+                .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.CLAIMED_BY_ANOTHER_SHOP);
+        assertThat(result.attemptedAccount()).isEqualTo("BD-LOCAL-1");
+
+        /* 🔴 Shop B gained nothing, and shop A lost nothing. */
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopB)).isNull();
+        assertThat(credentials.load(shopB)).isEmpty();
+        assertThat(connectionOf(shopB)).isEqualTo("NONE");
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isEqualTo("BD-LOCAL-1");
+    }
+
+    /** 🔴 THE VENTURE GUARD, END TO END: a foreign local seller binds nothing and stores nothing. */
+    @Test
+    @DisplayName("a local seller from another venture is refused and nothing is written")
+    void foreignLocalSellerIsRefused() {
+        tokenResponse = localTokenFor("SG-LOCAL-1").replace("\"country\":\"bd\"", "\"country\":\"sg\"");
+
+        String state = stateFor(shopA);
+
+        assertThatThrownBy(() -> authorisation.complete("code", state))
+                .isInstanceOf(DarazProtocolException.class)
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(DarazProtocolException.class))
+                .extracting(DarazProtocolException::reason)
+                .isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isNull();
+        assertThat(credentials.load(shopA)).isEmpty();
+        assertThat(connectionOf(shopA)).isEqualTo("NONE");
+    }
+
+    /** ⚠ A local response with no usable seller id stores nothing, and still burns the state. */
+    @Test
+    @DisplayName("a local response with no seller_id binds nothing and consumes the state")
+    void localSellerWithoutSellerIdStoresNothing() {
+        tokenResponse = """
+                {"access_token":"a","refresh_token":"r","expires_in":100,"refresh_expires_in":200,
+                 "country":"bd","account":"seller@example.test",
+                 "user_info":{"country":"bd","user_id":7,"short_code":"SC-9"}}""";
+
+        String state = stateFor(shopA);
+
+        assertThatThrownBy(() -> authorisation.complete("code", state))
+                .isInstanceOf(DarazProtocolException.class)
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(DarazProtocolException.class))
+                .extracting(DarazProtocolException::reason)
+                .isEqualTo(DarazProtocolException.Reason.MISSING_SELLER_ID);
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isNull();
+        assertThat(credentials.load(shopA)).isEmpty();
+        assertThat(connectionOf(shopA)).isEqualTo("NONE");
+        assertThat(jdbc.queryForObject(
+                "SELECT consumed_at FROM channel_authorisation_attempt "
+                        + "WHERE channel_instance_id = ? ORDER BY created_at DESC LIMIT 1",
+                Instant.class, shopA)).isNotNull();
+    }
+
+    /** ✅ A local seller and a cross-border seller are two shops, isolated from each other. */
+    @Test
+    @DisplayName("local and cross-border shops each keep their own seller and credential")
+    void bothShapesCoexistAcrossShops() {
+        tokenResponse = localTokenFor("BD-LOCAL-1");
+        authorisation.complete("c1", stateFor(shopA));
+
+        tokenResponse = tokenFor("BD-SELLER-B");
+        authorisation.complete("c2", stateFor(shopB));
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isEqualTo("BD-LOCAL-1");
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopB)).isEqualTo("BD-SELLER-B");
+        assertThat(credentials.load(shopA).orElseThrow().accessToken()).isEqualTo("access-for-BD-LOCAL-1");
+        assertThat(credentials.load(shopB).orElseThrow().accessToken()).isEqualTo("access-for-BD-SELLER-B");
     }
 }

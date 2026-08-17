@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.2.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-17 (`DZC-011` corrected) · **Source:** Daraz / Lazada Open Platform official documentation
+**Version:** 1.3.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -155,7 +155,7 @@ path. **A signer that omits it produces a well-formed signature that the gateway
 
 ---
 
-## 6. Seller identity — RESOLVED 2026-08-17
+## 6. Seller identity — RESOLVED 2026-08-17, AMENDED 2026-08-17 (local sellers)
 
 > **`DZC-010` — 🔴 THE BINDING IDENTITY IS THE TOKEN RESPONSE'S BANGLADESH `seller_id`, NOT
 > `/seller/get`.**
@@ -194,6 +194,67 @@ the corresponding country, and `user_id` as the authorized account ID for that c
 > ⚠ **ONE ITEM LEFT OPEN, AND IT IS CHEAP TO CLOSE:** **whether `/seller/get` returns the same identifier is
 > unverified.** ✅ **At the first real authorisation its response should be captured once and compared** —
 > **if it agrees, `/seller/get` becomes a useful liveness probe. It does not become the identity.**
+
+### 6.1 — The local Bangladesh seller branch (amended 2026-08-17)
+
+> **`DZC-010` (amended) — 🔴 A LOCAL BANGLADESH SELLER RETURNS NO `country_user_info` AT ALL.
+> ITS IDENTITY IS `user_info.seller_id`, GUARDED BY THE TOP-LEVEL `country`.**
+
+⚠ **THE ORIGINAL RULE WAS WRITTEN FROM DOCUMENTATION THAT DESCRIBES ONLY ONE OF TWO REAL SHAPES.**
+**`country_user_info[]` is what a CROSS-BORDER seller receives — one entry per venture. The provider's
+documentation never mentions the other shape, and the implementation therefore refused every local
+Bangladesh seller with `MISSING_COUNTRY_USER_INFO`.** 🔴 **The refusal was CORRECT: it declined to
+guess, and it bound nothing. The contract, not the code, was incomplete.**
+
+**Live evidence — one real Bangladesh seller, production, 2026-08-17. FIELD NAMES ONLY; no value from the
+response is recorded here or anywhere in this document:**
+
+| Observation | Value |
+|---|---|
+| **Top-level field names** | `access_token`, `country`, `refresh_token`, `user_info`, `account_platform`, `refresh_expires_in`, `expires_in`, `account`, `code`, `request_id`, `_trace_id_` |
+| **`country_user_info`** | 🔴 **`ABSENT`** |
+| **`user_info`** | `OBJECT` carrying `country`, `user_id`, `seller_id`, `short_code` |
+| **`data`** | `ABSENT` — the payload is flat, not wrapped |
+
+> **DECISION — `external_account_identity` is resolved in this order, and any failed condition REFUSES:**
+>
+> **1.** ✅ **`country_user_info` present and non-empty → UNCHANGED.** **The entry whose `country` is
+> Bangladesh is selected explicitly, and its `seller_id` is the identity.** 🔴 **A populated array with no
+> Bangladesh entry still REFUSES — it is not rescued by `user_info`.** ⚠ **Otherwise a cross-border token
+> could be silently redirected to a different account than the one the array names.**
+> **2.** ⚠ **Otherwise the top-level `country` MUST be Bangladesh.** 🔴 **THIS IS THE VENTURE GUARD, AND
+> IT IS NOT OPTIONAL.** **On the documented path each entry names its own country, so Bangladesh can be
+> picked out of several. Here the response names exactly ONE account and nothing inside `user_info`
+> identifies its venture — the top-level field is the only thing standing between a Bangladesh shop and a
+> seller from another venture.** **Absent is refused, not assumed.**
+> **3.** ⚠ **Then `user_info` MUST be an object.** **A scalar, array or null cannot carry a store identity.**
+> **4.** ⚠ **Then `user_info.seller_id` MUST be present and non-blank.**
+> **5.** ✅ **That `seller_id` is `external_account_identity`.**
+> **6.** 🔴 **ANY FAILED CONDITION REFUSES AND STORES NOTHING** — no credential, no binding, no
+> connection. **The state is still consumed, so a refusal is not replayable.**
+>
+> 🔴 **THE REJECTIONS OF `DZC-010` ARE PRESERVED IN FULL AND EXTENDED TO THIS BRANCH:**
+>
+> **a.** 🔴 **`account` (an email) IS NEVER THE IDENTITY.** ⚠ **An email is a LOGIN that can be changed
+> and can own several stores** (`INV-16.5`, `INV-16.14`). **It is present in the live local response and is
+> deliberately ignored.**
+> **b.** 🔴 **`user_id` IS NEVER THE IDENTITY.** ⚠ **The provider's own authorization documentation
+> defines it as the authorized ACCOUNT id, not the store** — the same distinction that makes `seller_id`
+> the right field on the documented path.
+> **c.** 🔴 **`short_code` IS NEVER THE IDENTITY.** ⚠ **It is a display handle, and nothing published
+> states that it is durable or unique.**
+> **d.** 🔴 **`country`, `account_platform`, `code`, `request_id` and `_trace_id_` ARE NEVER THE
+> IDENTITY.** **The first two describe the venture and platform; the last three describe THIS CALL and differ
+> on every request.**
+>
+> ✅ **WHY `user_info.seller_id` IS SOUND AND NOT A GUESS:** **`seller_id` is the same field name, in the
+> same protocol, that the official authorization documentation defines as *the seller ID of the store*. The
+> local shape is not a different vocabulary — it is the same field without the per-venture wrapper, which is
+> consistent with an account that belongs to exactly one venture.** 🔴 **It is remote-derived and cannot be
+> forged locally**, satisfying the rule that binding identity comes only from the provider.
+>
+> ⚠ **`/seller/get` REMAINS UNUSED AND UNVERIFIED.** **Its response schema is still unpublished, and this
+> amendment does not need it.** ✅ **The open item from §6 stands: capture it once and compare.**
 
 ## 7. Response envelope
 
@@ -243,6 +304,7 @@ indicates success.
 | **`/seller/get` response schema** | 🔴 **NOT PUBLISHED.** Does not block — identity comes from the documented token response instead (`DZC-010`) |
 | **Runtime error codes** | 🔴 **NOT PUBLISHED.** Does not block — mapping is driven by documented time facts and defaults to `ERROR` (`DZC-011`) |
 | **Rate-limit semantics** | ⚠ Unpublished — treated as `ERROR`, learn empirically |
+| **Local-seller token shape** | 🔴 **NOT PUBLISHED — OBSERVED.** Resolved empirically at the first live authorisation and recorded in §6.1; the documentation describes only the cross-border shape |
 | **Bangladesh REST base** | ✅ **CLOSED** — explicitly documented per region |
 | **Timestamp skew window** | ✅ **CLOSED** — ±7200 seconds |
 | **`sign_method` value** | ✅ **CLOSED** — `sha256` |
@@ -253,7 +315,7 @@ live authorisation rather than quietly assumed to be true.
 
 ## Sources
 
-All read from the provider's rendered official documentation on 2026-08-17:
+All read from the provider's rendered official documentation on 2026-08-17, except §6.1's response shape, which is a LIVE PRODUCTION OBSERVATION of one real Bangladesh seller on 2026-08-17 — recorded as field NAMES only:
 
 - [Daraz Open Platform — Getting Started](https://open.daraz.com/doc/doc.htm)
 - [Daraz Open Platform — Seller authorization introduction](https://open.daraz.com/doc/doc.htm?#/?docId=490)
@@ -270,6 +332,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-08-17** | 🔴 **`DZC-010` AMENDED — THE CONTRACT DESCRIBED ONLY ONE OF TWO REAL RESPONSE SHAPES.** ⚠ **The documented `country_user_info[]` is what a CROSS-BORDER seller receives; a live Bangladesh LOCAL seller returned NO such array, one flat `user_info` object, and the venture named only at the top level — so every local seller was refused.** ✅ **§6.1 adds the local branch: `country_user_info[].seller_id` remains the documented cross-border path and still wins when present; `user_info.seller_id` is the observed local path, GUARDED BY the top-level `country` being Bangladesh.** 🔴 **The rejection of `account`/email as binding identity is preserved in full, and extended to `user_id`, `short_code`, `country`, `account_platform`, `code`, `request_id` and `_trace_id_`.** ⚠ **A populated cross-border array with no Bangladesh entry is NOT rescued by `user_info`.** 🔴 **Live evidence is recorded as FIELD NAMES ONLY — no secret or response value appears in this document.** |
 | **1.2.0** | **2026-08-17** | 🔴 **`DZC-011` CORRECTED — IT WAS OVER-BROAD.** **v1.1.0 mapped ANY non-zero response from `/auth/token/refresh` to `REAUTH_REQUIRED`.** ⚠ **That would have told an operator to go and disturb a seller whose authorisation was perfectly healthy, merely because the refresh call was rate-limited, mis-signed, clock-skewed or hit a provider outage.** ✅ **`REAUTH_REQUIRED` now requires evidence about the CREDENTIAL itself — invalid, expired or revoked; everything else, including any unclassified non-zero code, is `ERROR`.** 🔴 **THE ENDPOINT INVOLVED PROVES NOTHING; ONLY EVIDENCE ABOUT THE CREDENTIAL DOES.** ⚠ **No new error code was invented to support this — the rule is a classification default, not a claim about Daraz’s catalogue.** |
 | **1.1.0** | **2026-08-17** | ✅ **CONTRACT COMPLETED.** **Bangladesh REST base explicitly confirmed from the per-region Service Endpoints table; timestamp skew ±7200s; `sign_method=sha256` resolved from the official sample's branch rather than from digest length.** 🔴 **`DZC-010` DECIDES THE BINDING IDENTITY — the Bangladesh `country_user_info[].seller_id` from the token response — BECAUSE `/seller/get` PUBLISHES NO RESPONSE SCHEMA**, and guessing a field on the one fact every reauthorisation is tested against would mis-bind shops silently. 🔴 **`DZC-011` maps provider failures from DOCUMENTED TIME FACTS and defaults to `ERROR`, because Daraz publishes no auth error codes; `REAUTH_REQUIRED` is reached only on a documented condition.** ⚠ **Unpublished items are listed with fail-safe fallbacks to confirm at first live authorisation.** 🔴 **No secret value appears in this document.** |
 | **1.0.0** | **2026-08-17** | **Initial record of the official Daraz protocol facts** — hosts, OAuth `code for token` flow with round-tripping `state`, `/auth/token/create` and `/auth/token/refresh`, independent token lifetimes, the HMAC-SHA256 canonical-string signing contract, `/seller/get`, and the response envelope. ⚠ **Records explicitly what is NOT yet established**, so implementation cannot mistake this for a complete contract. 🔴 **No secret value appears in this document.** |

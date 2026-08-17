@@ -334,8 +334,12 @@ class DarazAuthorisationAdapterTest {
                 new Case(DarazProtocolException.Reason.UNUSABLE_DURATION, "refresh_expires_in",
                         json("{'access_token':'a','refresh_token':'r','expires_in':1,"
                                 + "'refresh_expires_in':0," + bd + "}")),
-                new Case(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO, "country_user_info",
+                /* ⚠ Neither shape: no country_user_info AND no top-level country. */
+                new Case(DarazProtocolException.Reason.MISSING_BD_ACCOUNT, "country",
                         json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2}")),
+                new Case(DarazProtocolException.Reason.MISSING_FIELD, "user_info",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                                + "'country':'bd'}")),
                 new Case(DarazProtocolException.Reason.MISSING_BD_ACCOUNT, "country_user_info",
                         json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
                                 + "'country_user_info':[{'country':'sg','seller_id':'SG-1'}]}")),
@@ -458,28 +462,15 @@ class DarazAuthorisationAdapterTest {
     }
 
     /**
-     * ⚠ THE EXACT LIVE SHAPE. Behaviour must not drift: this still refuses, because the identity
-     * rule is a reviewer decision that has not been made.
+     * 🔴 THE EXACT LIVE SHAPE, AND IT NOW BINDS. This is the response a real Bangladesh local
+     * seller returned in production — no {@code country_user_info} anywhere, one {@code user_info}
+     * object, and the venture named only at the top level.
      */
     @Test
-    @DisplayName("the observed live shape still refuses with MISSING_COUNTRY_USER_INFO")
-    void liveShapeStillRefuses() {
-        String live = json("{'access_token':'a','country':'bd','refresh_token':'r',"
-                + "'user_info':{'seller_id':'BD-1','user_id':7},'account_platform':'seller_center',"
-                + "'refresh_expires_in':604800,'expires_in':259200,'account':'seller@example.test',"
-                + "'code':'0','request_id':'0b8ded6517869365662936454','_trace_id_':'t-1'}");
-
-        assertThatThrownBy(() -> adapter(live).exchange(SHOP, "code"))
-                .isInstanceOf(DarazProtocolException.class)
-                .satisfies(e -> {
-                    DarazProtocolException p = (DarazProtocolException) e;
-                    /* 🔴 UNCHANGED BEHAVIOUR — no fallback identity was introduced. */
-                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO);
-                    assertThat(p.field()).isEqualTo("country_user_info");
-                    /* ✅ But now the log can say what user_info actually held. */
-                    assertThat(p.containers()).containsEntry("user_info", "OBJECT[seller_id,user_id]");
-                    assertThat(p.requestId()).isEqualTo("0b8ded6517869365662936454");
-                });
+    @DisplayName("the observed live local-seller shape binds using user_info.seller_id")
+    void liveLocalShapeBinds() {
+        assertThat(adapter(LIVE_LOCAL).exchange(SHOP, "code").orElseThrow().accountIdentity())
+                .isEqualTo("BD-LOCAL-1");
     }
 
     @Test
@@ -526,18 +517,19 @@ class DarazAuthorisationAdapterTest {
         }
     }
 
-    /** ⚠ A container of an unexpected type must not become a NEW failure mode. */
+    /** ⚠ A container of an unexpected type is refused, and its VALUE still never reaches the log. */
     @Test
-    @DisplayName("a non-object user_info changes nothing about the failure itself")
-    void nonObjectUserInfoIsNotANewFailure() {
+    @DisplayName("a non-object user_info is refused and its value is not echoed")
+    void nonObjectUserInfoIsRefusedSafely() {
         String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
-                + "'user_info':'not-an-object'}");
+                + "'country':'bd','user_info':'not-an-object'}");
 
         assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
                 .isInstanceOf(DarazProtocolException.class)
                 .satisfies(e -> {
                     DarazProtocolException p = (DarazProtocolException) e;
-                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO);
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_FIELD);
+                    assertThat(p.field()).isEqualTo("user_info");
                     assertThat(p.containers()).containsEntry("user_info", "STRING");
                     assertThat(p.describeContainers()).doesNotContain("not-an-object");
                 });
@@ -549,5 +541,249 @@ class DarazAuthorisationAdapterTest {
     void documentedShapeStillWorks() {
         assertThat(adapter(VALID_TOKEN).exchange(SHOP, "the-code").orElseThrow().accountIdentity())
                 .isEqualTo("BD-SELLER-1");
+    }
+
+    // ============================================== DZC-010 local Bangladesh seller
+
+    /**
+     * The live production shape, field-for-field. 🔴 Values are obvious fakes; the FIELD NAMES are
+     * the evidence — {@code user_info} carrying {@code country}, {@code user_id}, {@code seller_id}
+     * and {@code short_code}, with the venture named only at the top level.
+     */
+    private static final String LIVE_LOCAL = json(
+            "{'access_token':'test-access','country':'bd','refresh_token':'test-refresh',"
+                    + "'user_info':{'country':'bd','user_id':7,'seller_id':'BD-LOCAL-1','short_code':'SC-9'},"
+                    + "'account_platform':'seller_center','refresh_expires_in':604800,'expires_in':259200,"
+                    + "'account':'seller@example.test','code':'0','request_id':'req-1','_trace_id_':'t-1'}");
+
+    /** Rebuilds the live shape with one field replaced, so each refusal differs in exactly one way. */
+    private static String local(String userInfo, String country) {
+        return json("{'access_token':'test-access','refresh_token':'test-refresh',"
+                + "'refresh_expires_in':604800,'expires_in':259200,'account':'seller@example.test',"
+                + (country == null ? "" : "'country':'" + country + "',")
+                + (userInfo == null ? "" : "'user_info':" + userInfo + ",")
+                + "'code':'0','request_id':'req-1'}");
+    }
+
+    @Test
+    @DisplayName("the local Bangladesh shape binds using user_info.seller_id, with its credential")
+    void localShapeBindsSellerId() {
+        ChannelAuthorisationPort.AuthorisedAccount account =
+                adapter(LIVE_LOCAL).exchange(SHOP, "the-code").orElseThrow();
+
+        assertThat(account.accountIdentity()).isEqualTo("BD-LOCAL-1");
+        /* ✅ The credential travels with it, unchanged by which identity path was taken. */
+        ChannelCredentialStore.ProviderCredential credential = account.credential();
+        assertThat(credential.accessToken()).isEqualTo("test-access");
+        assertThat(credential.refreshToken()).isEqualTo("test-refresh");
+        assertThat(credential.accessTokenExpiresAt()).isEqualTo(NOW.plusSeconds(259200));
+        assertThat(credential.refreshTokenExpiresAt()).isEqualTo(NOW.plusSeconds(604800));
+        /* 🔴 INV-16.14 — Daraz reports no storefront address here, and none is invented. */
+        assertThat(account.link()).isNull();
+    }
+
+    /**
+     * 🔴 THE VENTURE GUARD. A local response names exactly one account and nothing inside
+     * {@code user_info} says which venture it belongs to, so the top-level {@code country} is the
+     * only thing stopping a Singapore seller from being bound to a Bangladesh shop.
+     */
+    @Test
+    @DisplayName("a local shape from another venture is refused on the top-level country")
+    void localShapeWrongCountryRefuses() {
+        String body = local("{'seller_id':'SG-LOCAL-1','user_id':7}", "sg");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
+                    assertThat(p.field()).isEqualTo("country");
+                });
+    }
+
+    /** ⚠ ABSENT IS NOT PERMISSIVE. No country means the guard cannot be satisfied, so it refuses. */
+    @Test
+    @DisplayName("a local shape with no top-level country is refused, not assumed Bangladeshi")
+    void localShapeMissingCountryRefuses() {
+        String body = local("{'seller_id':'BD-LOCAL-1','user_id':7}", null);
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
+                    assertThat(p.field()).isEqualTo("country");
+                });
+    }
+
+    @Test
+    @DisplayName("a non-object or absent user_info is refused by field name")
+    void localShapeUnusableUserInfoRefuses() {
+        record Case(String label, String body) { }
+        var cases = new Case[]{
+                new Case("string", local("'a-string'", "bd")),
+                new Case("number", local("12345", "bd")),
+                new Case("array", local("[{'seller_id':'BD-1'}]", "bd")),
+                new Case("null", local("null", "bd")),
+                new Case("absent", local(null, "bd")),
+        };
+
+        for (Case c : cases) {
+            assertThatThrownBy(() -> adapter(c.body()).exchange(SHOP, "code"))
+                    .as("user_info as %s", c.label())
+                    .isInstanceOf(DarazProtocolException.class)
+                    .satisfies(e -> {
+                        DarazProtocolException p = (DarazProtocolException) e;
+                        assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_FIELD);
+                        assertThat(p.field()).isEqualTo("user_info");
+                    });
+        }
+    }
+
+    @Test
+    @DisplayName("a local shape with a missing, blank or whitespace seller_id is refused")
+    void localShapeUnusableSellerIdRefuses() {
+        record Case(String label, String body) { }
+        var cases = new Case[]{
+                new Case("missing", local("{'user_id':7,'short_code':'SC-9'}", "bd")),
+                new Case("empty", local("{'seller_id':'','user_id':7}", "bd")),
+                new Case("whitespace", local("{'seller_id':'   ','user_id':7}", "bd")),
+                new Case("null", local("{'seller_id':null,'user_id':7}", "bd")),
+                new Case("empty user_info", local("{}", "bd")),
+        };
+
+        for (Case c : cases) {
+            assertThatThrownBy(() -> adapter(c.body()).exchange(SHOP, "code"))
+                    .as("seller_id %s", c.label())
+                    .isInstanceOf(DarazProtocolException.class)
+                    .satisfies(e -> {
+                        DarazProtocolException p = (DarazProtocolException) e;
+                        assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_SELLER_ID);
+                        assertThat(p.field()).isEqualTo("seller_id");
+                    });
+        }
+    }
+
+    /**
+     * 🔴 THE ACCOUNT EMAIL IS NOT AN IDENTITY, AND ITS PRESENCE CHANGES NOTHING. It is a LOGIN,
+     * not a store: one login can hold several stores, and a seller can change it. Binding to it would
+     * make {@code INV-16.6}'s "same seller?" test answer the wrong question forever.
+     */
+    @Test
+    @DisplayName("account and email are ignored as identity even when present")
+    void accountIsNeverIdentity() {
+        String body = local("{'seller_id':'BD-LOCAL-1','email':'other@example.test'}", "bd");
+
+        String identity = adapter(body).exchange(SHOP, "code").orElseThrow().accountIdentity();
+
+        assertThat(identity).isEqualTo("BD-LOCAL-1");
+        assertThat(identity).isNotEqualTo("seller@example.test");
+        assertThat(identity).isNotEqualTo("other@example.test");
+    }
+
+    /**
+     * ⚠ {@code user_id} IS A LOGIN AND {@code short_code} IS A DISPLAY HANDLE. Both sit right beside
+     * {@code seller_id} in the live response, and neither is the store.
+     */
+    @Test
+    @DisplayName("user_id and short_code are never used as identity, even when seller_id is absent")
+    void neighbouringFieldsAreNeverIdentity() {
+        /* Present alongside seller_id: ignored. */
+        assertThat(adapter(LIVE_LOCAL).exchange(SHOP, "code").orElseThrow().accountIdentity())
+                .isEqualTo("BD-LOCAL-1")
+                .isNotEqualTo("7")
+                .isNotEqualTo("SC-9");
+
+        /* Present WITHOUT seller_id: still refused rather than substituted. */
+        String body = local("{'user_id':7,'short_code':'SC-9','country':'bd'}", "bd");
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> assertThat(((DarazProtocolException) e).reason())
+                        .isEqualTo(DarazProtocolException.Reason.MISSING_SELLER_ID));
+    }
+
+    /**
+     * ✅ THE DOCUMENTED PATH IS UNTOUCHED AND STILL WINS. When both shapes arrive, the per-entry
+     * Bangladesh selection decides — {@code user_info} is the FALLBACK for responses that carry no
+     * array, never an override of one.
+     */
+    @Test
+    @DisplayName("country_user_info still decides when both shapes are present")
+    void documentedPathStillWins() {
+        String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                + "'country':'bd','user_info':{'seller_id':'FROM-USER-INFO'},"
+                + "'country_user_info':[{'country':'sg','seller_id':'SG-1'},"
+                + "{'country':'bd','seller_id':'FROM-COUNTRY-USER-INFO'}]}");
+
+        assertThat(adapter(body).exchange(SHOP, "code").orElseThrow().accountIdentity())
+                .isEqualTo("FROM-COUNTRY-USER-INFO");
+    }
+
+    /**
+     * ⚠ An array that is present but unusable falls through to the local path rather than failing
+     * outright — an empty array carries no Bangladesh entry to select.
+     */
+    @Test
+    @DisplayName("an empty country_user_info falls through to the local path")
+    void emptyArrayFallsThroughToLocal() {
+        String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                + "'country':'bd','country_user_info':[],'user_info':{'seller_id':'BD-LOCAL-1'}}");
+
+        assertThat(adapter(body).exchange(SHOP, "code").orElseThrow().accountIdentity())
+                .isEqualTo("BD-LOCAL-1");
+    }
+
+    /** ⚠ A cross-border array WITHOUT a Bangladesh entry still refuses; it does not fall through. */
+    @Test
+    @DisplayName("a populated cross-border array is not rescued by user_info")
+    void crossBorderArrayIsNotRescuedByUserInfo() {
+        String body = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                + "'country':'bd','user_info':{'seller_id':'BD-LOCAL-1'},"
+                + "'country_user_info':[{'country':'sg','seller_id':'SG-1'}]}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
+                    assertThat(p.field()).isEqualTo("country_user_info");
+                });
+    }
+
+    /** ✅ Country matching follows the repo's existing style on both paths. */
+    @Test
+    @DisplayName("the country guard is case-insensitive, as it already was per entry")
+    void countryGuardIsCaseInsensitive() {
+        assertThat(adapter(local("{'seller_id':'BD-LOCAL-1'}", "BD")).exchange(SHOP, "code")
+                .orElseThrow().accountIdentity()).isEqualTo("BD-LOCAL-1");
+    }
+
+    /** ⚠ Daraz has been observed to send seller ids both quoted and bare. Both must bind alike. */
+    @Test
+    @DisplayName("a numeric seller_id binds to its digits")
+    void numericSellerIdBinds() {
+        assertThat(adapter(local("{'seller_id':1001,'user_id':7}", "bd")).exchange(SHOP, "code")
+                .orElseThrow().accountIdentity()).isEqualTo("1001");
+    }
+
+    /** 🔴 A refusal on the local path leaks nothing either. */
+    @Test
+    @DisplayName("a local-path refusal carries names and types only, never values")
+    void localRefusalLeaksNothing() {
+        String body = json("{'access_token':'super-secret-access','refresh_token':'super-secret-refresh',"
+                + "'expires_in':1,'refresh_expires_in':2,'country':'bd',"
+                + "'account':'seller@example.test','user_info':{'user_id':4242,'short_code':'SC-SECRET'}}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.containers()).containsEntry("user_info", "OBJECT[user_id,short_code]");
+                    String rendered = p.describeContainers() + " " + p.getMessage() + " " + p.topLevelFields();
+                    assertThat(rendered).doesNotContain("super-secret");
+                    assertThat(rendered).doesNotContain("4242");
+                    assertThat(rendered).doesNotContain("SC-SECRET");
+                    assertThat(rendered).doesNotContain("seller@example.test");
+                });
     }
 }

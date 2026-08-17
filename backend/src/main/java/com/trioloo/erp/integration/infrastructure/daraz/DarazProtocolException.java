@@ -31,7 +31,13 @@ public class DarazProtocolException extends RuntimeException {
         MISSING_FIELD,
         /** A duration was present but unusable — notably {@code refresh_expires_in=0} ({@code DZC-005}). */
         UNUSABLE_DURATION,
-        /** No {@code country_user_info} array at all. */
+        /**
+         * No {@code country_user_info} array at all.
+         *
+         * <p>⚠ NO LONGER PRODUCED since the local-seller branch was approved — its absence now
+         * routes to {@code user_info} rather than failing. Retained so log lines written before
+         * that change remain interpretable.
+         */
         MISSING_COUNTRY_USER_INFO,
         /** {@code country_user_info} present, but with no Bangladesh entry ({@code DZC-010}). */
         MISSING_BD_ACCOUNT,

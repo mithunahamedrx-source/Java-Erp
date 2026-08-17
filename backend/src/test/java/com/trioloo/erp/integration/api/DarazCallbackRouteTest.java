@@ -496,43 +496,91 @@ class DarazCallbackRouteTest {
     // ============================================================ container shape in the log
 
     /**
-     * 🔴 THE LIVE SHAPE, END TO END. The operator's journal must now say what {@code user_info}
-     * contained — and still not one value from it.
+     * 🔴 THE DIAGNOSTIC SURVIVES THE FIX. A local response that still cannot be bound — no
+     * {@code seller_id} anywhere — must say what {@code user_info} held, and still not one value.
      */
     @Test
-    @DisplayName("the callback WARN reports container shape for the observed live response")
+    @DisplayName("the callback WARN reports container shape when identity cannot be read")
     void callbackLogsContainerShape() throws Exception {
         tokenResponse = """
                 {"access_token":"super-secret-access","country":"bd","refresh_token":"super-secret-refresh",
-                 "user_info":{"seller_id":"BD-SECRET-99","user_id":4242},"account_platform":"seller_center",
+                 "user_info":{"user_id":4242,"short_code":"SC-SECRET"},"account_platform":"seller_center",
                  "refresh_expires_in":604800,"expires_in":259200,"account":"seller@example.test",
                  "code":"0","request_id":"0b8ded6517869365662936454","_trace_id_":"t-1"}""";
 
         mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
 
         String captured = capturedLog();
-        assertThat(captured).contains("reason=MISSING_COUNTRY_USER_INFO");
+        assertThat(captured).contains("reason=MISSING_SELLER_ID");
         assertThat(captured).contains("containers=");
-        assertThat(captured).contains("user_info:OBJECT[seller_id,user_id]");
+        assertThat(captured).contains("user_info:OBJECT[user_id,short_code]");
         assertThat(captured).contains("country_user_info:ABSENT");
         assertThat(captured).contains("requestId=0b8ded6517869365662936454");
 
         /* 🔴 Nested values never appear. */
-        assertThat(captured).doesNotContain("BD-SECRET-99");
         assertThat(captured).doesNotContain("4242");
+        assertThat(captured).doesNotContain("SC-SECRET");
         assertThat(captured).doesNotContain("super-secret-access");
         assertThat(captured).doesNotContain("super-secret-refresh");
         assertThat(captured).doesNotContain("seller@example.test");
     }
 
-    /** ⚠ Behaviour is unchanged: the live shape still binds nothing and stores nothing. */
+    // ============================================================ DZC-010 local seller
+
+    /**
+     * 🔴 THE LIVE PRODUCTION SHAPE, THROUGH THE REAL ROUTE. This is the response that previously
+     * left the operator's shop unconnected; it must now bind and store.
+     */
     @Test
-    @DisplayName("the live shape still binds nothing and stores no credential")
-    void liveShapeBindsNothing() throws Exception {
-        tokenResponse = """
-                {"access_token":"a","country":"bd","refresh_token":"r",
-                 "user_info":{"seller_id":"BD-1","user_id":7},
-                 "refresh_expires_in":604800,"expires_in":259200,"code":"0"}""";
+    @DisplayName("a local Bangladesh seller callback binds user_info.seller_id and stores the credential")
+    void localSellerCallbackBinds() throws Exception {
+        tokenResponse = LIVE_LOCAL;
+
+        MvcResult result = mvc.perform(get(CALLBACK)
+                .param("code", "the-authorisation-code").param("state", stateForShop())).andReturn();
+
+        assertThat(locationOf(result)).contains("authorisation=AUTHORISED");
+        /* ✅ A success carries no attempted account — there was nothing to disambiguate. */
+        assertThat(locationOf(result)).doesNotContain("attempted=");
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shop)).isEqualTo("BD-LOCAL-1");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
+                Integer.class, shop)).isEqualTo(1);
+        assertThat(capturedLog()).contains("outcome=AUTHORISED");
+    }
+
+    /**
+     * 🔴 THE HYGIENE GUARANTEE ON THE PATH THAT NOW SUCCEEDS. A success redirect and its log line
+     * are the newest place a token could escape.
+     */
+    @Test
+    @DisplayName("a successful local binding leaks no token, code, state, secret or body")
+    void localSuccessLeaksNothing() throws Exception {
+        String state = stateForShop();
+        tokenResponse = LIVE_LOCAL;
+
+        MvcResult result = mvc.perform(get(CALLBACK)
+                .param("code", "the-authorisation-code").param("state", state)).andReturn();
+
+        String location = locationOf(result);
+        String captured = capturedLog();
+        for (String secret : new String[]{
+                "live-access-token", "live-refresh-token", "the-authorisation-code", state,
+                "test-app-secret-not-a-real-value", "seller@example.test", "api.daraz.com.bd", "sign="}) {
+            assertThat(location).as("redirect must not carry %s", secret).doesNotContain(secret);
+            assertThat(captured).as("log must not carry %s", secret).doesNotContain(secret);
+        }
+        /* And no raw body anywhere. */
+        assertThat(location).doesNotContain("\"access_token\":");
+        assertThat(captured).doesNotContain("\"access_token\":");
+    }
+
+    /** ⚠ A foreign local seller is refused at the route, and the shop stays unbound. */
+    @Test
+    @DisplayName("a local seller from another venture binds nothing through the callback")
+    void foreignLocalSellerCallbackBindsNothing() throws Exception {
+        tokenResponse = LIVE_LOCAL.replace("\"country\":\"bd\"", "\"country\":\"sg\"");
 
         mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
 
@@ -540,5 +588,31 @@ class DarazCallbackRouteTest {
                 String.class, shop)).isNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
                 Integer.class, shop)).isZero();
+        assertThat(capturedLog()).contains("reason=MISSING_BD_ACCOUNT");
+        assertThat(capturedLog()).contains("field=country");
     }
+
+    /** 🔴 A second local seller on a bound shop is a mismatch, not a takeover. */
+    @Test
+    @DisplayName("a different local seller returns DIFFERENT_ACCOUNT and preserves the binding")
+    void differentLocalSellerCallbackIsRefused() throws Exception {
+        tokenResponse = LIVE_LOCAL;
+        mvc.perform(get(CALLBACK).param("code", "c1").param("state", stateForShop())).andReturn();
+
+        tokenResponse = LIVE_LOCAL.replace("BD-LOCAL-1", "BD-LOCAL-2");
+        MvcResult result = mvc.perform(get(CALLBACK)
+                .param("code", "c2").param("state", stateForShop())).andReturn();
+
+        assertThat(locationOf(result)).contains("authorisation=DIFFERENT_ACCOUNT");
+        assertThat(locationOf(result)).contains("attempted=BD-LOCAL-2");
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shop)).isEqualTo("BD-LOCAL-1");
+    }
+
+    /** The live local shape. 🔴 Obvious fakes; the FIELD NAMES are what production proved. */
+    private static final String LIVE_LOCAL = """
+            {"access_token":"live-access-token","country":"bd","refresh_token":"live-refresh-token",
+             "user_info":{"country":"bd","user_id":7,"seller_id":"BD-LOCAL-1","short_code":"SC-9"},
+             "account_platform":"seller_center","refresh_expires_in":604800,"expires_in":259200,
+             "account":"seller@example.test","code":"0","request_id":"req-1","_trace_id_":"t-1"}""";
 }
