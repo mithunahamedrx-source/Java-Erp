@@ -114,9 +114,33 @@ public class DarazCallbackController {
           ⚠ The stack trace is deliberately not attached: these exceptions carry no cause by
           construction, and a provider client's trace can quote the signed request URI.
         */
-        log.warn("Daraz callback failed at the provider: type={} providerCode={} outcome=PROVIDER_ERROR",
-                e.getClass().getSimpleName(),
-                e instanceof DarazProtocolException protocol ? protocol.providerCode() : null);
+        if (e instanceof DarazProtocolException protocol) {
+            /*
+              ✅ EVERY FIELD HERE IS A CLASSIFICATION OR A NAME. reason says WHY, field says WHICH
+              field, topLevelFields says what SHAPE arrived, requestId lets Daraz's own support find
+              the call. 🔴 Not one of them can hold a token, an authorisation code, a state, the App
+              Secret, a body fragment or the signed URI.
+            */
+            log.warn("Daraz callback failed at the provider: type={} reason={} field={} "
+                            + "providerCode={} providerType={} requestId={} topLevelFields={} "
+                            + "outcome=PROVIDER_ERROR",
+                    e.getClass().getSimpleName(),
+                    protocol.reason(),
+                    protocol.field(),
+                    protocol.providerCode(),
+                    protocol.providerType(),
+                    protocol.requestId(),
+                    protocol.topLevelFields());
+        } else if (e instanceof DarazTransportException transport) {
+            /* ⚠ httpStatus present = the provider answered badly; absent = it was never reached. */
+            log.warn("Daraz callback failed in transport: type={} httpStatus={} reached={} "
+                            + "outcome=PROVIDER_ERROR",
+                    e.getClass().getSimpleName(),
+                    transport.httpStatus(),
+                    transport.isHttpStatusFailure());
+        } else {
+            log.warn("Daraz callback failed: type={} outcome=PROVIDER_ERROR", e.getClass().getSimpleName());
+        }
 
         return redirectTo(null, "PROVIDER_ERROR", null);
     }

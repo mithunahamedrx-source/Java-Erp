@@ -11,7 +11,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -156,27 +158,54 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
         JsonNode body = parse(transport.get(uri.build().encode().toUri()));
 
         /*
-          ⚠ Daraz reports application failures inside an HTTP 200, so the envelope is checked
-          rather than the status. A success response for token creation carries no `code` field at
-          all; a failure carries a non-zero one.
+          ✅ THE SAFE SHAPE OF THE RESPONSE, captured once and attached to every failure below.
+          🔴 NAMES ONLY — no value from the body is ever read into it. This is what makes a wrapped
+          payload ({@code [code, data, request_id]}) distinguishable from a flat one without anyone
+          printing the body.
+        */
+        List<String> shape = topLevelFieldNames(body);
+        String requestId = text(body, "request_id");
+        String providerType = text(body, "type");
+
+        /*
+          ⚠ Daraz reports application failures inside an HTTP 200, so the envelope is checked rather
+          than the status. A success response for token creation carries no `code` field at all; a
+          failure carries a non-zero one.
         */
         JsonNode envelopeCode = body.get("code");
         if (envelopeCode != null && !envelopeCode.asText("").isEmpty() && !"0".equals(envelopeCode.asText())) {
-            throw new DarazProtocolException("the token request was refused", envelopeCode.asText());
+            throw new DarazProtocolException(DarazProtocolException.Reason.ENVELOPE_CODE,
+                    null, envelopeCode.asText(), providerType, requestId, shape);
         }
 
-        String accessToken = required(body, "access_token");
-        String refreshToken = required(body, "refresh_token");
-        Instant accessExpiry = now.plusSeconds(requiredSeconds(body, "expires_in"));
-        Instant refreshExpiry = now.plusSeconds(requiredSeconds(body, "refresh_expires_in"));
+        String accessToken = required(body, "access_token", providerType, requestId, shape);
+        String refreshToken = required(body, "refresh_token", providerType, requestId, shape);
+        Instant accessExpiry = now.plusSeconds(requiredSeconds(body, "expires_in", providerType, requestId, shape));
+        Instant refreshExpiry = now.plusSeconds(
+                requiredSeconds(body, "refresh_expires_in", providerType, requestId, shape));
 
-        String sellerId = bangladeshSellerId(body);
+        String sellerId = bangladeshSellerId(body, providerType, requestId, shape);
 
         return Optional.of(new ChannelAuthorisationPort.AuthorisedAccount(
                 sellerId,
                 null,   // INV-16.14 — Daraz reports no storefront address here; none is invented.
                 new ChannelCredentialStore.ProviderCredential(
                         accessToken, accessExpiry, refreshToken, refreshExpiry)));
+    }
+
+    /** 🔴 Field NAMES only. No value is read. */
+    private static List<String> topLevelFieldNames(JsonNode body) {
+        List<String> names = new ArrayList<>();
+        if (body != null && body.isObject()) {
+            body.properties().forEach(entry -> names.add(entry.getKey()));
+        }
+        return names;
+    }
+
+    /** Reads a short, safe scalar the provider uses to classify its own response. */
+    private static String text(JsonNode body, String field) {
+        JsonNode value = body == null ? null : body.get(field);
+        return value == null || value.asText("").isBlank() ? null : value.asText();
     }
 
     /**
@@ -186,48 +215,63 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
      * fails: binding a Bangladesh shop to another venture's store, or falling back to the account
      * email, would corrupt the one fact {@code INV-16.6} tests every reauthorisation against.
      */
-    private String bangladeshSellerId(JsonNode body) {
+    private String bangladeshSellerId(JsonNode body, String providerType, String requestId,
+                                      List<String> shape) {
         JsonNode entries = body.get("country_user_info");
         if (entries == null || !entries.isArray() || entries.isEmpty()) {
-            throw new DarazProtocolException("the token response carried no country_user_info");
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO,
+                    "country_user_info", null, providerType, requestId, shape);
         }
         for (JsonNode entry : entries) {
             JsonNode country = entry.get("country");
             if (country != null && BANGLADESH_COUNTRY.equalsIgnoreCase(country.asText(""))) {
                 JsonNode sellerId = entry.get("seller_id");
                 if (sellerId == null || sellerId.asText("").isBlank()) {
-                    throw new DarazProtocolException("the Bangladesh account carried no seller_id");
+                    throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_SELLER_ID,
+                            "seller_id", null, providerType, requestId, shape);
                 }
                 return sellerId.asText();
             }
         }
-        throw new DarazProtocolException("the token response carried no Bangladesh account");
+        throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_BD_ACCOUNT,
+                "country_user_info", null, providerType, requestId, shape);
     }
 
     private JsonNode parse(String body) {
         if (body == null || body.isBlank()) {
-            throw new DarazProtocolException("the response was empty");
+            throw new DarazProtocolException(DarazProtocolException.Reason.EMPTY_RESPONSE);
         }
         try {
-            return json.readTree(body);
+            JsonNode parsed = json.readTree(body);
+            if (parsed == null || !parsed.isObject()) {
+                /* JSON, but not an object — no field can be read from it. */
+                throw new DarazProtocolException(DarazProtocolException.Reason.MALFORMED_RESPONSE);
+            }
+            return parsed;
+        } catch (DarazProtocolException e) {
+            throw e;
         } catch (Exception e) {
             /* 🔴 Not chained and the body is not quoted: it contains tokens. */
-            throw new DarazProtocolException("the response was not valid JSON");
+            throw new DarazProtocolException(DarazProtocolException.Reason.NON_JSON);
         }
     }
 
-    private static String required(JsonNode body, String field) {
+    private static String required(JsonNode body, String field, String providerType,
+                                   String requestId, List<String> shape) {
         JsonNode value = body.get(field);
         if (value == null || value.asText("").isBlank()) {
-            throw new DarazProtocolException("the token response omitted " + field);
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_FIELD,
+                    field, null, providerType, requestId, shape);
         }
         return value.asText();
     }
 
-    private static long requiredSeconds(JsonNode body, String field) {
+    private static long requiredSeconds(JsonNode body, String field, String providerType,
+                                        String requestId, List<String> shape) {
         JsonNode value = body.get(field);
         if (value == null || !value.canConvertToLong()) {
-            throw new DarazProtocolException("the token response omitted " + field);
+            throw new DarazProtocolException(DarazProtocolException.Reason.MISSING_FIELD,
+                    field, null, providerType, requestId, shape);
         }
         long seconds = value.asLong();
         if (seconds <= 0) {
@@ -236,7 +280,8 @@ public class DarazAuthorisationAdapter implements ChannelAuthorisationPort {
               Trioloo cannot maintain. Refusing it at the door is honest; storing it would produce a
               shop that silently becomes unusable.
             */
-            throw new DarazProtocolException(field + " was not a usable duration");
+            throw new DarazProtocolException(DarazProtocolException.Reason.UNUSABLE_DURATION,
+                    field, null, providerType, requestId, shape);
         }
         return seconds;
     }

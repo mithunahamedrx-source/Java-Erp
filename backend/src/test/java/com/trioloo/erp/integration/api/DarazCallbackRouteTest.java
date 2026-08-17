@@ -57,6 +57,8 @@ class DarazCallbackRouteTest {
     private static final String CALLBACK = "/api/integration/daraz/callback";
 
     private static volatile String tokenResponse = "";
+    /** Set to make the controlled transport fail instead of answering. */
+    private static volatile RuntimeException transportFailure = null;
 
     private static String tokenFor(String sellerId) {
         return """
@@ -78,7 +80,12 @@ class DarazCallbackRouteTest {
         @Bean
         @Primary
         DarazTransport fakeTransport() {
-            return uri -> tokenResponse;
+            return uri -> {
+                if (transportFailure != null) {
+                    throw transportFailure;
+                }
+                return tokenResponse;
+            };
         }
     }
 
@@ -108,6 +115,7 @@ class DarazCallbackRouteTest {
         shop = insertShop();
         actor = insertActor();
         tokenResponse = tokenFor("BD-SELLER-A");
+        transportFailure = null;
     }
 
     @AfterEach
@@ -370,5 +378,118 @@ class DarazCallbackRouteTest {
                 String.class, shop)).isNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
                 Integer.class, shop)).isZero();
+    }
+
+    // ============================================================ safe diagnostics in the log
+
+    /**
+     * 🔴 THE REGRESSION TEST FOR THE SECOND INCIDENT. The live failure logged
+     * {@code providerCode=null} and nothing else — a message that matched eight distinct causes and
+     * identified none of them. The log must now name the fault exactly.
+     */
+    @Test
+    @DisplayName("a provider failure logs reason, field, requestId and topLevelFields")
+    void providerFailureLogsFullSafeDiagnostics() throws Exception {
+        /* A wrapped payload — the exact shape ambiguity the live incident could not resolve. */
+        tokenResponse = """
+                {"code":"0","request_id":"0be6fdce15200450346451004",
+                 "data":{"access_token":"super-secret-access","refresh_token":"super-secret-refresh",
+                 "expires_in":259200,"refresh_expires_in":604800}}""";
+
+        mvc.perform(get(CALLBACK).param("code", "the-code").param("state", stateForShop())).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).contains("reason=MISSING_FIELD");
+        assertThat(captured).contains("field=access_token");
+        assertThat(captured).contains("requestId=0be6fdce15200450346451004");
+        assertThat(captured).contains("topLevelFields=");
+        assertThat(captured).contains("data");
+        assertThat(captured).contains("outcome=PROVIDER_ERROR");
+    }
+
+    @Test
+    @DisplayName("an envelope refusal logs its provider code and type")
+    void envelopeRefusalLogsCodeAndType() throws Exception {
+        tokenResponse = """
+                {"code":"IllegalAccessToken","type":"ISV","message":"provider text",
+                 "request_id":"r-77"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).contains("reason=ENVELOPE_CODE");
+        assertThat(captured).contains("providerCode=IllegalAccessToken");
+        assertThat(captured).contains("providerType=ISV");
+        assertThat(captured).contains("requestId=r-77");
+        /* The provider's own prose is never repeated. */
+        assertThat(captured).doesNotContain("provider text");
+    }
+
+    @Test
+    @DisplayName("a missing Bangladesh account names itself rather than looking like a null code")
+    void missingBangladeshAccountIsNamed() throws Exception {
+        tokenResponse = """
+                {"access_token":"a","refresh_token":"r","expires_in":1,"refresh_expires_in":2,
+                 "country_user_info":[{"country":"sg","seller_id":"SG-1"}]}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(capturedLog()).contains("reason=MISSING_BD_ACCOUNT");
+        assertThat(capturedLog()).contains("field=country_user_info");
+    }
+
+    /** ⚠ A bad HTTP status and an unreachable host must not look the same in the journal. */
+    @Test
+    @DisplayName("a transport failure logs its HTTP status, and reachability, but no body")
+    void transportFailureLogsStatus() throws Exception {
+        transportFailure = new com.trioloo.erp.integration.infrastructure.daraz.DarazTransportException(
+                "The Daraz request returned an unusable HTTP status.", 503);
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).contains("DarazTransportException");
+        assertThat(captured).contains("httpStatus=503");
+        assertThat(captured).contains("reached=true");
+        assertThat(captured).contains("outcome=PROVIDER_ERROR");
+    }
+
+    @Test
+    @DisplayName("an unreachable provider is distinguishable from a bad status")
+    void unreachableProviderIsDistinguishable() throws Exception {
+        transportFailure = new com.trioloo.erp.integration.infrastructure.daraz.DarazTransportException(
+                "The Daraz request could not be completed.");
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(capturedLog()).contains("httpStatus=null");
+        assertThat(capturedLog()).contains("reached=false");
+    }
+
+    /**
+     * 🔴 THE HYGIENE GUARANTEE, RE-ASSERTED OVER THE RICHER LOG. More diagnostic detail is exactly
+     * when a secret is most likely to slip in.
+     */
+    @Test
+    @DisplayName("the richer diagnostics still leak no token, code, state, secret, body or URL")
+    void richerDiagnosticsStillLeakNothing() throws Exception {
+        String state = stateForShop();
+        tokenResponse = """
+                {"code":"0","request_id":"r-1","data":{"access_token":"super-secret-access",
+                 "refresh_token":"super-secret-refresh","expires_in":1,"refresh_expires_in":2}}""";
+
+        mvc.perform(get(CALLBACK)
+                .param("code", "the-authorisation-code").param("state", state)).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).doesNotContain("the-authorisation-code");
+        assertThat(captured).doesNotContain(state);
+        assertThat(captured).doesNotContain("super-secret-access");
+        assertThat(captured).doesNotContain("super-secret-refresh");
+        assertThat(captured).doesNotContain("test-app-secret-not-a-real-value");
+        assertThat(captured).doesNotContain("api.daraz.com.bd");
+        assertThat(captured).doesNotContain("sign=");
+        /* And no raw body: the JSON punctuation of the payload never appears. */
+        assertThat(captured).doesNotContain("\"access_token\":");
     }
 }

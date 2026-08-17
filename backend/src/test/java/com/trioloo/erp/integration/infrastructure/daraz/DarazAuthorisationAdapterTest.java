@@ -179,7 +179,9 @@ class DarazAuthorisationAdapterTest {
 
         assertThatThrownBy(() -> adapter(noBd).exchange(SHOP, "c"))
                 .isInstanceOf(DarazProtocolException.class)
-                .hasMessageContaining("no Bangladesh account");
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(DarazProtocolException.class))
+                .extracting(DarazProtocolException::reason)
+                .isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
     }
 
     @Test
@@ -191,7 +193,9 @@ class DarazAuthorisationAdapterTest {
 
         assertThatThrownBy(() -> adapter(noSeller).exchange(SHOP, "c"))
                 .isInstanceOf(DarazProtocolException.class)
-                .hasMessageContaining("no seller_id");
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(DarazProtocolException.class))
+                .extracting(DarazProtocolException::reason)
+                .isEqualTo(DarazProtocolException.Reason.MISSING_SELLER_ID);
     }
 
     /** 🔴 {@code DZC-006} — the adapter is stricter than the provider-neutral database. */
@@ -293,5 +297,132 @@ class DarazAuthorisationAdapterTest {
     void declaresDaraz() {
         assertThat(adapter(VALID_TOKEN).channelType())
                 .isEqualTo(com.trioloo.erp.system.domain.ChannelTypeCode.DARAZ);
+    }
+
+    // ================================================================= safe diagnostics
+
+    /** Readable JSON fixtures without text-block quoting pitfalls. */
+    private static String json(String singleQuoted) {
+        return singleQuoted.replace('\'', '"');
+    }
+
+    /**
+     * 🔴 THE REGRESSION MATRIX FOR THE LIVE INCIDENT. A production failure logged
+     * {@code providerCode=null} and nothing else, which matched eight different causes at once.
+     * Each of them must now name itself.
+     */
+    @Test
+    @DisplayName("every failure classifies itself with a distinct, safe reason")
+    void everyFailureHasItsOwnReason() {
+        record Case(DarazProtocolException.Reason reason, String field, String body) { }
+
+        String bd = "'country_user_info':[{'country':'bd','seller_id':'S'}]";
+        var cases = new Case[]{
+                new Case(DarazProtocolException.Reason.EMPTY_RESPONSE, null, ""),
+                new Case(DarazProtocolException.Reason.NON_JSON, null, "not json at all"),
+                new Case(DarazProtocolException.Reason.MALFORMED_RESPONSE, null, "[1,2,3]"),
+                new Case(DarazProtocolException.Reason.ENVELOPE_CODE, null,
+                        json("{'code':'IllegalAccessToken','type':'ISV','request_id':'r-1'}")),
+                new Case(DarazProtocolException.Reason.MISSING_FIELD, "access_token",
+                        json("{'refresh_token':'r','expires_in':1,'refresh_expires_in':2," + bd + "}")),
+                new Case(DarazProtocolException.Reason.MISSING_FIELD, "refresh_token",
+                        json("{'access_token':'a','expires_in':1,'refresh_expires_in':2," + bd + "}")),
+                new Case(DarazProtocolException.Reason.MISSING_FIELD, "expires_in",
+                        json("{'access_token':'a','refresh_token':'r','refresh_expires_in':2," + bd + "}")),
+                new Case(DarazProtocolException.Reason.MISSING_FIELD, "refresh_expires_in",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1," + bd + "}")),
+                new Case(DarazProtocolException.Reason.UNUSABLE_DURATION, "refresh_expires_in",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1,"
+                                + "'refresh_expires_in':0," + bd + "}")),
+                new Case(DarazProtocolException.Reason.MISSING_COUNTRY_USER_INFO, "country_user_info",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2}")),
+                new Case(DarazProtocolException.Reason.MISSING_BD_ACCOUNT, "country_user_info",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                                + "'country_user_info':[{'country':'sg','seller_id':'SG-1'}]}")),
+                new Case(DarazProtocolException.Reason.MISSING_SELLER_ID, "seller_id",
+                        json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2,"
+                                + "'country_user_info':[{'country':'bd','user_id':2}]}")),
+        };
+
+        for (Case c : cases) {
+            assertThatThrownBy(() -> adapter(c.body()).exchange(SHOP, "code"))
+                    .as("reason %s", c.reason())
+                    .isInstanceOf(DarazProtocolException.class)
+                    .satisfies(e -> {
+                        DarazProtocolException p = (DarazProtocolException) e;
+                        assertThat(p.reason()).isEqualTo(c.reason());
+                        assertThat(p.field()).isEqualTo(c.field());
+                    });
+        }
+    }
+
+    /** 🔴 A field NAME identifies the fault; a field VALUE would leak a token. */
+    @Test
+    @DisplayName("field carries only a field name, never a value")
+    void fieldIsANameNotAValue() {
+        String body = json("{'access_token':'super-secret-access','refresh_token':'super-secret-refresh',"
+                + "'expires_in':1,'refresh_expires_in':0,"
+                + "'country_user_info':[{'country':'bd','seller_id':'BD-1'}]}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.field()).isEqualTo("refresh_expires_in");
+                    assertThat(p.getMessage()).doesNotContain("super-secret-access");
+                    assertThat(p.getMessage()).doesNotContain("super-secret-refresh");
+                });
+    }
+
+    @Test
+    @DisplayName("the provider's request id and type are captured when present")
+    void requestIdAndTypeAreCaptured() {
+        String body = json("{'code':'IncompleteSignature','type':'ISV','message':'echoed parameters',"
+                + "'request_id':'0be6fdce15200450346451004'}");
+
+        assertThatThrownBy(() -> adapter(body).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.requestId()).isEqualTo("0be6fdce15200450346451004");
+                    assertThat(p.providerType()).isEqualTo("ISV");
+                    assertThat(p.providerCode()).isEqualTo("IncompleteSignature");
+                    /* 🔴 The provider's own message is never carried. */
+                    assertThat(p.getMessage()).doesNotContain("echoed parameters");
+                });
+    }
+
+    /**
+     * ✅ THE DIAGNOSTIC THAT SETTLES THE OPEN QUESTION. A wrapped payload and a flat one become
+     * distinguishable from the log alone, without the body ever being printed.
+     */
+    @Test
+    @DisplayName("topLevelFields lists names only, and reveals a wrapped payload")
+    void topLevelFieldsAreNamesOnly() {
+        String wrapped = json("{'code':'0','request_id':'r-9','data':{'access_token':'super-secret-access',"
+                + "'refresh_token':'super-secret-refresh','expires_in':1,'refresh_expires_in':2}}");
+
+        assertThatThrownBy(() -> adapter(wrapped).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> {
+                    DarazProtocolException p = (DarazProtocolException) e;
+                    assertThat(p.reason()).isEqualTo(DarazProtocolException.Reason.MISSING_FIELD);
+                    assertThat(p.field()).isEqualTo("access_token");
+                    assertThat(p.topLevelFields()).containsExactlyInAnyOrder("code", "request_id", "data");
+                    /* 🔴 Names only — no value from inside `data` appears. */
+                    assertThat(p.topLevelFields().toString()).doesNotContain("super-secret");
+                });
+    }
+
+    @Test
+    @DisplayName("a flat payload reports flat field names")
+    void flatPayloadReportsFlatNames() {
+        String flat = json("{'access_token':'a','refresh_token':'r','expires_in':1,'refresh_expires_in':2}");
+
+        assertThatThrownBy(() -> adapter(flat).exchange(SHOP, "code"))
+                .isInstanceOf(DarazProtocolException.class)
+                .satisfies(e -> assertThat(((DarazProtocolException) e).topLevelFields())
+                        .contains("access_token", "refresh_token")
+                        .doesNotContain("data"));
     }
 }

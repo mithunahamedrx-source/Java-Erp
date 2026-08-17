@@ -334,7 +334,9 @@ class DarazAuthorisationFlowTest {
 
         assertThatThrownBy(() -> authorisation.complete("code", state))
                 .isInstanceOf(DarazProtocolException.class)
-                .hasMessageContaining("no Bangladesh account");
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(DarazProtocolException.class))
+                .extracting(DarazProtocolException::reason)
+                .isEqualTo(DarazProtocolException.Reason.MISSING_BD_ACCOUNT);
 
         assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
                 String.class, shopA)).isNull();
