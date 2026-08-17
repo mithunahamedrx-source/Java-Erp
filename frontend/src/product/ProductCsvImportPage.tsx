@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { readTextFile } from '../platform/file';
 import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Card, EmptyState, buttonStyle as sharedButtonStyle } from '../ui/primitives';
@@ -258,18 +259,6 @@ function OutcomeList({ outcomes }: { readonly outcomes: readonly ImportPlan['out
  * the universally available fallback. Reading is deliberately the ONLY thing that happens on
  * upload — nothing is sent and nothing is written until Validate is pressed.
  */
-async function readTextFile(file: File): Promise<string> {
-  if (typeof file.text === 'function') {
-    return file.text();
-  }
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('The file could not be read.'));
-    reader.readAsText(file);
-  });
-}
-
 function buttonStyle(primary: boolean): React.CSSProperties {
   return {
     ...sharedButtonStyle(primary ? 'primary' : 'secondary', 'button'),
