@@ -76,6 +76,29 @@ export const OPERATION_OUTCOME_ROLE = {
 } as const satisfies Record<string, SemanticTone>;
 
 /**
+ * Local batch-save outcome — `PRD-185`, `INV-107.2`, presented per `FRAME 17`.
+ *
+ * 🔴 `SAVED` IS NEUTRAL, AND THAT IS THE WHOLE POINT. A batch apply records ERP intent and
+ * sends nothing. `PRD-185.a` names the dangerous misreading exactly — an operator who believes
+ * a save reached Daraz will not push — and a green "success" pill is precisely how a screen
+ * tells that lie. `COMPARISON_STATE_ROLE.UNSENT` already settled this: an unsent local edit is
+ * an ordinary condition, not an achievement.
+ *
+ * 🔴 `EXCLUDED` is NEUTRAL for the same reason `MAPPING_STATE_ROLE.UNMAPPED` is: `PRD-178`
+ * makes unmapped a first-class valid state, so a listing skipped for holding no ERP intended
+ * values is not a fault and owes nobody a decision.
+ *
+ * ✅ Only `REFUSED` carries colour, because only it has consequence: that listing did NOT
+ * save while its siblings did (`INV-107.2`), and the operator must see which.
+ */
+export const BATCH_SAVE_OUTCOME_ROLE = {
+  SELECTED: 'neutral',
+  SAVED: 'neutral',
+  EXCLUDED: 'neutral',
+  REFUSED: 'danger',
+} as const satisfies Record<string, SemanticTone>;
+
+/**
  * Channel-reported listing status — `PRD-177.b`.
  *
  * ✅ These describe what the MARKETPLACE says about the listing, so they carry real

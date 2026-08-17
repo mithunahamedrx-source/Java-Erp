@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.0.0 · **Ratified:** 2026-08-18 · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.2.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -76,8 +76,14 @@ this document follows.
 
 # 2. Frame register
 
-> **`LSC-010` — ✅ `FRAME 01`–`FRAME 16` ARE COMPLETE as of the audit of 2026-08-18**, each with a
-> frame-tagged component and a dedicated test suite. **434 Listings tests; `src/product` runs 493/493 green.**
+> **`LSC-010` — ✅ `FRAME 01`–`FRAME 17` ARE COMPLETE as of 2026-08-18**, each with a frame-tagged
+> component and a dedicated test suite. **`src/product` and `src/design` run 533/533 green, and
+> `npm run build` — `tsc --noEmit && vite build` — is clean.**
+>
+> **a.** ⚠ **`FRAME 17` IS COMPLETE AS A LOCAL SURFACE, WHICH IS THE WHOLE OF WHAT IT IS.** **Its ratified
+> set-to-value operations apply locally and its 23-test suite proves the frame's components are all present.**
+> 🔴 **Its acceptance says NOTHING about outbound integration** (`LSC-051`–`LSC-053`) **and ratifies none of
+> the transformation operators the pack draws** (`LSC-030.a`).
 
 | # | Frame | Implemented in | State |
 |---|---|---|---|
@@ -97,31 +103,38 @@ this document follows.
 | **14** | Orderable channel SKUs — single and variation listings | `ListingSkuSection.tsx` | ✅ Complete |
 | **15** | Single push — review, then result and readback | `PushReviewModal.tsx` | ✅ Complete as screen + refusal — see `LSC-053` |
 | **16** | Refresh — reads the marketplace, never writes to it | `ListingRefreshState.tsx` | ✅ Complete as screen + refusal — see `LSC-053` |
-| **17** | **Batch edit** — local intent only, capability-aware | `ChannelListingBatchEditPage.tsx` — **draft** | ⬜ **Remains** |
+| **17** | Batch edit — local intent only, capability-aware | `ChannelListingBatchEditPage.tsx` | ✅ Complete — 23 tests; unratified operators inert, see `LSC-030.a` |
 | **18** | **Batch review** before Push Selected | *none* | ⬜ **Remains — blocked** |
 | **19** | **Batch result and retry** — per-listing outcomes | `ChannelListingBatchPage.tsx` — **draft** | ⬜ **Remains — blocked** |
 | **20** | **Sync Now** modal + shared operation result | `ChannelListingSyncPage.tsx` — **draft** | ⬜ **Remains — blocked** |
 | **21** | **Activity history** — activity and operation history | *none* | ⬜ **Remains** |
 | **22** | **CSV import** — upload, validate, review, apply locally | `ChannelListingImportPage.tsx` — generic delegation | ⬜ **Remains** |
 
-> **`LSC-011` — 🔴 `FRAME 17`–`FRAME 22` REMAIN TO BE RECONCILED AND IMPLEMENTED AGAINST THE APPROVED PACK.**
-> ⚠ **"Remains" is not "absent": four of the six have a routed page already** (`LSC-040`). **Every one of them
-> is built to the approved pack or not at all.**
+> **`LSC-011` — 🔴 `FRAME 18`–`FRAME 22` REMAIN TO BE RECONCILED AND IMPLEMENTED AGAINST THE APPROVED PACK.**
+> ⚠ **"Remains" is not "absent": three of the five have a routed page already** (`LSC-040`). **Every one of
+> them is built to the approved pack or not at all.**
+>
+> **a.** 🔴 **`FRAME 18`, `FRAME 19` AND `FRAME 20` ARE ALSO BLOCKED**, not merely unbuilt (`LSC-051`).
+> **b.** ✅ **`FRAME 21` AND `FRAME 22` REMAIN AND ARE UNBLOCKED** — both are local-only (`LSC-050`).
 
 ---
 
 # 3. Draft surfaces
 
-> **`LSC-040` — ⚠ THREE ROUTED PAGES ARE DRAFTS, NOT FINISHED WORK.**
-> **`ChannelListingBatchEditPage.tsx`, `ChannelListingBatchPage.tsx` and `ChannelListingSyncPage.tsx` are
-> reachable production code built from `PRD-`/`INV-` rules BEFORE the pack defined their visuals.**
-> 🔴 **They carry NO frame tag and NO test suite — zero tests cover `FRAME 17`–`FRAME 22`.**
+> **`LSC-040` — ⚠ TWO ROUTED PAGES REMAIN DRAFTS, NOT FINISHED WORK.**
+> **`ChannelListingBatchPage.tsx` and `ChannelListingSyncPage.tsx` are reachable production code built from
+> `PRD-`/`INV-` rules BEFORE the pack defined their visuals.**
+> 🔴 **They carry NO frame tag and NO test suite — zero tests cover `FRAME 18`–`FRAME 22`.**
 >
 > **a.** ✅ **They are CORRECT against the rules they cite** and must not be deleted.
 > **b.** 🔴 **They are UNVERIFIED against the approved pack** and must not be treated as satisfying it.
 > **c.** ✅ **Reconciling one means: match the pack, add the `FRAME NN` tag, add the suite.**
 > **d.** ⚠ **`ChannelListingImportPage.tsx` is a 21-line delegation to the generic `ProductCsvImportPage`
 > shared with Stock and Sellable.** **Sensible reuse that predates `FRAME 22`'s specific four-step import.**
+> **e.** ✅ **`ChannelListingBatchEditPage.tsx` LEFT THIS LIST ON 2026-08-18.** **It was reconciled in place
+> rather than duplicated — matched to the pack, tagged `FRAME 17`, and given the suite it never had.**
+> ⚠ **Its first tests immediately exposed a latent crash the draft had carried unseen: an unmapped semantic
+> state reaching `semanticRoleOf`.** 🔴 **That is the case for `c` — a draft is not proven by being reachable.**
 
 ---
 
@@ -129,6 +142,19 @@ this document follows.
 
 > **`LSC-030` — 🔴 THE STYLE ESTABLISHED BY `FRAME 01`–`FRAME 16` IS PRESERVED, NOT RE-DECIDED.** **Later
 > frames extend the existing house pattern. A second pattern introduced alongside it is a defect.**
+>
+> **a.** 🔴 **THE PACK'S BATCH TRANSFORMATION OPERATORS ARE UNRATIFIED, AND ARE RENDERED INERT RATHER THAN
+> OMITTED.** **`FRAME 17` draws four operations that NO canonical rule defines — percentage decrease, percentage
+> increase, "rounded to nearest ৳ 10", and appending a title suffix or an image to intended media.**
+> ⚠ **A percentage change is a monetary FORMULA, and `DB-079` — the ERP-wide owner of BDT rounding — grants
+> no "nearest ৳ 10" step.** ✅ **`PRD-187.b` ratifies batch as "the same operations at different scope", and a
+> single edit SETS a value; SET-TO-VALUE is therefore the only ratified batch operation.**
+>
+> **a.i.** ✅ **They are SHOWN, because the approved pack shows them and implementation does not silently edit
+> the design.** 🔴 **They are DISABLED and cannot be applied.** ⚠ **Rendering one as functional would invent a
+> business rule** (`DOC-003`).
+> **a.ii.** 🔴 **RATIFYING THEM IS A `PRD-187` DECISION, NOT THIS CONTRACT'S**, and if percentage operators are
+> admitted, whether `DB-079` gains a batch-repricing rounding clause is `DB-079`'s owner's call (`DOC-006`).
 
 > **`LSC-031` — 🔴 `LISTING_GRID` AND THE DESIGN TOKENS ARE NOT CASUALLY REFACTORED.**
 >
@@ -187,6 +213,28 @@ this document follows.
 >
 > **a.** 🔴 **`PRD-185` — SAVE IS NOT PUSH.** **Batch edit currently has NO push call at all, and that absence
 > is the enforcement mechanism.** ⚠ **It survives any rework of that page: there is no "save and publish".**
+>
+> **b.** ✅ **`FRAME 17` APPLY SET — UNMAPPED LISTINGS ARE EXCLUDED.** **A Listing whose `mappingState` is
+> `UNMAPPED` is not written to by a batch edit apply, because it holds no ERP intended values to change.**
+> **The approved pack states this in the operator's own words — *"unmapped listings are excluded — they hold
+> no ERP intended values to change"* — and reports the excluded count beside the applied one.**
+>
+> **b.i.** 🔴 **THIS IS A CONSERVATIVE SELECTION RULE FOR `FRAME 17`, AND IT ONLY EVER NARROWS.** **It removes
+> members from the apply set and can never add one.** ⚠ **`PRD-187.c` and `INV-108.4` are untouched: the scope
+> is still exactly the selection that arrived, and nothing fans an edit out to a sibling Listing on the
+> strength of a shared Sellable Product.**
+>
+> **b.ii.** 🔴 **IT AUTHORISES NOTHING ELSE.** **It does NOT authorise Daraz synchronisation, a product or
+> listing pull, or publishing** (`LSC-051`, `LSC-052`). **It does NOT authorise the percentage-change formulas,
+> the "nearest ৳ 10" rounding, the title suffix transform or the media append transform** — those remain
+> unratified and inert wherever the pack draws them (`LSC-030`, `LSC-033`).
+>
+> **b.iii.** ⚠ **THE STATED REASON IS STRONGEST WHERE THE FIELD ATTACHES TO AN ORDERABLE SKU.** **`INV-106.2`
+> makes the orderable channel SKU the mapping unit that price and published stock attach to, so an unmapped
+> Listing genuinely has nothing for those fields to reach.** **It is weaker for Listing-level fields such as
+> title.** ✅ **Excluding them anyway is the SAFE direction and is what the approved pack specifies.**
+> 🔴 **Admitting unmapped Listings for Listing-level fields would WIDEN what a batch writes, which is a
+> business decision `PRD-187` owns — not this contract** (`DOC-006`).
 
 > **`LSC-051` — 🔴 `FRAME 18`, `FRAME 19` AND `FRAME 20` ARE BLOCKED until a production `ChannelAdapterPort`
 > implementation exists.** **Batch review, batch result/retry and Sync Now all describe what happens when
@@ -208,8 +256,10 @@ this document follows.
 | Daraz **connection** half | ✅ **Verified closed 2026-08-17** — one seller bound, credential encrypted at rest, shop `CONNECTED` |
 | Daraz **listing/product pull** | 🔴 **NOT STARTED** |
 | Production `ChannelAdapterPort` | 🔴 **None** (`LSC-052`) |
-| `FRAME 01`–`16` | ✅ Complete, 434 Listings tests, `src/product` 493/493 |
-| `FRAME 17`–`22` | ⬜ Remains — **0 tests** |
+| `FRAME 01`–`17` | ✅ Complete — `src/product` + `src/design` 533/533, build clean |
+| `FRAME 18`–`20` | 🔴 **Blocked** on a production `ChannelAdapterPort` (`LSC-051`) — **0 tests** |
+| `FRAME 21`–`22` | ⬜ **Remains**, unblocked and local-only (`LSC-050`) — **0 tests** |
+| Batch transformation operators | 🔴 **UNRATIFIED and inert** — percentage change, nearest-৳ 10 rounding, title suffix, media append (`LSC-030.a`) |
 
 ---
 
@@ -217,4 +267,6 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-08-18** | ✅ **`FRAME 17` ACCEPTED AS IMPLEMENTED.** **`ChannelListingBatchEditPage.tsx` was reconciled in place to the approved pack — every component present: header, five-fact strip, `minmax(0,1fr) 320px` split, all seven field rows on `170px minmax(0,1fr) 200px`, capability badges and legend, per-channel sidebar and consequence footer — tagged `FRAME 17` and given a 23-test suite.** **`src/product` + `src/design` 533/533; `npm run build` clean.** ✅ **`LSC-010` extended to `FRAME 17`, the register row updated, `LSC-011` narrowed to `FRAME 18`–`22`, and `LSC-040` reduced to two draft pages.** 🔴 **NOTHING ELSE IS ACCEPTED BY THIS: `FRAME 18`–`20` remain BLOCKED on a production `ChannelAdapterPort`, `FRAME 21`–`22` remain, no Daraz synchronisation, product pull or publishing exists, and the percentage, nearest-৳ 10 rounding, suffix and media transforms remain UNRATIFIED and inert** (`LSC-030.a`, `LSC-051`–`LSC-053`). ✅ **Documentation only — no frontend, backend or migration change.** |
+| **1.1.0** | **2026-08-18** | ✅ **`LSC-050.b` — THE `FRAME 17` APPLY SET IS PINNED.** **A Listing whose `mappingState` is `UNMAPPED` is excluded from a batch edit apply, because it holds no ERP intended values to change** — **the rule the approved pack states and the implementation follows.** 🔴 **It only ever NARROWS the apply set, leaves `PRD-187.c`/`INV-108.4` untouched, and authorises NOTHING else: not Daraz sync, not a product or listing pull, not publishing, and none of the unratified percentage, nearest-৳ 10 rounding, suffix or media transforms.** ⚠ **Records that the stated reason is strongest for SKU-attached fields (`INV-106.2`) and weaker for Listing-level fields, and that WIDENING the apply set would be a `PRD-187` decision, not this contract's** (`DOC-006`). ✅ **No frontend, backend, migration or other document changed.** |
 | **1.0.0** | **2026-08-18** | **Initial ratification** (`DOC-092`). ✅ **Registers the Claude Design project as source authority and the tracked rendered pack as repo-local visual authority.** **Records the `FRAME 01`–`FRAME 22` register, `01`–`16` complete and `17`–`22` remaining, the three draft surfaces, and the implementation constraints `FRAME 01`–`16` established** — `LISTING_GRID`, tokens, `requireManager()` gating, money as strings, no mocked fields. 🔴 **Records that `ChannelAdapterPort` has no `src/main` implementation, that `FRAME 15`/`16` have moved no bytes to Daraz, that `17`/`21`/`22` are local-only, and that `18`/`19`/`20` are blocked.** ⚠ **`LSC-002` records why the `.dc.html` authoring source is not tracked: the MCP read cap truncates it at exactly 262,144 bytes and loses `FRAME 21`–`22`.** ✅ **The tracked rendered pack is proven to be the project's own file — byte-for-byte identical across the full capped read.** 🔴 **No design was created, altered or inferred.** |
