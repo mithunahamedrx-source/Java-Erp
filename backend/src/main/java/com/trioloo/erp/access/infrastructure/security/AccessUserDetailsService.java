@@ -54,8 +54,14 @@ public class AccessUserDetailsService implements UserDetailsService {
 
         Set<String> roleCodes = Set.copyOf(profiles.findRoleCodes(profile.getId()));
         Set<String> roleDerived = Set.copyOf(profiles.findRoleDerivedPermissionCodes(profile.getId()));
+        /*
+          🔴 AGV-037 — an Owner's authority is the ENTIRE catalogue, read now. The catalogue
+          is only queried for an Owner, so an ordinary sign-in does no extra work.
+        */
+        boolean owner = profile.isOwner();
+        Set<String> catalogue = owner ? Set.copyOf(profiles.findAllPermissionCodes()) : Set.of();
         Set<String> effective = AuthorityResolution.effectivePermissions(
-                roleDerived, readOverrides(profile), Instant.now(clock));
+                roleDerived, readOverrides(profile), Instant.now(clock), owner, catalogue);
 
         return new AccessUserDetails(profile.getId(), profile.getUsername(), profile.getFullName(),
                 hash, profile.getLifecycleState(), roleCodes, effective);

@@ -103,4 +103,36 @@ public final class AuthorityResolution {
         effective.removeAll(revoked);
         return Set.copyOf(effective);
     }
+
+    /**
+     * Effective permissions for an actor who may carry the Owner designation
+     * ({@code AGV-037}).
+     *
+     * <p>🔴 OWNER SATURATES THE COMPOSITION. {@code AGV-033} — <em>"the Owner holds every
+     * authority"</em> — so an Owner's effective set IS the entire current permission
+     * catalogue, whatever it happens to contain at this moment.
+     *
+     * <p>🔴 THE CATALOGUE IS READ, NEVER COPIED. Nothing snapshots the permission list
+     * against the Owner, so a permission added by a later migration is held immediately and
+     * automatically. That is what {@code AGV-039} demands: were Owner authority materialised
+     * as override rows, it would be an override bundle — reachable, revocable and drifting —
+     * and the designation would stop being a designation.
+     *
+     * <p>⚠ Roles and overrides are deliberately NOT consulted for an Owner. A REVOKE override
+     * cannot narrow Owner authority, because {@code AGV-039} keeps the designation outside
+     * the override mechanism entirely; letting one bite here would make Owner revocable by
+     * ordinary permission administration, which {@code AGV-038} forbids.
+     */
+    public static Set<String> effectivePermissions(
+            Set<String> roleDerivedPermissionCodes,
+            Iterable<PermissionOverride> overrides,
+            Instant when,
+            boolean owner,
+            Set<String> entirePermissionCatalogue) {
+
+        if (owner) {
+            return Set.copyOf(entirePermissionCatalogue);
+        }
+        return effectivePermissions(roleDerivedPermissionCodes, overrides, when);
+    }
 }

@@ -1,7 +1,7 @@
 # Master Documentation Index
 
 **Owner:** Trioloo Technology · **Status:** Canonical · **Rule prefix:** `DOC-`
-**Version:** 1.57.2 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-15 (`DOC-090` Screen Contract v2.0.0 — re-audit simplification, 6 surfaces → 3) · **Amended:** 2026-08-15 (`DOC-090` Screen Contract v1.1.0 closure; `DOMAIN_MODEL.md` v3.33.0) · **Amended:** 2026-08-15 (`DOC-090` Shops & Channels Screen Contract registered — first Screen Contract in the corpus) · **Amended:** 2026-08-13 (`DOC-089` Connected Listings reconciliation; `E-106`-`E-108`) · **Amended:** 2026-08-13 (`DOC-088` Product commercial content and media; `E-105` Media Asset) · **Amended:** 2026-08-12 (Final global UI delta; Final global UI foundation; Inventory navigation terminology and Stock Control IA; `PRD-162` Channel Listing capability codes) · **Amended:** 2026-08-11 (`DOC-085` assembled finished-variant identity) · **Amended:** 2026-08-09 (**file reconstructed after data loss — see Appendix C 1.23.1**; **state-machine ratification — `BR-142`**; **pre-freeze GAP and cross-document reconciliation**; `DOC-061`) · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Accounting §19; **documentation consistency pass**) · **Last verified against `/docs`:** 2026-08-12
+**Version:** 1.60.6 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-17 (`PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.5.0 — `DEP-124`, range now `DEP-001`–`DEP-124`) · **Amended:** 2026-08-17 (**`V14` verified against PostgreSQL 18.6** — `GAP_ANALYSIS.md` v2.55.0) · **Amended:** 2026-08-16 (**`V14` credential persistence** — `TECHNOLOGY_ARCHITECTURE.md` v1.4.0 `TEC-119`/`TEC-120`, `PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.4.0 `DEP-123`, `GAP_ANALYSIS.md` v2.54.0) · **Amended:** 2026-08-16 (`PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.3.0 — `DEP-122`, range now `DEP-001`–`DEP-122`) · **Amended:** 2026-08-16 (`PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.2.0 — `DEP-121`, range now `DEP-001`–`DEP-121`) · **Amended:** 2026-08-16 (stale `GAP-120` references reconciled — `PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.1.0, `TECHNOLOGY_ARCHITECTURE.md` v1.3.1) · **Amended:** 2026-08-16 (**`GAP-120` CLOSED — production first Owner created and verified**; `GAP_ANALYSIS.md` v2.53.0) · **Amended:** 2026-08-16 (**`AGV-042` initial Owner bootstrap**; `ACCESS_GOVERNANCE_ARCHITECTURE.md` v1.2.0) · **Amended:** 2026-08-16 (`DOC-091` `PRODUCTION_DEPLOYMENT_RUNBOOK.md` registered — first operations authority in the corpus; `TECHNOLOGY_ARCHITECTURE.md` v1.3.0, `TEC-115` amended) · **Amended:** 2026-08-15 (`DOC-090` Screen Contract v2.0.0 — re-audit simplification, 6 surfaces → 3) · **Amended:** 2026-08-15 (`DOC-090` Screen Contract v1.1.0 closure; `DOMAIN_MODEL.md` v3.33.0) · **Amended:** 2026-08-15 (`DOC-090` Shops & Channels Screen Contract registered — first Screen Contract in the corpus) · **Amended:** 2026-08-13 (`DOC-089` Connected Listings reconciliation; `E-106`-`E-108`) · **Amended:** 2026-08-13 (`DOC-088` Product commercial content and media; `E-105` Media Asset) · **Amended:** 2026-08-12 (Final global UI delta; Final global UI foundation; Inventory navigation terminology and Stock Control IA; `PRD-162` Channel Listing capability codes) · **Amended:** 2026-08-11 (`DOC-085` assembled finished-variant identity) · **Amended:** 2026-08-09 (**file reconstructed after data loss — see Appendix C 1.23.1**; **state-machine ratification — `BR-142`**; **pre-freeze GAP and cross-document reconciliation**; `DOC-061`) · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Accounting §19; **documentation consistency pass**) · **Last verified against `/docs`:** 2026-08-12
 
 ---
 
@@ -39,8 +39,8 @@
 
 | # | Document | Status | Rules |
 |---|---|---|---|
-| 1 | `MASTER_DOCUMENTATION_INDEX.md` | 🧊 **Under freeze governance** — current v1.57.2 | `DOC-001`–`DOC-090` (`DOC-059` withdrawn) |
-| 2 | [`DESIGN_CONSTITUTION.md`](DESIGN_CONSTITUTION.md) | ✅ **Ratified** v2.14.0 | Article/rule numbering |
+| 1 | `MASTER_DOCUMENTATION_INDEX.md` | 🧊 **Under freeze governance** — current v1.58.0 | `DOC-001`–`DOC-091` (`DOC-059` withdrawn) |
+| 2 | [`DESIGN_CONSTITUTION.md`](DESIGN_CONSTITUTION.md) | ✅ **Ratified** v2.15.0 | Article/rule numbering |
 | 3 | [`design-reference/README.md`](design-reference/README.md) | ✅ **Ratified** | Binding images |
 | 4 | [`ORDER_MANAGEMENT_ARCHITECTURE.md`](ORDER_MANAGEMENT_ARCHITECTURE.md) | ✅ **Ratified** v1.20.0 | `BR-001`–`BR-141` |
 | 5 | [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) | ✅ **Ratified** v1.17.0 | `CP-1`–`CP-14` · `SYS-001`–`SYS-111` |
@@ -48,14 +48,14 @@
 | 7 | [`PERMISSION_ARCHITECTURE.md`](PERMISSION_ARCHITECTURE.md) | ✅ **Ratified** v1.13.0 | `PRM-001`–`PRM-090` |
 | 8 | [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md) | ✅ **Ratified** v1.6.0 | `AUD-001`–`AUD-043` |
 | 9 | [`PRODUCT_ARCHITECTURE.md`](PRODUCT_ARCHITECTURE.md) | ✅ **Ratified** v1.28.0 | `PRD-001`–`PRD-203` |
-| 10 | [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) | ✅ **Ratified** v3.33.0 | `E-001`–`E-108` · `DM-001`–`DM-085` · `INV-` invariants |
+| 10 | [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) | ✅ **Ratified** v3.36.0 | `E-001`–`E-108` · `DM-001`–`DM-085` · `INV-` invariants |
 | 11 | [`EVENT_ARCHITECTURE.md`](EVENT_ARCHITECTURE.md) | ✅ **Ratified** v1.17.0 | `EVT-001`–`EVT-087` · `EVA-` |
 | 12 | [`STATE_MACHINE_ARCHITECTURE.md`](STATE_MACHINE_ARCHITECTURE.md) | ✅ **Ratified** v1.23.0 | **`SM-1`–`SM-20`** · `SMA-001`–`SMA-078` |
-| 13 | [`GAP_ANALYSIS.md`](GAP_ANALYSIS.md) | ✅ **Current** v2.47.0 | `GAP-001`–`GAP-132` |
+| 13 | [`GAP_ANALYSIS.md`](GAP_ANALYSIS.md) | ✅ **Current** v2.55.0 | `GAP-001`–`GAP-133` |
 | 14 | [`BUSINESS_DISCOVERY.md`](BUSINESS_DISCOVERY.md) | 🔵 **Active** — six domains complete, **166 of 166** | `BD-001`–`BD-404` |
 | 15 | [`NOTIFICATION_ARCHITECTURE.md`](NOTIFICATION_ARCHITECTURE.md) | ✅ **Ratified** v1.2.1 — 2026-08-08 (`DOC-053`) | `NOT-001`–`NOT-038` |
 | 16 | [`RETURN_EXCHANGE_ARCHITECTURE.md`](RETURN_EXCHANGE_ARCHITECTURE.md) | ✅ **Ratified** v1.1.1 — 2026-08-08 (`DOC-054`) | `RET-001`–`RET-033` |
-| 17 | [`ACCESS_GOVERNANCE_ARCHITECTURE.md`](ACCESS_GOVERNANCE_ARCHITECTURE.md) | ✅ **Ratified** v1.1.0 — 2026-08-08 (`DOC-055`) | `AGV-001`–`AGV-041` |
+| 17 | [`ACCESS_GOVERNANCE_ARCHITECTURE.md`](ACCESS_GOVERNANCE_ARCHITECTURE.md) | ✅ **Ratified** v1.2.0 — 2026-08-16 (`DOC-055`) | `AGV-001`–`AGV-042` |
 | 18 | [`ACCOUNTING_ARCHITECTURE.md`](ACCOUNTING_ARCHITECTURE.md) | ✅ **Ratified** v1.10.1 — 2026-08-08 (`DOC-056`) | `ACC-000`–`ACC-043` |
 | 19 | [`INVENTORY_COSTING_ARCHITECTURE.md`](INVENTORY_COSTING_ARCHITECTURE.md) | ✅ **Ratified** v1.3.0 — 2026-08-08 (`DOC-057`) | `ICO-000`–`ICO-034` |
 | 20 | [`INVENTORY_ARCHITECTURE.md`](INVENTORY_ARCHITECTURE.md) | ✅ **Ratified** v1.8.0 — 2026-08-08 (`DOC-058`) | `IVN-000`–`IVN-056` |
@@ -71,10 +71,11 @@
 | 30 | [`TRADE_IN_ARCHITECTURE.md`](TRADE_IN_ARCHITECTURE.md) | ✅ **Ratified** v1.2.2 — 2026-08-09 (`DOC-063`) | `TRD-000`–`TRD-075` |
 | 31 | [`HR_PAYROLL_ARCHITECTURE.md`](HR_PAYROLL_ARCHITECTURE.md) | ✅ **Ratified** v1.3.0 — 2026-08-10 (`DOC-072`) | `HRP-000`–`HRP-097` |
 | 32 | [`DOCUMENT_ARCHITECTURE.md`](DOCUMENT_ARCHITECTURE.md) | ✅ **Ratified** v1.0.1 — 2026-08-10 (`DOC-073`) | `PRN-000`–`PRN-030` |
-| 33 | [`TECHNOLOGY_ARCHITECTURE.md`](TECHNOLOGY_ARCHITECTURE.md) | ✅ **Ratified** v1.2.0 — 2026-08-10 (`DOC-074`) | `TEC-000`–`TEC-115` |
+| 33 | [`TECHNOLOGY_ARCHITECTURE.md`](TECHNOLOGY_ARCHITECTURE.md) | ✅ **Ratified** v1.4.0 — 2026-08-16 (`DOC-074`, `DOC-091`) | `TEC-000`–`TEC-120` |
 | 34 | [`PROJECT_CONSTITUTION.md`](PROJECT_CONSTITUTION.md) | ✅ **Ratified** v1.0.0 — 2026-08-10 (`DOC-075`) | `PRJ-001`–`PRJ-280` |
 | 35 | [`UI_UX_ARCHITECTURE.md`](UI_UX_ARCHITECTURE.md) | ✅ **Ratified** v1.20.0 — 2026-08-11 (`DOC-076`) | `UX-001`–`UX-273` |
-| 36 | [`SHOPS_CHANNELS_SCREEN_CONTRACT.md`](SHOPS_CHANNELS_SCREEN_CONTRACT.md) | ✅ **Ratified** v2.0.1 — 2026-08-15 (`DOC-090`) | `SCS-001`–`SCS-091` |
+| 36 | [`SHOPS_CHANNELS_SCREEN_CONTRACT.md`](SHOPS_CHANNELS_SCREEN_CONTRACT.md) | ✅ **Ratified** v3.2.0 — 2026-08-15 (`DOC-090`) | `SCS-001`–`SCS-092` |
+| 37 | [`PRODUCTION_DEPLOYMENT_RUNBOOK.md`](PRODUCTION_DEPLOYMENT_RUNBOOK.md) | ✅ **Ratified** v1.5.0 — 2026-08-17 (`DOC-091`) | `DEP-001`–`DEP-124` |
 
 > 🔴 **SUPERSEDED 2026-08-10 — retained under `DOC-009`.** **HR & Payroll now has full discovery (`BD-457` – `BD-497`) and a written V1 architecture** (`DOC-072`, `SYS-093` as amended). *The original text follows.*
 >
@@ -758,6 +759,14 @@ Strictly in order. Each stage depends on the one before.
 5. Add it to `SYSTEM_ARCHITECTURE.md` §11.1 module register.
 6. Move it from ⬜ to ✅ in the status dashboard when ratified.
 
+> **DOC-091 — ✅ `PRODUCTION_DEPLOYMENT_RUNBOOK.md` IS WRITTEN, CANONICAL AND REGISTERED** (v1.0.0, 2026-08-16), **owning the `DEP-` prefix.**
+>
+> **a.** ✅ **THE FIRST OPERATIONS AUTHORITY IN THE CORPUS.** ⚠ **Every other registered document governs what the system MEANS; this one governs how a verified build REACHES production** — a genuinely different question, and one the set previously had no owner for.
+> **b.** 🔴 **IT RATIFIES INFRASTRUCTURE THAT ALREADY EXISTED BY USER DECISION AND INVENTS NO PLATFORM.** **`TEC-115` is amended in the same pass to stop calling the production host undefined while keeping containers, orchestration and CI/CD explicitly NOT ADOPTED.**
+> **c.** ⚠ **IT CREATES NO BUSINESS RULE** (`DEP-010.b`). **A deployment that appears to need one is a `CLAUDE.md` §5 stop.**
+> **d.** ✅ **WHERE THE REPOSITORY GENUINELY CANNOT KNOW A FACT — the service name, the Nginx paths, the production database identity — IT RECORDS A DISCOVERY ITEM RATHER THAN A GUESS** (`DEP-040`, `DEP-050`, `DEP-060.a`). 🔴 **A guessed unit name is worse than none: it produces a command that manages the wrong thing.**
+> **e.** 🔴 **THE `DEP-` PREFIX IS PERMANENT AND IS NEVER REASSIGNED** (`DOC-009`, `DOC-013`).
+
 > **DOC-035 — A document is not part of the set until it is registered here.** An unregistered document is a draft, whatever its content says.
 
 ---
@@ -1057,7 +1066,7 @@ This inverts nothing about architectural precedence (`DOC-005`) — architecture
 |---|---|---|
 | **B — module-local** | Blocks one module's implementation, not the architecture | **`GAP-126`**, **`GAP-127`** (Payroll) |
 | **B — feature-local** | Blocks one feature inside an otherwise implementable module | **`GAP-087`** overdue-warranty highlighting · **`GAP-098`** scope dimensions · **`GAP-103`** assembly teardown · **`GAP-128`** Quotation & Proforma |
-| **C — go-live only** | Does not block the build | **`GAP-109`** opening balances · **`GAP-120`**, **`GAP-121`**, **`GAP-122`** Owner bootstrap, grant-upward, last-Owner |
+| **C — go-live only** | Does not block the build | **`GAP-109`** opening balances · ~~**`GAP-120`**~~ ✅ **CLOSED 2026-08-16** (`AGV-042`; first Owner created in production) · **`GAP-121`**, **`GAP-122`** grant-upward, last-Owner |
 | **D — out of V1** | Explicitly outside scope | **`GAP-070`** legacy Laravel migration — 🔴 **reclassified, NOT closed** |
 | **E — superseded** | Written when the owning document did not exist | Early register entries now answered by written architecture |
 

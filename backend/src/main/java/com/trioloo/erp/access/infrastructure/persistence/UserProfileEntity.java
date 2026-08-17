@@ -1,6 +1,7 @@
 package com.trioloo.erp.access.infrastructure.persistence;
 
 import com.trioloo.erp.access.domain.AccountLifecycleState;
+import com.trioloo.erp.access.domain.OwnerDesignationOrigin;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -48,6 +49,28 @@ public class UserProfileEntity {
     @Column(name = "activated_at")
     private Instant activatedAt;
 
+    /**
+     * {@code AGV-037} — the Owner authority DESIGNATION, carried here on the profile.
+     *
+     * <p>🔴 NOT A ROLE, NOT AN OVERRIDE, NOT A SCOPE GRANT ({@code AGV-039}). {@code null}
+     * means this profile is not an Owner, and nothing else in the model can make it one.
+     */
+    @Column(name = "owner_designated_at")
+    private Instant ownerDesignatedAt;
+
+    /**
+     * {@code AGV-038} — the existing Owner who granted the designation.
+     *
+     * <p>🔴 {@code null} FOR THE FIRST OWNER, because none existed. See
+     * {@link #ownerDesignationOrigin}; the database refuses any other combination.
+     */
+    @Column(name = "owner_designated_by")
+    private UUID ownerDesignatedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_designation_origin", length = 24)
+    private OwnerDesignationOrigin ownerDesignationOrigin;
+
     protected UserProfileEntity() {
         // JPA
     }
@@ -90,6 +113,48 @@ public class UserProfileEntity {
 
     public AccountLifecycleState getLifecycleState() {
         return lifecycleState;
+    }
+
+    /**
+     * {@code AGV-037} — whether this profile currently carries the Owner designation.
+     *
+     * <p>🔴 THE ONLY ANSWER TO "IS THIS AN OWNER". It is not derived from a username, a role,
+     * an override, a scope or row order ({@code AGV-039}).
+     */
+    public boolean isOwner() {
+        return ownerDesignatedAt != null;
+    }
+
+    public Instant getOwnerDesignatedAt() {
+        return ownerDesignatedAt;
+    }
+
+    public UUID getOwnerDesignatedBy() {
+        return ownerDesignatedBy;
+    }
+
+    public OwnerDesignationOrigin getOwnerDesignationOrigin() {
+        return ownerDesignationOrigin;
+    }
+
+    /**
+     * Designates this profile as the ONE-TIME FIRST Owner ({@code GAP-120}).
+     *
+     * <p>🔴 RECORDS NO DESIGNATING OWNER, AND THAT IS DELIBERATE: at initial bootstrap none
+     * existed, and naming one — least of all this same profile — would put a grant in the
+     * audit record that never occurred ({@code AGV-041}).
+     *
+     * <p>⚠ Refuses if this profile is already an Owner. The system-wide one-time guard is
+     * the caller's transaction plus the database's partial unique index ({@code V13}); this
+     * is the aggregate refusing to contradict itself.
+     */
+    public void designateAsInitialOwner(Instant at) {
+        if (isOwner()) {
+            throw new IllegalStateException("This profile already carries the Owner designation (AGV-037)");
+        }
+        this.ownerDesignatedAt = at;
+        this.ownerDesignatedBy = null;
+        this.ownerDesignationOrigin = OwnerDesignationOrigin.INITIAL_BOOTSTRAP;
     }
 
     public Instant getActivatedAt() {

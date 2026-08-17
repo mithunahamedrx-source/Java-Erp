@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -11,11 +12,10 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.session.SessionFixationProtectionStrategy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
@@ -40,16 +40,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  */
 @Configuration
 @EnableMethodSecurity
+@Import(CredentialEncodingConfiguration.class)
 public class SecurityConfig {
 
-    /**
-     * Delegating encoder: hashes with bcrypt and can still verify older prefixed formats.
-     * Plaintext is never stored.
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    }
+    /*
+      ⚠ The PasswordEncoder bean moved to CredentialEncodingConfiguration. Hashing is not a
+      web concern, and the non-web first-Owner bootstrap command must use the SAME encoder as
+      the login path — one credential model, one authority. This class still consumes it
+      through the AuthenticationManager exactly as before.
+    */
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
@@ -79,6 +78,17 @@ public class SecurityConfig {
                     // Reachable unauthenticated, by necessity: you cannot log in through a
                     // gate that requires being logged in. Only these three.
                     .requestMatchers("/api/auth/login", "/api/auth/csrf").permitAll()
+
+                    /*
+                      🔴 THE PROVIDER'S CALLBACK, WHICH CANNOT CARRY AN ERP SESSION BY RIGHT. Daraz
+                      redirects the seller's browser here from its own site; requiring authentication
+                      would make the flow depend on a cookie surviving a cross-site redirect, which
+                      the unratified SameSite policy could silently change.
+                      ✅ THE ONE-TIME STATE IS THE AUTHORISATION: it was issued to an actor holding
+                      integration.channel-connection.authorize, is bound to exactly one shop, expires,
+                      and is consumable once (TEC-120). Without it this route does nothing at all.
+                    */
+                    .requestMatchers(HttpMethod.GET, "/api/integration/daraz/callback").permitAll()
                     // Liveness/readiness only. It exposes no business data and is required
                     // for deployment probes; management endpoints are limited to health in
                     // application.yml.

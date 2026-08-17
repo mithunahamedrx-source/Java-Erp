@@ -57,4 +57,25 @@ public interface UserProfileRepository extends JpaRepository<UserProfileEntity, 
             WHERE o.user_id = :userId
             """, nativeQuery = true)
     List<Object[]> findOverrideRows(@Param("userId") UUID userId);
+
+    /**
+     * The ENTIRE current permission catalogue.
+     *
+     * <p>🔴 Read at resolution time for an Owner ({@code AGV-037}), never copied onto the
+     * profile. A permission introduced by a later migration is therefore held by every Owner
+     * immediately, with no backfill and no drift.
+     */
+    @Query(value = "SELECT p.code FROM permission p", nativeQuery = true)
+    List<String> findAllPermissionCodes();
+
+    /**
+     * Whether ANY profile currently carries the Owner designation ({@code AGV-037}).
+     *
+     * <p>🔴 The one-time bootstrap guard reads this INSIDE its transaction. The database's
+     * partial unique index ({@code V13}) is what makes the guard safe under concurrency;
+     * this makes the refusal a clean business outcome rather than a constraint violation.
+     */
+    @Query(value = "SELECT count(*) FROM operational_user_profile WHERE owner_designated_at IS NOT NULL",
+            nativeQuery = true)
+    long countOwners();
 }

@@ -47,6 +47,41 @@ server:
     include-stacktrace: never
     include-message: never
 
+# Integration-owned provider credential protection.
+#
+# API-069 / API-070 - per-shop authorisation material is encrypted at rest by Integration.
+# The KEY IS NEVER COMMITTED and never enters the database: it is supplied by the deployment
+# environment, so a database dump on its own contains nothing usable.
+#
+# Both values are BLANK BY DEFAULT and that is deliberate. No provider adapter exists yet, so
+# an environment with nothing to protect starts normally. Supplying one variable without the
+# other, or supplying a malformed key set, FAILS AT STARTUP; using the feature while
+# unconfigured fails loudly at first use. What cannot happen is a token being stored
+# unprotected.
+integration:
+  credential:
+    encryption:
+      # Grammar: version:base64key[,version:base64key...] - each key exactly 256 bits.
+      keys: ${INTEGRATION_CREDENTIAL_ENCRYPTION_KEYS:}
+      # Which of the above encrypts new material. Old versions stay readable for rotation.
+      active-key-version: ${INTEGRATION_CREDENTIAL_ENCRYPTION_ACTIVE_KEY_VERSION:}
+
+  # Daraz Open Platform APPLICATION credentials (DZC-001..DZC-009).
+  #
+  # These identify TRIOLOO to Daraz. They are NOT a seller's authorisation - per-shop seller
+  # material is encrypted in channel_credential and is an entirely different thing (API-069).
+  #
+  # 🔴 The App Secret is server-side only: never in the frontend, the database, an API response
+  # or a log. Blank by default so an ERP that does not use Daraz starts normally; the values are
+  # required only at the moment a Daraz operation actually runs, and the failure then names the
+  # missing VARIABLE, never a value.
+  daraz:
+    app-key: ${DARAZ_APP_KEY:}
+    app-secret: ${DARAZ_APP_SECRET:}
+    # The backend callback route Daraz redirects the seller back to. Must be absolute HTTPS and
+    # must match the URI registered on the Daraz App Console exactly.
+    oauth-redirect-uri: ${DARAZ_OAUTH_REDIRECT_URI:}
+
 management:
   endpoints:
     web:

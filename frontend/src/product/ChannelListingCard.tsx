@@ -3,6 +3,8 @@ import { ActionMenu } from '../ui/Overlay';
 import type { MenuAction } from '../ui/Overlay';
 import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import type { ChannelListing, ChannelListingSummary } from './channelListingApi';
+import type { SemanticTone } from '../ui/primitives';
+import { SYNC_STATE_ROLE, LISTING_STATUS_ROLE, LOCAL_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
 
 /**
  * FRAME 01 — the populated Listings workspace result composition.
@@ -546,7 +548,7 @@ function StateCell({ item, quiet }: { readonly item: ChannelListing; readonly qu
       <span
         data-testid="listing-state-diverged"
         title="Diverged — the channel holds a different value"
-        style={{ ...chipBase, border: '1.5px solid var(--color-ink)', color: 'var(--color-heading-ink)', fontWeight: 800 }}
+        style={{ ...chipBase, ...semanticChip('DIVERGED'), fontWeight: 800 }}
       >
         {item.divergedFactCount > 0 ? `DIVERGED · ${item.divergedFactCount}` : 'DIVERGED'}
       </span>
@@ -554,7 +556,7 @@ function StateCell({ item, quiet }: { readonly item: ChannelListing; readonly qu
       <span
         data-testid="listing-state-manual"
         title="Manual required — a person must look at this. It is a normal operational state, not a failure."
-        style={{ ...chipBase, border: '1px solid var(--color-border-control)', color: 'var(--color-text-secondary)' }}
+        style={{ ...chipBase, ...semanticChip('MANUAL_REQUIRED') }}
       >
         MANUAL REQUIRED
       </span>
@@ -603,8 +605,22 @@ function StateCell({ item, quiet }: { readonly item: ChannelListing; readonly qu
             fontSize: '10.5px',
             fontWeight: 700,
             letterSpacing: '.06em',
-            color: quiet ? 'var(--color-text-demoted)' : 'var(--color-text-secondary)',
             whiteSpace: 'nowrap',
+            /*
+              🔴 `RULE 3.3.d.a` — the CHANNEL-REPORTED status carries real consequence: ACTIVE
+              is live, SUSPENDED needs attention, REJECTED is a refusal. Where the channel has
+              said nothing the LOCAL lifecycle shows instead, and DRAFT stays neutral because
+              `PRD-188.a` makes a local draft legitimate rather than unfinished.
+
+              🔴 FOREGROUND ONLY. Frame 02 renders this as BARE CAPS WITH NO CONTAINER, and
+              that is locked geometry — a semantic tint here would change the form, not the
+              tone. The role is carried by the text colour alone, and the WORD is already
+              mandatory (`RULE 8.4`).
+
+              ⚠ `quiet` still demotes, but only where the state is NEUTRAL: a SUSPENDED row
+              must not be greyed out of the attention it is asking for.
+            */
+            color: statusColor(item, quiet),
           }}
         >
           {item.listingStatus ?? item.localLifecycle}
@@ -653,6 +669,37 @@ function UnsentCarrier({ compact = false }: { readonly compact?: boolean }): Rea
       {compact ? 'UNSENT' : 'UNSENT CHANGES'}
     </span>
   );
+}
+
+/**
+ * The status word's colour — `RULE 3.3.d.a` inside Frame 02's locked bare-caps form.
+ *
+ * 🔴 No background and no border: the role is carried by the foreground, because giving this
+ * element a container would change locked geometry rather than semantics.
+ */
+function statusColor(item: ChannelListing, quiet: boolean): string {
+  const tone = item.listingStatus
+    ? semanticRoleOf(LISTING_STATUS_ROLE, item.listingStatus)
+    : semanticRoleOf(LOCAL_LIFECYCLE_ROLE, item.localLifecycle);
+  if (tone === 'neutral') {
+    return quiet ? 'var(--color-text-demoted)' : 'var(--color-text-secondary)';
+  }
+  return `var(--color-semantic-${tone}-fg)`;
+}
+
+/**
+ * The shared semantic chip surface — `RULE 3.3.d`.
+ *
+ * 🔴 The ROLE comes from the one canonical mapping source, never from this component. A soft
+ * tint, a 1px semantic boundary and semantic text; the WORD stays mandatory (`RULE 8.4`).
+ */
+function semanticChip(state: string, map: Record<string, SemanticTone> = SYNC_STATE_ROLE): React.CSSProperties {
+  const tone = semanticRoleOf(map, state);
+  return {
+    background: `var(--color-semantic-${tone}-bg)`,
+    border: `1px solid var(--color-semantic-${tone}-border)`,
+    color: `var(--color-semantic-${tone}-fg)`,
+  };
 }
 
 const chipBase: React.CSSProperties = {

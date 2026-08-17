@@ -133,7 +133,12 @@ export const NAVIGATION: readonly NavItem[] = [
     children: [
       { label: 'Users', path: '/administration/users', permission: null },
       { label: 'Roles & Permissions', path: '/administration/roles', permission: null },
-      { label: 'Shops & Channels', path: '/administration/shops', permission: null },
+      /*
+        `PRM-090` has now declared this destination's capability, so it is no longer `null`.
+        🔴 `UX-014` / `PRJ-120` — hiding the row is an AFFORDANCE. The backend refuses every
+        request without the capability regardless of what the sidebar shows.
+      */
+      { label: 'Shops & Channels', path: '/administration/shops', permission: 'system.channel-instance.view' },
       { label: 'Integrations', path: '/administration/integrations', permission: null },
       { label: 'Settings', path: '/administration/settings', permission: null },
     ],

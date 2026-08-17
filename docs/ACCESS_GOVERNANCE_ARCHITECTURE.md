@@ -1,7 +1,7 @@
 # Access Governance Architecture
 
 **Owner:** Trioloo Technology · **Module:** Permission · **Status:** Canonical
-**Version:** 1.1.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-08-10 (Owner designation — `BD-485`, §13.6) · **Rule prefix:** `AGV-`
+**Version:** 1.2.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-08-16 (**`AGV-042` — initial Owner bootstrap; `GAP-120` closed**) · **Amended:** 2026-08-10 (Owner designation — `BD-485`, §13.6) · **Rule prefix:** `AGV-`
 
 ---
 
@@ -545,6 +545,22 @@ The business may operate with **a single administrator or several**, depending o
 >
 > ✅ **`AGV-002` stated by the business** — *identity is permanent; responsibilities and permissions change around it* — **applied to the highest authority in the system.**
 
+> **AGV-042 — ✅ THE INITIAL OWNER BOOTSTRAP. Ratified 2026-08-16, closing `GAP-120`.**
+>
+> **`AGV-038` grants Owner status only through an existing Owner, and `AGV-011` creates accounts only through an authorised Owner or Administrator.** ⚠ **Neither can produce the FIRST one, and that is not an oversight in those rules — it is the one case they cannot express.** ✅ **This rule is the single, explicit exception, and it is bounded so tightly that it can occur once.**
+>
+> **a.** ✅ **THE OWNER DESIGNATION IS PERSISTED ON THE OPERATIONAL USER PROFILE** (`AGV-037`). 🔴 **It is not a role, not a permission override, not a scope grant, and it is never derived from a username, a role, row order or an environment variable** (`AGV-039`).
+> **b.** ✅ **OWNER AUTHORITY IS INTRINSIC AND DYNAMIC.** **An Owner's effective authority IS the entire current permission catalogue** (`AGV-033`), **read at resolution time.** 🔴 **IT IS NEVER MATERIALISED AS OVERRIDE ROWS.** ⚠ **Were it materialised, Owner authority would be reachable and revocable through ordinary permission administration — exactly what `AGV-039` forbids — and it would drift the moment a new permission was defined.** ✅ **A permission introduced by a later migration is held immediately, with no backfill.**
+> **c.** 🔴 **THE FIRST OWNER IS CREATED BY A SERVER-SIDE, OPERATOR-INVOKED APPLICATION COMMAND, AND BY NOTHING ELSE.** **It requires shell access to the host.**
+> **d.** 🔴 **NO PUBLIC BOOTSTRAP ENDPOINT EXISTS, AND NONE MAY BE ADDED.** ⚠ **A `/setup`, `/bootstrap`, `/install` or `/create-owner` route would let the internet create the highest authority in the system.**
+> **e.** 🔴 **ORDINARY APPLICATION STARTUP CREATES NO USER.** **Zero Owners remains zero until an operator explicitly asks otherwise.**
+> **f.** 🔴 **NO MIGRATION SEEDS AN OWNER, A CREDENTIAL OR A ROLE**, and no default credential exists anywhere in the system.
+> **g.** 🔴 **NO MANUAL SQL.** **The command executes application logic and reuses the application's own credential hashing; the database is an implementation detail** (`PRJ-031`).
+> **h.** ✅ **IT IS TRANSACTIONAL AND CONCURRENCY-SAFE.** **Profile, credential and designation commit together or not at all**, and **at most one profile may ever carry the bootstrap origin — enforced by the single authoritative database** (`TEC-002`), **not by an external lock service** (`TEC-065`).
+> **i.** 🔴 **IT REFUSES ONCE ANY OWNER EXISTS.** **No second bootstrap, no replacement, no elevation, no password reset, no mutation of the existing Owner.**
+> **j.** 🔴 **PROVENANCE IS TRUTHFUL** (`AGV-041`). **The first Owner records the origin `INITIAL_BOOTSTRAP` and NAMES NO DESIGNATING OWNER, because none existed.** ⚠ **Recording a self-designation would place a grant in the audit record that never occurred.** ✅ **Every later Owner carries `OWNER_GRANT` and MUST name the granting Owner.**
+> **k.** ✅ **EVERYTHING AFTER THE FIRST OWNER IS UNCHANGED** and remains governed by `AGV-038`–`AGV-041`. ⚠ **The bootstrap is not an administration mechanism; it is the act that makes administration possible.**
+
 > **AGV-041 — Every grant and revocation of Owner status is an explicit administrative act and is fully auditable** (`BD-485` §4, `AGV-032`, `PRM-039`, `AUD-012`).
 >
 > **Preserved:** affected user/profile · previous Owner status · new authority state · actor performing the grant or revocation · timestamp · reason/note where recorded.
@@ -555,7 +571,7 @@ The business may operate with **a single administrator or several**, depending o
 >
 > | Item | |
 > |---|---|
-> | **`GAP-120`** | **First-Owner bootstrap.** `AGV-038` assumes at least one Owner already exists; `AGV-011` cannot create the first account. **A deployment/bootstrap concern, deliberately excluded** (`BD-485` §10) |
+> | **`GAP-120`** | ✅ **CLOSED 2026-08-16 by `AGV-042`.** ~~**First-Owner bootstrap.**~~ `AGV-038` assumes at least one Owner already exists; `AGV-011` cannot create the first account. **A deployment/bootstrap concern, deliberately excluded** (`BD-485` §10) |
 > | **`GAP-121`** | **Nothing constrains granting *another* user an authority the granting actor does not hold.** `PRM-046` and `AGV-032` are **self-only**. **Closed for the Owner predicate; open for every other authority** |
 > | **`GAP-122`** | **Self-revocation is undefined, and the last-Owner case rests on that silence.** ⚠ **Zero Owners is currently unreachable — but by silence, not by design.** **If self-revocation is later permitted, the last Owner could remove themselves and `AGV-038` would make it unrecoverable** |
 
@@ -697,6 +713,7 @@ erDiagram
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-08-16** | ✅ **`AGV-042` — THE INITIAL OWNER BOOTSTRAP, closing `GAP-120`.** **`AGV-038` and `AGV-011` between them cannot create the first Owner; this is the single bounded exception.** ✅ **The designation is PERSISTED on `E-077` and Owner authority is INTRINSIC AND DYNAMIC — the entire catalogue, read at resolution time, never materialised as override rows.** 🔴 **Server-side command only · no public endpoint · no startup bootstrap · no seeded Owner · no manual SQL · transactional · concurrency-safe · refuses once any Owner exists.** 🔴 **Provenance is TRUTHFUL: the first Owner names no designating Owner, because none existed.** ⚠ **`AGV-037`–`AGV-041` are unchanged; everything after the first Owner is governed exactly as before.** |
 | **1.1.0** | **2026-08-10** | ✅ **Owner designation — `AGV-037` – `AGV-041` added, `AGV-030` AMENDED. Source `BD-485`. Post-Freeze amendment under `DOC-067`.** **`AGV-037`: Owner is an authority DESIGNATION on the Operational User Profile — not a role, not an override, not a scope grant** — **its entire effect is that every check passes on its merits, which `AGV-033` already stated**, so **`AGV-018`'s four-part composition is unchanged: Owner SATURATES it rather than joining it.** **`AGV-038`: granted and revoked only by an existing Owner; an Administrator may do neither.** 🔴 **`AGV-039` is what makes that enforceable** — **`AGV-023` lets overrides GRANT, so were *grant Owner status* an ordinary permission an Owner could override-grant it to an Administrator and circumvent `AGV-038` without breaking a rule.** **`AGV-040`: revocation changes the designation and NOTHING else** — profile, history, record ownership and attribution all intact — **`AGV-002` stated by the business.** **`AGV-041`: six preserved facts.** **`AGV-030` AMENDED** — ~~*The Owner*~~ → **each active Owner** — **`BD-460` raised the singular wording on 2026-08-10 and left it unamended under `DOC-023`; `BD-485` §8 supplies the authorising decision** (`DOC-048`), **original retained under `DOC-009`, no hierarchy among Owners created.** ✅ **CLOSES the Owner-definition gap**: `AGV-032`'s *Owner does either* row rested on an undefined predicate and is now enforceable; `PRM-046` is confirmed from both directions; **write-off, payroll deduction waiver and Employee Loan authority all become evaluable.** 🔴 **CARRIED, NOT SOLVED**: `GAP-120` bootstrap · `GAP-121` granting another user an authority the grantor lacks · `GAP-122` self-revocation and the last-Owner case, **safe by silence rather than by design.** Source: [`BUSINESS_DISCOVERY.md`](BUSINESS_DISCOVERY.md) §42 |
 | **1.0.0** | **2026-08-08** | **Initial ratification.** Consolidates `BUSINESS_DISCOVERY.md` §24 (`BD-369` – `BD-379`) with the reconciliation at `PERMISSION_ARCHITECTURE.md` §12 – §13, `DOMAIN_MODEL.md` v3.4.0 – v3.5.0 and `STATE_MACHINE_ARCHITECTURE.md` §24. **36 rules, all traceable; no new business rule, entity or lifecycle introduced.** `E-077`, `E-078` and `SM-17` referenced, none defined here. **`AGV-000` records the ownership boundary with `PERMISSION_ARCHITECTURE.md`, which is retained unchanged.** **`GAP-099` closed**; six gaps carried |
 

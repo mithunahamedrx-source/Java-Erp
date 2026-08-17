@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.47.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.55.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -1728,7 +1728,7 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 
 ---
 
-## GAP-120 — registered 2026-08-10
+## GAP-120 — registered 2026-08-10 · ✅ **CLOSED 2026-08-16**
 
 **Category:** Access Governance · **Severity:** 🟡 Medium · **Class:** **Deployment / bootstrap architecture**
 **Source:** `BD-485` §10, deliberately excluded from the Owner-designation rule
@@ -1739,7 +1739,19 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 
 **Why it does not block HR & Payroll.** **The payroll authorities that depend on the Owner predicate** — waiver (`PRM-073`), Employee Loan (`PRM-076`, `PRM-077`) and write-off (`ACC-067`) — **evaluate against an existing Owner and are unaffected by how the first one came to be.**
 
-**What resolution requires.** A deployment/bootstrap decision, not a business rule. **Not chosen here** (`DOC-023`, `BD-485` §10).
+**✅ CLOSED 2026-08-16 — `AGV-042`, AND THE PRODUCTION FIRST OWNER NOW EXISTS.** ⚠ **Both halves were required: a ratified mechanism is not a closed gap until the account it enables actually exists.** ✅ **Verified read-only against production, not from the command's own output.**
+
+| Part | State |
+|---|---|
+| **Owner designation persisted** (`AGV-037`) | ✅ **COMPLETE** — `V13`, carried on `E-077`; never a role, override or scope grant |
+| **Owner authority resolution** (`AGV-033`) | ✅ **COMPLETE** — intrinsic and DYNAMIC: the entire catalogue at resolution time, never a stored snapshot |
+| **Bootstrap mechanism** | ✅ **COMPLETE** — server-side command, no HTTP surface, transactional, concurrency-safe, refuses once any Owner exists |
+| **Truthful provenance** (`AGV-041`) | ✅ **COMPLETE** — `INITIAL_BOOTSTRAP` names no designating Owner; the database refuses a dishonest grant |
+| **Production first Owner created** | ✅ **COMPLETE** — created 2026-08-16 by the operator, who entered the password directly at the server console. 🔴 **The password passed through no tooling, no argument, no environment file and no log.** ⚠ **The profile is `INVITED` with no `activated_at`, which is CORRECT: the canonical `INVITED → ACTIVE` transition belongs to the first successful sign-in** (`AGV-001`). |
+
+**Production verification, 2026-08-16 — read-only.** **One profile: `TheMithun` / *Mithun Ahamed* · owner designation present · origin `INITIAL_BOOTSTRAP` · designated-by `NULL` · lifecycle `INVITED` · `activated_at` NULL.** **One credential, stored as a `{bcrypt}` hash; no unhashed credential exists.** ✅ **ZERO roles, ZERO role assignments, ZERO permission overrides and ZERO scope assignments** — **the authority comes from the designation alone** (`AGV-037`, `AGV-039`). ✅ **The repeat guard was exercised and REFUSED with `AGV-038`'s reason; the counts stayed 1/1/1 and the existing Owner was untouched.**
+
+🔴 **NO DEFAULT CREDENTIAL, NO SEEDED ADMIN, NO PUBLIC SETUP ROUTE AND NO MANUAL SQL WAS USED OR INTRODUCED.** ⚠ **`GAP-121` and `GAP-122` are untouched by this closure.**
 
 ---
 
@@ -1938,6 +1950,51 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 **Why it does not block the architecture.** ✅ **Nothing above changes an entity, an invariant or an ownership boundary.** **`DM-084.d` deliberately leaves WHERE the connection record lives as an Integration persistence question, which is an implementation design, not a business gap.**
 
 **What resolution requires.** **Implementation of the minimum production gate as scoped by [`SHOPS_CHANNELS_SCREEN_CONTRACT.md`](SHOPS_CHANNELS_SCREEN_CONTRACT.md) v2.0.0** — workspace · add/edit shop · connection summary · external shop identity display · Connect / Reauthorize entry · **`Activate`** · permission enforcement — **plus the Integration-owned authorisation work behind it.** ⚠ **AMENDED 2026-08-15 — the superseded enumeration read "configuration lifecycle actions", which described v1.1.0's Suspend/Reactivate/Archive controls; those are now DEFERRED and only `Activate` is in the gate** (`SCS-080`, `DOC-009`). ⚠ **Deferred and NOT part of that gate:** commission structures · settlement cycle · default warehouse · courier preference · business unit · order counts · full capability matrix · operation and API logs.
+
+
+
+---
+
+## GAP-133 — registered 2026-08-15
+
+**Category:** Shops & Channels · **Severity:** 🟠 High · **Class:** **A — blocks implementation of the approved design, not the architecture**
+**Source:** reconciliation of the user-approved Shops & Channels Feature Pack against `V5` persistence
+
+**Problem.** **The approved design displays facts the schema does not hold.** `channel_instance` persists exactly `id`, `code`, `name`, `channel_type`, `record_status`, `created_at`, `updated_at`. **Every one of the following is ratified by `SCS-040`–`SCS-042` and `INV-16.14`–`INV-16.16` and has NO column, NO projection and NO endpoint:**
+
+> ✅ **IMPLEMENTED 2026-08-15 — `V11__shops_and_channels.sql` plus the `system` and `integration` modules.** ⚠ **The table below now records STATE, not only the original absence; the rows marked REMAINS are the ones that genuinely did not ship.**
+
+| Ratified requirement | State |
+|---|---|
+| **External account identity** (`INV-16.5`) | ✅ **COMPLETE** — persisted, projected, and writable only by an authorisation outcome |
+| **External link** (`INV-16.14`) | ✅ **COMPLETE** — persisted and projected as a SECOND fact, never the identity |
+| **Bound-at / authorised-at** (`INV-16.15`) | ✅ **COMPLETE** — captured at the authoritative act; renewal does not move the binding date |
+| **Activated-at / activated-by** (`INV-16.15`) | ✅ **COMPLETE** — captured by the transition, with the actor (`AGV-001`) |
+| **Connection condition + last-observed** (`INV-16.16`, `API-068`) | ✅ **COMPLETE** — `channel_connection`, Integration-owned, read through a port; absence means never authorised |
+| **Market** (`INV-16.7`) | ✅ **COMPLETE** — persisted, required on create, and validated against the CLOSED ratified set (`INV-16.7.a`–`INV-16.7.d`); enforced in the application AND by a `V12` database constraint |
+| **Search over name, code, link** (`SCS-022`) | ✅ **COMPLETE** — server-resolved, and deliberately not widened |
+| **Channel / connection / status filters** (`SCS-023`) | ✅ **COMPLETE** — server-resolved, combined as AND, with tokens and Clear |
+| **Summary strip and attention counts** (`SCS-020`, `SCS-021`) | ✅ **COMPLETE** — DERIVED on read; no counter column exists |
+| **Create / update / activate** | ✅ **COMPLETE** — `POST` / `PUT` / `POST …/activate`, each on its own capability |
+| **Four `PRM-090` capability codes** | ✅ **COMPLETE** — seeded by `V11` and enforced in the application services |
+| **Provider credential persistence and encryption** | ✅ **COMPLETE 2026-08-16** — `V14` `channel_credential`, AES-256-GCM with owner-bound AAD, one key version per row, key held only in deployment configuration (`TEC-119`, `DEP-123`) |
+| **OAuth callback correlation** | ✅ **COMPLETE 2026-08-16** — `V14` `channel_authorisation_attempt`: hash-only, expiring, one-time, shop-bound (`TEC-120`) |
+| **A provider authorisation adapter** (Daraz, Shopify, WooCommerce, Website) | 🔴 **REMAINS** — the PORT, the binding rules and all three `SCS-044` outcomes are built and tested; **no adapter, OAuth client or credential store exists**, so `Connect` is correctly offered as unavailable with its reason (`SCS-092.d`) |
+| **Live marketplace verification** | 🔴 **REMAINS** — out of this task's scope and untouched |
+
+**Why it was registered rather than fixed at the time.** ✅ **These were implementation absences with canonical answers already in place** — the distinction `DOC-080` rests on.
+
+✅ **THE ONE OPEN BUSINESS QUESTION IS NOW CLOSED.** ⚠ **Implementation found that `INV-16.7` required a Market but ratified no value set, so the field first shipped as required free text — reported rather than decided.** ✅ **The set was ratified 2026-08-15** (`INV-16.7.a`–`INV-16.7.d`): **closed, ERP-supplied, current sole member `BANGLADESH` labelled *Bangladesh*.** **The implementation was corrected to a server-supplied selector with application and database validation** (`V12`). 🔴 **NO BUSINESS QUESTION REMAINS OPEN FOR THIS FEATURE.**
+
+**The Channel Type question is CLOSED.** ✅ **`SCS-092` was resolved 2026-08-15 by refining `E-015`** (`INV-15.3`–`INV-15.5`): **`Shopify` and `WooCommerce` are recognised Channel Types, free text remains forbidden, and no Provider or Platform entity was created.** ⚠ **NO BUSINESS DECISION REMAINS OPEN FOR THIS FEATURE.** 🔴 **Model validity is not implementation: no Shopify, WooCommerce, Website or Daraz ADAPTER exists, and each remains an integration gap.**
+
+**`V14` local verification, 2026-08-17 — PostgreSQL 18.6.** ✅ **Flyway applied `V1`–`V14` with ZERO failures against a real PostgreSQL 18.6 test database**, and the resulting schema was inspected directly: both tables, every column type and nullability, all four `channel_credential` CHECKs, the 32-byte state-hash CHECK, the window and consumed CHECKs, the UNIQUE state hash, and ✅ **all three foreign keys confirmed `NO ACTION` — no cascade.** ✅ **Indexes are the primary keys and the one UNIQUE only; no speculative index shipped.** ✅ **Both tables start EMPTY — the migration seeds nothing.**
+
+✅ **THE FULL BACKEND SUITE PASSES: 390 tests, 0 failures, 0 errors, 0 skipped**, and `mvn package` succeeds without `-DskipTests`. **Proven against the real database rather than argued: cross-shop ciphertext substitution, `ACCESS`↔`REFRESH` column substitution and a rewritten `encryption_key_version` all FAIL authentication; rotation re-encrypts BOTH secrets and moves the row to the new key version; the database refuses a refresh expiry with no refresh token; disconnect deletes only the credential; and of eight concurrent callbacks consuming one state, EXACTLY ONE succeeds.** ⚠ **The schema tripwire in `ApplicationFoundationSmokeTest` caught the two new tables on its first run and the authorised list was extended deliberately — which is what that test exists to force.**
+
+✅ **The application also starts normally with NO encryption key configured** (health `UP`, zero errors), confirming `DEP-123.e`: an environment with nothing to protect is not made unstartable, while USING the feature unconfigured still fails loudly. 🔴 **Nothing was applied to production, which remains on `V13`.**
+
+**What remains.** 🔴 **THE INTEGRATION-OWNED PROVIDER PROTOCOL WORK ONLY** — an authorisation adapter per channel type and its OAuth client. ✅ **The credential store is no longer among them: `V14` shipped it on 2026-08-16** (`TEC-119`, `TEC-120`). 🔴 **STILL OPEN, AND NONE OF IT IS STARTED: the Daraz adapter · the OAuth client · the callback route · provider request signing · the official Daraz endpoints · production App Key and App Secret · live seller authorisation · the seller identity read · the listing/product read · the first live pull.** ⚠ **A KNOWN DEFECT BLOCKS THE ADAPTER: `ChannelAuthorisationPort.authorise(UUID)` is synchronous and cannot represent redirect-plus-callback OAuth, which `API-069.a` already ratifies; it must be split into initiate and complete.** ⚠ **Live marketplace verification remains out of scope and untouched.** ✅ **Everything else in this gap shipped.** ⚠ **`GAP-132`'s deferrals are unchanged, and `SCS-080`'s remaining deferrals — visible pagination, per-row menus, Suspend/Reactivate/Archive controls, Listing counts, per-field adapter capability — are unchanged and were not built.**
 
 
 

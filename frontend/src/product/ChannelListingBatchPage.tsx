@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Card, EmptyState, buttonStyle } from '../ui/primitives';
+import { Card, EmptyState, StatusPill, buttonStyle } from '../ui/primitives';
+import { OPERATION_OUTCOME_ROLE, semanticRoleOf } from '../design/semanticRole';
 import { OperationalRegion } from '../ui/OperationalRegion';
 import { fetchBatch, fetchBatchMembers, retryBatch } from './channelListingApi';
 import type { BatchView, OperationOutcome, OperationView } from './channelListingApi';
@@ -161,7 +162,14 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
                     </div>
                     <div style={{ flex: '1 1 0', minWidth: 0, ...cellText }}>{member.listingTitle ?? 'Untitled listing'}</div>
                     {/* 🔴 `RULE 3.14.a.b` — neutral carrier with a MANDATORY label. */}
-                    <span data-testid={`member-outcome-${member.id}`} style={badge}>{member.outcome}</span>
+                    {/* 🔴 `RULE 3.3.d.a` — the outcome is a real system state and takes its
+                        canonical role: SUCCEEDED settles, FAILED is a failure, MANUAL_REQUIRED
+                        and DIVERGED owe a person a decision (`SYS-025`, `SYS-026`). */}
+                    <span data-testid={`member-outcome-${member.id}`}>
+                      <StatusPill tone={semanticRoleOf(OPERATION_OUTCOME_ROLE, member.outcome)} dot>
+                        {member.outcome}
+                      </StatusPill>
+                    </span>
                     {/*
                       🔴 `PRJ-200` — the reason is the operator's, in their language. It is
                       never a generic failure string, and it is never truncated away.
@@ -211,7 +219,6 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
 const tile: React.CSSProperties = { background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--elevation-card)', padding: '12px 14px', minWidth: 0 };
 const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'nowrap', width: '100%', minWidth: 0, padding: '8px 4px' };
 const cellText: React.CSSProperties = { fontSize: '12.5px', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
-const badge: React.CSSProperties = { display: 'inline-flex', justifyContent: 'center', minWidth: '120px', fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px', background: 'var(--color-status-neutral-bg)', color: 'var(--color-status-neutral-fg)', whiteSpace: 'nowrap', flexShrink: 0 };
 const selectStyle: React.CSSProperties = { height: 'var(--control-height-row-action)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border-control)', padding: '0 8px', fontSize: '13px', fontFamily: 'inherit', background: 'var(--color-surface)', flexShrink: 0 };
 const pageButton: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '9px', border: '1px solid var(--color-border-control)', background: 'var(--color-surface)', color: 'var(--color-text-muted)', fontFamily: 'inherit', cursor: 'pointer' };
 const noticeStyle: React.CSSProperties = { fontSize: '13px', color: 'var(--color-text-primary)', background: 'var(--color-status-neutral-bg)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', padding: '10px 14px' };

@@ -306,31 +306,129 @@ export function ErrorMarker(): React.JSX.Element {
 export type StatusTone = 'pending' | 'confirmed' | 'dispatched' | 'cancelled' | 'neutral';
 
 /**
+ * The SEMANTIC ROLE vocabulary — `RULE 3.3.d`.
+ *
+ * <p>🔴 A ROLE, NOT A COLOUR. A caller names what a state MEANS and never which hue it wants;
+ * the role resolves to an existing `§3.3` pair (`RULE 3.3.b`), so no feature ever hard-codes
+ * a semantic colour and a future palette decision changes one token rather than every screen.
+ *
+ * <p>⚠ `neutral` IS A REAL ANSWER, not the absence of one. An ordinary state — `DRAFT`,
+ * `Not connected`, `ARCHIVED` — is neutral BECAUSE it is unremarkable, and colouring it would
+ * assert a significance it does not have (`RULE 3.3.d.d`).
+ */
+export type SemanticTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+/**
  * `RULE 8.4` — colour is never the sole carrier of meaning. A status pill always pairs its
  * colour with a WORD, and exactly five status colours exist (`RULE 3.3.a`).
+ *
+ * <p>✅ It accepts EITHER vocabulary: the `§3.3` order statuses, or a `RULE 3.3.d` semantic
+ * role. ⚠ Both resolve to the same five pairs — the second is a name for the ROLE, not a
+ * sixth colour.
  */
 export function StatusPill({
   tone,
   children,
+  dot = false,
 }: {
-  readonly tone: StatusTone;
+  readonly tone: StatusTone | SemanticTone;
   readonly children: ReactNode;
+  /** ⚠ An optional SUPPORTING cue. `RULE 8.4` keeps the word mandatory regardless. */
+  readonly dot?: boolean;
 }): React.JSX.Element {
+  const semantic = SEMANTIC_TONES.includes(tone as SemanticTone);
+  const family = semantic ? 'semantic' : 'status';
   return (
     <span
+      data-tone={tone}
       style={{
         display: 'inline-flex',
+        alignItems: 'center',
+        gap: dot ? '6px' : undefined,
         fontSize: '12px',
         fontWeight: 600,
         padding: '3px 10px',
         borderRadius: '999px',
         whiteSpace: 'nowrap',
-        background: `var(--color-status-${tone}-bg)`,
-        color: `var(--color-status-${tone}-fg)`,
+        background: `var(--color-${family}-${tone}-bg)`,
+        color: `var(--color-${family}-${tone}-fg)`,
+        /*
+          🔴 `RULE 3.3.d.f` — the restrained reference treatment is a SOFT TINT plus a 1px
+          semantic boundary, never a saturated fill. ⚠ Only the semantic vocabulary takes the
+          border; the `§3.3` order pills keep their approved borderless form unchanged.
+        */
+        border: semantic ? `1px solid var(--color-semantic-${tone}-border)` : undefined,
       }}
     >
+      {dot && (
+        /* ⚠ A SECOND non-textual cue, never the only one — the label is always present. */
+        <span
+          aria-hidden="true"
+          style={{
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
+            background: 'currentColor',
+            flexShrink: 0,
+          }}
+        />
+      )}
       {children}
     </span>
+  );
+}
+
+const SEMANTIC_TONES: readonly SemanticTone[] = ['success', 'warning', 'danger', 'info', 'neutral'];
+
+/**
+ * A meaningful operational message — `RULE 3.3.d.b`.
+ *
+ * <p>🔴 FOR MESSAGES THAT CARRY CONSEQUENCE: what succeeded, what needs attention, what
+ * failed, what the operator should understand before acting. ⚠ ORDINARY DESCRIPTIVE OR HELPER
+ * TEXT IS NOT A NOTICE and stays plain — colouring every paragraph would make the colour mean
+ * nothing (`RULE 3.3.b`).
+ *
+ * <p>🔴 `RULE 8.4` — the tone is NEVER the only signal. A `title` is REQUIRED and names the
+ * condition in words, so the message survives being read in monochrome, by a screen reader,
+ * or by someone who cannot distinguish the hues.
+ *
+ * <p>⚠ Restrained by construction: a soft tint, a 1px boundary and coloured text. No filled
+ * panel, no gradient, no icon-only signalling.
+ */
+export function Notice({
+  tone,
+  title,
+  children,
+  testId,
+}: {
+  readonly tone: SemanticTone;
+  /** 🔴 REQUIRED. The condition in words — the non-colour carrier `RULE 8.4` demands. */
+  readonly title: string;
+  readonly children?: ReactNode;
+  readonly testId?: string;
+}): React.JSX.Element {
+  return (
+    <div
+      data-testid={testId}
+      data-tone={tone}
+      /*
+        ⚠ `status` rather than `alert`: these report a condition the operator reads, they do
+        not interrupt. An assertive live region would talk over the work that produced it.
+      */
+      role="status"
+      style={{
+        background: `var(--color-semantic-${tone}-bg)`,
+        border: `1px solid var(--color-semantic-${tone}-border)`,
+        borderRadius: 'var(--radius-card-small)',
+        padding: '10px 13px',
+        fontSize: '12.5px',
+        lineHeight: 1.6,
+        color: `var(--color-semantic-${tone}-fg)`,
+      }}
+    >
+      <strong style={{ fontWeight: 700 }}>{title}</strong>
+      {children && <div style={{ marginTop: '3px' }}>{children}</div>}
+    </div>
   );
 }
 

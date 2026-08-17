@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, EmptyState, buttonStyle } from '../ui/primitives';
+import { StatusPill, Card, EmptyState, buttonStyle } from '../ui/primitives';
+import { COMPARISON_STATE_ROLE, semanticRoleOf } from '../design/semanticRole';
 import { OperationalRegion } from '../ui/OperationalRegion';
 import { fetchChannelListing, updateChannelListing } from './channelListingApi';
 import type { ChannelListing } from './channelListingApi';
@@ -187,7 +188,10 @@ export default function ChannelListingBatchEditPage(): React.JSX.Element {
                   <div style={{ flex: '1 1 0', minWidth: 0, ...cellText }}>
                     {row.listing.intendedTitle ?? 'Untitled listing'}
                   </div>
-                  <span style={badge}>{row.state}</span>
+                  {/* 🔴 `RULE 3.3.d.a` — the comparison state carries its canonical role. */}
+                  <StatusPill tone={semanticRoleOf(COMPARISON_STATE_ROLE, row.state)} dot>
+                    {row.state}
+                  </StatusPill>
                   <div style={{ flex: '1 1 0', minWidth: 0, ...cellText, color: 'var(--color-text-secondary)' }} title={row.message ?? ''}>
                     {row.message ?? ''}
                   </div>
@@ -246,5 +250,4 @@ function Field({
 
 const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'nowrap', width: '100%', minWidth: 0, padding: '8px 4px' };
 const cellText: React.CSSProperties = { fontSize: '12.5px', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
-const badge: React.CSSProperties = { display: 'inline-flex', justifyContent: 'center', minWidth: '86px', fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px', background: 'var(--color-status-neutral-bg)', color: 'var(--color-status-neutral-fg)', whiteSpace: 'nowrap', flexShrink: 0 };
 const noticeStyle: React.CSSProperties = { fontSize: '13px', color: 'var(--color-text-primary)', background: 'var(--color-status-neutral-bg)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', padding: '10px 14px' };

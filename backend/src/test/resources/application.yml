@@ -41,3 +41,12 @@ logging:
   level:
     root: WARN
     com.trioloo: INFO
+
+# TEST-ONLY encryption keys. 🔴 These are NOT secrets and must never be used anywhere else -
+# the decoded bytes literally spell out that they are test material. Two versions exist so the
+# key-rotation invariant can be exercised.
+integration:
+  credential:
+    encryption:
+      keys: 1:dHJpb2xvby10ZXN0LWtleS1ub3QtYS1zZWNyZXQhISE=,2:dHJpb2xvby10ZXN0LWtleS1UV08tbm90LXNlY3JldCE=
+      active-key-version: 1

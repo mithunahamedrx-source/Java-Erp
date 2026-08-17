@@ -22,6 +22,8 @@ import ChannelListingImportPage from './product/ChannelListingImportPage';
 import ChannelListingBatchPage from './product/ChannelListingBatchPage';
 import ChannelListingBatchEditPage from './product/ChannelListingBatchEditPage';
 import ChannelListingSyncPage from './product/ChannelListingSyncPage';
+import ShopsWorkspacePage from './system/ShopsWorkspacePage';
+import ShopDetailPage from './system/ShopDetailPage';
 
 /**
  * Application routes.
@@ -108,8 +110,19 @@ export default function App(): React.JSX.Element {
         <Route path="/inventory/products/listings/:id/edit" element={<ChannelListingEditPage />} />
         <Route path="/inventory/products/listings/:id/media" element={<ListingMediaPage />} />
 
+        {/*
+          `SCS-010` — Shops & Channels. TWO surfaces are routed: the workspace and the shop
+          detail page. 🔴 The Add/Edit form is a MODAL and deliberately has NO ROUTE, so no
+          permanent `/new` or `/:id/edit` path exists for it here or anywhere.
+        */}
+        <Route path="/administration/shops" element={<ShopsWorkspacePage />} />
+        <Route path="/administration/shops/:id" element={<ShopDetailPage />} />
+
         {allDestinations()
-          .filter((destination) => destination.path !== '/inventory/products')
+          .filter(
+            (destination) =>
+              destination.path !== '/inventory/products' && destination.path !== '/administration/shops',
+          )
           .map((destination) => (
           <Route
             key={destination.path}

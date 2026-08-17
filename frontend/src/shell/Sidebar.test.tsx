@@ -211,12 +211,22 @@ describe('permission-aware visibility (UX-027)', () => {
     expect(visibleChildren(gated, [])).toHaveLength(0);
   });
 
-  /** 🔴 No destination invents a business permission to populate the sidebar. */
+  /**
+   * 🔴 No destination invents a business permission to populate the sidebar.
+   *
+   * ⚠ AMENDED 2026-08-15. The guard previously asserted that EVERY permission is `null`,
+   * which was true only while no module had declared one. `PRM-090` has now ratified the
+   * Shops & Channels capabilities, so `null` is no longer the test of "not invented".
+   * 🔴 WHAT IT PROTECTS IS UNCHANGED and is now stated directly: a declared permission must
+   * be one an owning architecture document RATIFIED (`PRM-089.f`). A code appearing here
+   * that is not on this list is exactly the invention the test exists to catch.
+   */
   it('binds no invented business permission', () => {
+    const ratified = ['system.channel-instance.view'];
     const declared = NAVIGATION.flatMap((item) =>
       isGroup(item) ? item.children.map((c) => c.permission) : [item.permission],
     );
-    expect(declared.every((p) => p === null)).toBe(true);
+    expect(declared.every((p) => p === null || ratified.includes(p))).toBe(true);
   });
 });
 
@@ -396,12 +406,18 @@ describe('inventory navigation consolidation (UX-024 amended, UX-025)', () => {
     expect(children.find((c) => c.label === 'Suppliers')?.path).toBe('/purchasing/suppliers');
   });
 
-  /** 🔴 No `inventory.purchases.*` / `inventory.suppliers.*` code invented (`PRM-089`). */
+  /**
+   * 🔴 No `inventory.purchases.*` / `inventory.suppliers.*` code invented (`PRM-089`).
+   *
+   * ⚠ AMENDED 2026-08-15 for the same reason as the guard above: the all-`null` assertion is
+   * replaced by the claim it was standing in for. 🔴 The Inventory group's own destinations
+   * still declare NO permission, because Procurement has ratified none — which is the
+   * specific thing this test protects.
+   */
   it('creates no Inventory-owned purchasing permission code', () => {
-    const declared = NAVIGATION.flatMap((item) =>
-      isGroup(item) ? item.children.map((c) => c.permission) : [item.permission],
-    );
-    expect(declared.every((p) => p === null)).toBe(true);
+    const inventory = NAVIGATION.find((item) => item.label === 'Inventory');
+    const children = (inventory as { children: readonly { permission: string | null }[] }).children;
+    expect(children.every((c) => c.permission === null)).toBe(true);
     const source = JSON.stringify(NAVIGATION);
     expect(source).not.toMatch(/inventory\.(purchases|suppliers)/);
   });

@@ -120,7 +120,22 @@ class ApplicationFoundationSmokeTest {
                 // PRD-198 - a Listing's OWN ordered, channel-facing highlights. 🔴 It holds
                 // only what was authored FOR this listing; the Sellable Product master set is
                 // never copied in, so absence here is what makes the fallback derivable.
-                "channel_listing_highlight");
+                "channel_listing_highlight",
+                /*
+                  Shops & Channels — the INTEGRATION-owned connection condition ({@code
+                  API-068}). 🔴 A deliberate addition, and the only table V11 creates: the
+                  shop record itself reuses {@code channel_instance}, because {@code
+                  DM-084.a} forbids a second concept for the same thing.
+                  🔴 It stores a condition and an observation time and NO CREDENTIAL of any
+                  kind ({@code API-070}).
+                */
+                "channel_connection",
+
+                // V14 — Integration-owned provider authorisation storage (TEC-119, TEC-120).
+                // 🔴 Ciphertext and a one-time callback correlation. Neither holds a business
+                // fact, and neither may ever be projected through a business API (API-070).
+                "channel_credential",
+                "channel_authorisation_attempt");
     }
 
     /**

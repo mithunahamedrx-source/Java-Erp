@@ -87,7 +87,15 @@ class ListingRefreshTest {
         @Bean
         ChannelAdapterPort testAdapter() {
             return new ChannelAdapterPort() {
-                @Override public String channelType() { return "TEST-CHANNEL"; }
+                /*
+                  ⚠ CHANGED 2026-08-15: was the free-text "TEST-CHANNEL". V11 enforces
+                  {@code INV-15.4} — Channel Type is a CLOSED SET and free text is
+                  forbidden — so an unrecognised value can no longer reach the column.
+                  {@code SHOPIFY} is a recognised type with NO production adapter, which
+                  is exactly what this double needs. Nothing the test protects changed:
+                  it still registers one controlled adapter for one channel type.
+                */
+                @Override public String channelType() { return "SHOPIFY"; }
 
                 @Override public ChannelCapabilityDeclaration declareCapability(UUID id) {
                     return capability;
@@ -165,7 +173,7 @@ class ListingRefreshTest {
     @DisplayName("PRD-196.a publish alone cannot refresh")
     void publishDoesNotGrantRefresh() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88301", true);
+        UUID id = seed("SHOPIFY", "88301", true);
         actingWith(ProductPermissions.CHANNEL_LISTING_VIEW, ProductPermissions.CHANNEL_LISTING_PUBLISH);
 
         assertThatThrownBy(() -> operations.refreshOne(id))
@@ -178,7 +186,7 @@ class ListingRefreshTest {
     @DisplayName("PRD-196.a manage alone cannot refresh")
     void manageDoesNotGrantRefresh() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88302", true);
+        UUID id = seed("SHOPIFY", "88302", true);
         actingWith(ProductPermissions.CHANNEL_LISTING_VIEW, ProductPermissions.CHANNEL_LISTING_MANAGE);
 
         assertThatThrownBy(() -> operations.refreshOne(id))
@@ -223,7 +231,7 @@ class ListingRefreshTest {
     @DisplayName("§59 a listing with no remote identity cannot be refreshed")
     void noRemoteIdentityRefuses() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", null, true);
+        UUID id = seed("SHOPIFY", null, true);
         long before = count("channel_listing_operation");
 
         assertThatThrownBy(() -> operations.refreshOne(id))
@@ -247,7 +255,7 @@ class ListingRefreshTest {
     @DisplayName("API-063 an adapter that declares nothing readable is not reported as missing")
     void adapterPresentButNothingReadable() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88360", true);
+        UUID id = seed("SHOPIFY", "88360", true);
         capability = new ChannelCapabilityDeclaration(Map.of());
         long operationsBefore = count("channel_listing_operation");
         long activityBefore = count("channel_listing_activity");
@@ -276,7 +284,7 @@ class ListingRefreshTest {
     @DisplayName("API-063 an absent declaration is treated as no support, not assumed support")
     void absentDeclarationIsNoSupport() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88361", true);
+        UUID id = seed("SHOPIFY", "88361", true);
         capability = null;
 
         assertThatThrownBy(() -> operations.refreshOne(id))
@@ -292,7 +300,7 @@ class ListingRefreshTest {
     @DisplayName("publication intent alone is not a readable listing fact")
     void publicationIntentAloneIsNotReadable() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88362", true);
+        UUID id = seed("SHOPIFY", "88362", true);
         capability = readable(ListingFieldKey.PUBLICATION_INTENT);
 
         assertThatThrownBy(() -> operations.refreshOne(id))
@@ -309,7 +317,7 @@ class ListingRefreshTest {
     @DisplayName("a partially readable adapter refreshes, leaving the rest not readable")
     void partialCapabilityStillRefreshes() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88363", true);
+        UUID id = seed("SHOPIFY", "88363", true);
         // Declares title and price only — no stock, no media.
         capability = readable(ListingFieldKey.TITLE, ListingFieldKey.SALE_PRICE);
         response = () -> Optional.of(new ReportedListingSnapshot("88363", "Listing 88363", true,
@@ -331,7 +339,7 @@ class ListingRefreshTest {
     @DisplayName("a readable adapter refreshes normally")
     void readableCapabilityRefreshes() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88364", true);
+        UUID id = seed("SHOPIFY", "88364", true);
         response = () -> Optional.of(snapshot("88364", "Listing 88364", new BigDecimal("32500.00")));
 
         assertThat(operations.refreshOne(id).outcome()).isEqualTo("SUCCEEDED");
@@ -345,7 +353,7 @@ class ListingRefreshTest {
     @DisplayName("permission and remote identity remain separate from capability")
     void preconditionsStaySeparate() {
         actingAll();
-        UUID withoutIdentity = seed("TEST-CHANNEL", null, true);
+        UUID withoutIdentity = seed("SHOPIFY", null, true);
         capability = new ChannelCapabilityDeclaration(Map.of());
 
         // 🔴 Missing identity is reported as itself, not as a capability problem.
@@ -369,7 +377,7 @@ class ListingRefreshTest {
     @DisplayName("§61 an unchanged read completes with no change and invents no divergence")
     void successNoChange() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88310", true);
+        UUID id = seed("SHOPIFY", "88310", true);
         // First read establishes the reported side.
         response = () -> Optional.of(snapshot("88310", "Listing 88310", new BigDecimal("32500.00")));
         operations.refreshOne(id);
@@ -391,7 +399,7 @@ class ListingRefreshTest {
     @DisplayName("§62 a changed read updates reported only and never touches intended")
     void successChangeIsReportedOnly() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88311", true);
+        UUID id = seed("SHOPIFY", "88311", true);
         markPushed(id);
         response = () -> Optional.of(snapshot("88311", "Listing 88311", new BigDecimal("32500.00")));
         operations.refreshOne(id);
@@ -420,7 +428,7 @@ class ListingRefreshTest {
     @DisplayName("§13 a successful read that finds a difference is not labelled SYNCED")
     void successIsNotSynced() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88312", true);
+        UUID id = seed("SHOPIFY", "88312", true);
         markPushed(id);
         response = () -> Optional.of(snapshot("88312", "A different title", new BigDecimal("30900.00")));
 
@@ -441,7 +449,7 @@ class ListingRefreshTest {
     @DisplayName("PRD-185.d a difference on a never-pushed Listing is UNSENT, not DIVERGED")
     void differenceOnUnsentListingIsNotDivergence() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88314", true);
+        UUID id = seed("SHOPIFY", "88314", true);
         response = () -> Optional.of(snapshot("88314", "A different title", new BigDecimal("30900.00")));
 
         RefreshResultView result = operations.refreshOne(id);
@@ -456,7 +464,7 @@ class ListingRefreshTest {
     @DisplayName("§63 a read that matches intent may become ALIGNED without clearing UNSENT")
     void successAlignedKeepsUnsent() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88313", true);
+        UUID id = seed("SHOPIFY", "88313", true);
         assertThat(queries.detail(id).hasUnsentLocalChanges()).isTrue();
 
         response = () -> Optional.of(snapshot("88313", "Listing 88313", new BigDecimal("32500.00")));
@@ -489,7 +497,7 @@ class ListingRefreshTest {
     @DisplayName("§31 a failed refresh preserves the last good reported state")
     void failurePreservesLastGoodReported() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88320", true);
+        UUID id = seed("SHOPIFY", "88320", true);
         response = () -> Optional.of(snapshot("88320", "Listing 88320", new BigDecimal("31000.00")));
         operations.refreshOne(id);
         assertThat(queries.detail(id).reportedSalePrice()).isEqualTo("31000.00");
@@ -515,7 +523,7 @@ class ListingRefreshTest {
     @DisplayName("§32 a listing the channel did not return is not treated as deleted")
     void notFoundIsNotDeletion() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88321", true);
+        UUID id = seed("SHOPIFY", "88321", true);
         String lifecycleBefore = jdbc.queryForObject(
                 "SELECT local_lifecycle FROM channel_listing WHERE id = ?", String.class, id);
 
@@ -541,7 +549,7 @@ class ListingRefreshTest {
     @DisplayName("§65 unreadable facts stay unreadable while readable ones update")
     void partialReadability() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88330", true);
+        UUID id = seed("SHOPIFY", "88330", true);
         response = () -> Optional.of(new ReportedListingSnapshot("88330",
                 "Listing 88330", true,             // title readable
                 null, false,                       // description NOT readable
@@ -575,7 +583,7 @@ class ListingRefreshTest {
     @DisplayName("§66 each SKU keeps its own reported facts")
     void perSkuFactsStayApart() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88340", true);
+        UUID id = seed("SHOPIFY", "88340", true);
         jdbc.update("UPDATE channel_listing_sku SET channel_sku = 'SKU-A' WHERE channel_listing_id = ?", id);
         jdbc.update("""
                 INSERT INTO channel_listing_sku (id, channel_listing_id, channel_sku, position,
@@ -612,7 +620,7 @@ class ListingRefreshTest {
     @DisplayName("§39.10.k an unassociable reported SKU is not merged into a sibling")
     void unassociableSkuIsNotInvented() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88341", true);
+        UUID id = seed("SHOPIFY", "88341", true);
         jdbc.update("UPDATE channel_listing_sku SET channel_sku = 'SKU-A' WHERE channel_listing_id = ?", id);
         jdbc.update("""
                 INSERT INTO channel_listing_sku (id, channel_listing_id, channel_sku, position,
@@ -646,7 +654,7 @@ class ListingRefreshTest {
     @DisplayName("§68 one refresh produces exactly one operation record")
     void oneRefreshOneOperation() {
         actingAll();
-        UUID id = seed("TEST-CHANNEL", "88350", true);
+        UUID id = seed("SHOPIFY", "88350", true);
         response = () -> Optional.of(snapshot("88350", "Listing 88350", new BigDecimal("32500.00")));
 
         operations.refreshOne(id);

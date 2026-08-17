@@ -102,6 +102,13 @@ class ChannelListingTest {
         jdbc.update("DELETE FROM channel_listing_sku");
         jdbc.update("DELETE FROM channel_listing");
         jdbc.update("DELETE FROM channel_adapter_capability");
+        /*
+          V14 rows reference the shop and the foreign keys carry NO CASCADE, deliberately
+          (INV-16.10 forbids hard-deleting a Channel Instance, so a cascade would encode an
+          event that cannot legitimately occur). Test teardown therefore clears them first.
+        */
+        jdbc.update("DELETE FROM channel_authorisation_attempt");
+        jdbc.update("DELETE FROM channel_credential");
         jdbc.update("DELETE FROM channel_instance");
         jdbc.update("DELETE FROM bundle_member");
         jdbc.update("DELETE FROM bom_line");

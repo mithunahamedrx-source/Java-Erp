@@ -89,6 +89,42 @@
   --color-status-neutral-bg: oklch(0.95 0.004 290);
   --color-status-neutral-fg: oklch(0.45 0.01 290);
 
+  /*
+   * SEMANTIC ROLE ALIASES - `RULE 3.3.d`.
+   *
+   * 🔴 THESE INTRODUCE NO NEW COLOUR. Each one points at an EXISTING `§3.3` pair, because
+   * `RULE 3.3.b` already assigns those hues their meanings: amber attention, green settled,
+   * blue in-flight, red terminated. The five pairs therefore already ARE the semantic
+   * families; what was missing was a name for the ROLE rather than the order status.
+   *
+   * 🔴 `RULE 3.3.a` is respected absolutely: no sixth pair, no new hue, no second palette.
+   * ⚠ A feature never hard-codes a semantic colour - it names the role and takes what the
+   *   role resolves to, so a future palette decision changes one line here and nothing else.
+   *
+   * ⚠ The border deliberately REUSES the foreground value rather than inventing a third
+   *   value per family. At 1px on a soft tint it reads as restrained, and it adds nothing
+   *   that `RULE 8.5` would have to measure.
+   */
+  --color-semantic-success-bg: var(--color-status-confirmed-bg);
+  --color-semantic-success-fg: var(--color-status-confirmed-fg);
+  --color-semantic-success-border: var(--color-status-confirmed-fg);
+
+  --color-semantic-warning-bg: var(--color-status-pending-bg);
+  --color-semantic-warning-fg: var(--color-status-pending-fg);
+  --color-semantic-warning-border: var(--color-status-pending-fg);
+
+  --color-semantic-danger-bg: var(--color-status-cancelled-bg);
+  --color-semantic-danger-fg: var(--color-status-cancelled-fg);
+  --color-semantic-danger-border: var(--color-status-cancelled-fg);
+
+  --color-semantic-info-bg: var(--color-status-dispatched-bg);
+  --color-semantic-info-fg: var(--color-status-dispatched-fg);
+  --color-semantic-info-border: var(--color-status-dispatched-fg);
+
+  --color-semantic-neutral-bg: var(--color-status-neutral-bg);
+  --color-semantic-neutral-fg: var(--color-status-neutral-fg);
+  --color-semantic-neutral-border: var(--color-divider-vertical);
+
   /* ---- Overlay (Constitution 3.19, v2.6.0) ---- */
   --color-scrim: oklch(0.2 0 0 / 0.48); /* RULE 3.19 - dialogs only, never behind a menu */
   --color-focus-halo: oklch(0.93 0 0); /* RULE 6.0.b - focus is always ink, never red */

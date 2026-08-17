@@ -1,6 +1,9 @@
 package com.trioloo.erp;
 
+import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapApplication;
+import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
@@ -20,6 +23,22 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class TriolooErpApplication {
 
     public static void main(String[] args) {
+        /*
+          🔴 The one-time Owner bootstrap runs in a SEPARATE, EXPLICITLY SCOPED CONTEXT — not
+          this one with the web server switched off. WebApplicationType.NONE stops Tomcat but
+          NOT component scanning, so this class's scan still pulled in AuthController and the
+          servlet SecurityConfig, and the command died on an AuthenticationConfiguration that
+          only a servlet context provides. OwnerBootstrapApplication scans nothing and names
+          its dependencies (GAP-120).
+          ⚠ AN ORDINARY START IS COMPLETELY UNAFFECTED and still loads the full web
+          application: Spring Security, AuthenticationManager, AuthController and all.
+        */
+        if (OwnerBootstrapRunner.isBootstrapInvocation(args)) {
+            SpringApplication bootstrap = new SpringApplication(OwnerBootstrapApplication.class);
+            bootstrap.setWebApplicationType(WebApplicationType.NONE);
+            bootstrap.run(args);
+            return;
+        }
         SpringApplication.run(TriolooErpApplication.class, args);
     }
 }

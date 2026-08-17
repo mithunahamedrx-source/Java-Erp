@@ -341,11 +341,14 @@ describe('Channel Listings workspace', () => {
   });
 
   /**
-   * 🔴 `RULE 3.14.a` — integration and publication states use the NEUTRAL pair with a
-   * MANDATORY text label. Colouring `DIVERGED` from the order palette would assert a
-   * semantic mapping that has not been ratified.
+   * 🔴 `RULE 3.3.d` — integration states now take their RATIFIED SEMANTIC ROLE, and the text
+   * label remains MANDATORY (`RULE 8.4`).
+   *
+   * <p>⚠ SUPERSEDES the v1 assertion that this chip is monochrome: `RULE 3.14.a.b`'s neutral
+   * holding pattern waited for exactly this mapping. `DIVERGED` is WARNING because `SYS-026`
+   * makes it a recoverable exception owing the operator a decision — never `danger`.
    */
-  it('carries integration state monochrome with a mandatory label', () => {
+  it('carries integration state in its semantic role with a mandatory label', () => {
     render(
       <MemoryRouter>
         <ChannelListingCard item={LISTING} />
@@ -353,11 +356,12 @@ describe('Channel Listings workspace', () => {
     );
     const diverged = screen.getByTestId('listing-state-diverged');
     expect(diverged.textContent).toContain('DIVERGED');
-    // 🔴 Monochrome. Emphasis is carried by border weight, never by a semantic hue.
+    // 🔴 The WARNING role, from the shared token — never a page-local colour.
     const style = diverged.getAttribute('style') ?? '';
-    expect(style).toContain('--color-ink');
-    for (const orderHue of ['confirmed', 'danger', 'pending', 'dispatched', 'cancelled']) {
-      expect(style).not.toContain(orderHue);
+    expect(style).toContain('--color-semantic-warning');
+    // 🔴 Mapped by MEANING: a recoverable exception is not a failure.
+    for (const wrong of ['semantic-danger', 'semantic-success']) {
+      expect(style).not.toContain(wrong);
     }
   });
 
@@ -528,9 +532,9 @@ describe('Channel Listings workspace', () => {
     );
     expect(screen.getByTestId('listing-state-diverged').textContent).toBe('DIVERGED · 1');
     expect(screen.queryByTestId('listing-state-manual')).toBeNull();
-    // DIVERGED is the heaviest carrier: 1.5px ink outline at weight 800.
+    // DIVERGED stays the heaviest carrier — now by its semantic role at weight 800.
     const style = screen.getByTestId('listing-state-diverged').getAttribute('style') ?? '';
-    expect(style).toContain('1.5px solid var(--color-ink)');
+    expect(style).toContain('--color-semantic-warning');
     expect(style).toContain('font-weight: 800');
   });
 
@@ -542,8 +546,10 @@ describe('Channel Listings workspace', () => {
       </MemoryRouter>,
     );
     const style = screen.getByTestId('listing-state-manual').getAttribute('style') ?? '';
-    expect(style).toContain('1px solid var(--color-border-control)');
-    expect(style).not.toContain('1.5px');
+    // 🔴 `SYS-025` — a NORMAL state needing a person: warning, and explicitly NOT danger.
+    expect(style).toContain('--color-semantic-warning');
+    expect(style).not.toContain('semantic-danger');
+    // Still the lighter of the two carriers: no weight-800 emphasis.
     expect(style).not.toContain('font-weight: 800');
   });
 
@@ -572,7 +578,7 @@ describe('Channel Listings workspace', () => {
     );
     const chip = screen.getByTestId('listing-state-diverged');
     expect(chip.textContent).toContain('DIVERGED');
-    expect(chip.getAttribute('style')).toContain('1.5px solid var(--color-ink)');
+    expect(chip.getAttribute('style')).toContain('--color-semantic-warning');
     expect(chip.style.fontWeight).toBe('800');
   });
 
@@ -585,10 +591,15 @@ describe('Channel Listings workspace', () => {
     );
     const status = screen.getByTestId('listing-status');
     expect(status.textContent).toBe('ACTIVE');
-    // No container: no border, no background, no radius.
+    /*
+      🔴 STILL BARE CAPS. Frame 02's form is LOCKED, so the semantic role is carried by the
+      FOREGROUND only — a tint or border here would change geometry rather than tone.
+    */
     const statusStyle = status.getAttribute('style') ?? '';
     expect(statusStyle).not.toContain('border');
     expect(statusStyle).not.toContain('background');
+    // ✅ ACTIVE is live on the channel — the success role, as text colour.
+    expect(statusStyle).toContain('--color-semantic-success-fg');
     expect(screen.getByTestId('listing-sync-state').getAttribute('style')).toContain('font-size: 11px');
   });
 

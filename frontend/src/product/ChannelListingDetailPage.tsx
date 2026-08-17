@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../shell/AppShell';
 import { ACTION_ICON, ACTION_ICON_SIZE, ACTION_ICON_STROKE } from '../shell/icons';
-import { Card, EmptyState, buttonStyle } from '../ui/primitives';
+import { Card, EmptyState, Notice, buttonStyle } from '../ui/primitives';
 import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import { formatMoment, formatShortMoment } from '../platform/datetime';
 import { ChannelListingComparison, displayComparisonValue } from './ChannelListingComparison';
@@ -350,9 +350,14 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
 
       <div data-testid="channel-listing-detail" style={{ display: 'grid', gap: 'var(--space-5)' }}>
         {error && (
-          <div data-testid="listing-detail-notice" style={noticeStyle}>
+          /*
+            🔴 `RULE 3.3.d.b` — a failed action is a MEANINGFUL operational message and takes
+            the `danger` role. ⚠ It was previously rendered in the neutral note treatment,
+            which said nothing about whether it had succeeded.
+          */
+          <Notice tone="danger" title="The action could not be completed" testId="listing-detail-notice">
             {error}
-          </div>
+          </Notice>
         )}
 
         {/* Frame 06 section strip. Each entry moves to the summary section on this page;
@@ -1027,7 +1032,6 @@ const headerDisabled: React.CSSProperties = buttonStyle('secondary', 'page-heade
 const sectionAction: React.CSSProperties = { ...buttonStyle('secondary', 'row-action'), height: '28px', padding: '0 11px', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' };
 const asideAction: React.CSSProperties = { ...buttonStyle('secondary', 'row-action'), height: '30px', width: '100%', justifyContent: 'center', marginTop: '10px', display: 'inline-flex', alignItems: 'center' };
 const dashedChip: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', height: '20px', padding: '0 8px', border: '1px dashed var(--color-border-secondary-button)', borderRadius: 'var(--radius-control-small)', fontSize: '10.5px', fontWeight: 700, letterSpacing: '.06em', color: 'var(--color-text-secondary)' };
-const noticeStyle: React.CSSProperties = { fontSize: '13px', color: 'var(--color-text-primary)', background: 'var(--color-strip)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card-small)', padding: '10px 14px' };
 
 /**
  * What the Promotion Price card says beneath the figure.
