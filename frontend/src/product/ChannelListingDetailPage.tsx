@@ -741,6 +741,14 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                   ))}
                 </div>
               )}
+              {/* Frame 21 owns the full history; this aside is its entry point. */}
+              <Link
+                data-testid="detail-view-activity"
+                to={`/inventory/products/listings/${item.id}/activity`}
+                style={{ ...asideAction, textDecoration: 'none', marginTop: '11px' }}
+              >
+                View full activity
+              </Link>
             </Aside>
 
             {!item.adapterAvailable && (

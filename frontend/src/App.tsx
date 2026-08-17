@@ -17,6 +17,7 @@ import ChannelListingsPage from './product/ChannelListingsPage';
 import ChannelListingCreatePage from './product/ChannelListingCreatePage';
 import ChannelListingEditPage from './product/ChannelListingEditPage';
 import ListingMediaPage from './product/ListingMediaPage';
+import ListingActivityPage from './product/ListingActivityPage';
 import ChannelListingDetailPage from './product/ChannelListingDetailPage';
 import ChannelListingImportPage from './product/ChannelListingImportPage';
 import ChannelListingBatchPage from './product/ChannelListingBatchPage';
@@ -109,6 +110,7 @@ export default function App(): React.JSX.Element {
         <Route path="/inventory/products/listings/:id" element={<ChannelListingDetailPage />} />
         <Route path="/inventory/products/listings/:id/edit" element={<ChannelListingEditPage />} />
         <Route path="/inventory/products/listings/:id/media" element={<ListingMediaPage />} />
+        <Route path="/inventory/products/listings/:id/activity" element={<ListingActivityPage />} />
 
         {/*
           `SCS-010` — Shops & Channels. TWO surfaces are routed: the workspace and the shop

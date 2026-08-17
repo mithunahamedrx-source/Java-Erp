@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.2.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.3.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -76,8 +76,8 @@ this document follows.
 
 # 2. Frame register
 
-> **`LSC-010` — ✅ `FRAME 01`–`FRAME 17` ARE COMPLETE as of 2026-08-18**, each with a frame-tagged
-> component and a dedicated test suite. **`src/product` and `src/design` run 533/533 green, and
+> **`LSC-010` — ✅ `FRAME 01`–`FRAME 17` AND `FRAME 21` ARE COMPLETE as of 2026-08-18**, each with a
+> frame-tagged component and a dedicated test suite. **`src/product` and `src/design` run 554/554 green, and
 > `npm run build` — `tsc --noEmit && vite build` — is clean.**
 >
 > **a.** ⚠ **`FRAME 17` IS COMPLETE AS A LOCAL SURFACE, WHICH IS THE WHOLE OF WHAT IT IS.** **Its ratified
@@ -107,15 +107,26 @@ this document follows.
 | **18** | **Batch review** before Push Selected | *none* | ⬜ **Remains — blocked** |
 | **19** | **Batch result and retry** — per-listing outcomes | `ChannelListingBatchPage.tsx` — **draft** | ⬜ **Remains — blocked** |
 | **20** | **Sync Now** modal + shared operation result | `ChannelListingSyncPage.tsx` — **draft** | ⬜ **Remains — blocked** |
-| **21** | **Activity history** — activity and operation history | *none* | ⬜ **Remains** |
+| **21** | Activity history — activity and operation history | `ListingActivityPage.tsx` | ✅ Complete — 21 tests; channel-event outcome unavailable, see `LSC-011.c` |
 | **22** | **CSV import** — upload, validate, review, apply locally | `ChannelListingImportPage.tsx` — generic delegation | ⬜ **Remains** |
 
-> **`LSC-011` — 🔴 `FRAME 18`–`FRAME 22` REMAIN TO BE RECONCILED AND IMPLEMENTED AGAINST THE APPROVED PACK.**
-> ⚠ **"Remains" is not "absent": three of the five have a routed page already** (`LSC-040`). **Every one of
-> them is built to the approved pack or not at all.**
+> **`LSC-011` — 🔴 `FRAME 18`–`FRAME 20` AND `FRAME 22` REMAIN TO BE RECONCILED AND IMPLEMENTED AGAINST THE
+> APPROVED PACK.** ⚠ **"Remains" is not "absent": three of the four have a routed page already**
+> (`LSC-040`). **Every one of them is built to the approved pack or not at all.**
 >
 > **a.** 🔴 **`FRAME 18`, `FRAME 19` AND `FRAME 20` ARE ALSO BLOCKED**, not merely unbuilt (`LSC-051`).
-> **b.** ✅ **`FRAME 21` AND `FRAME 22` REMAIN AND ARE UNBLOCKED** — both are local-only (`LSC-050`).
+> **b.** ✅ **`FRAME 22` REMAINS AND IS UNBLOCKED** — it is local-only (`LSC-050`).
+>
+> **c.** ⚠ **`FRAME 21` IS COMPLETE WITH ONE CELL DELIBERATELY UNAVAILABLE — A CHANNEL EVENT'S OUTCOME.**
+> **`ActivityView` persists `entryKind`, `summary`, `fieldKey`, `beforeValue`, `afterValue`, `source`,
+> `actorName`, `operationId`, `batchId` and `occurredAt` — and NO outcome.** ✅ **Two of the three kinds
+> resolve honestly: a `FIELD_CHANGE` is `Local` by definition (`PRD-185.b`), and an `OPERATION` reads its real
+> outcome from the operation record its `operationId` names (`E-107`).** 🔴 **A `CHANNEL_EVENT` has no such
+> source, so the cell renders the unavailable marker.** ⚠ **The pack prints "DIVERGED" and "Resolved" there;
+> deriving those would fabricate a marketplace verdict Trioloo never recorded** (`LSC-034`).
+>
+> **c.i.** ✅ **CLOSING IT IS A PERSISTENCE DECISION, NOT A SCREEN ONE** — whether a channel event carries a
+> stored outcome belongs to `PRD-186`/`E-107`'s owner and would need a migration. 🔴 **Neither was taken here.**
 
 ---
 
@@ -208,7 +219,8 @@ this document follows.
 > proof that outbound integration works.**
 
 > **`LSC-050` — ✅ `FRAME 17`, `FRAME 21` AND `FRAME 22` ARE LOCAL-ONLY AND MAY BE IMPLEMENTED BEFORE ANY
-> DARAZ LISTING ADAPTER WORK.** **Batch edit stores intent in Trioloo only, activity history reads records
+> DARAZ LISTING ADAPTER WORK.** ✅ **`FRAME 17` and `FRAME 21` were built on that basis and shipped without
+> an adapter; `FRAME 22` remains.** **Batch edit stores intent in Trioloo only, activity history reads records
 > Trioloo already holds, and CSV import changes ERP intended values and never contacts a marketplace.**
 >
 > **a.** 🔴 **`PRD-185` — SAVE IS NOT PUSH.** **Batch edit currently has NO push call at all, and that absence
@@ -256,9 +268,10 @@ this document follows.
 | Daraz **connection** half | ✅ **Verified closed 2026-08-17** — one seller bound, credential encrypted at rest, shop `CONNECTED` |
 | Daraz **listing/product pull** | 🔴 **NOT STARTED** |
 | Production `ChannelAdapterPort` | 🔴 **None** (`LSC-052`) |
-| `FRAME 01`–`17` | ✅ Complete — `src/product` + `src/design` 533/533, build clean |
+| `FRAME 01`–`17` · `FRAME 21` | ✅ Complete — `src/product` + `src/design` 554/554, build clean |
 | `FRAME 18`–`20` | 🔴 **Blocked** on a production `ChannelAdapterPort` (`LSC-051`) — **0 tests** |
-| `FRAME 21`–`22` | ⬜ **Remains**, unblocked and local-only (`LSC-050`) — **0 tests** |
+| `FRAME 22` | ⬜ **Remains**, unblocked and local-only (`LSC-050`) — **0 tests** |
+| Channel-event outcome | ⚠ **Not persisted** — `FRAME 21` renders it unavailable rather than deriving one (`LSC-011.c`) |
 | Batch transformation operators | 🔴 **UNRATIFIED and inert** — percentage change, nearest-৳ 10 rounding, title suffix, media append (`LSC-030.a`) |
 
 ---
@@ -267,6 +280,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-08-18** | ✅ **`FRAME 21` IMPLEMENTED — local activity and operation history.** **`ListingActivityPage.tsx` is a new surface at `/inventory/products/listings/:id/activity`, entered from the `FRAME 06` detail aside that already named `FRAME 21` as the owner of the full history.** **Every component present: subject header, the four type filters, the six-column chronology on `112px 128px minmax(0,1fr) 150px 150px 120px`, server-side paging and the frame's footnote.** 🔴 **Type and Outcome are plain tracked text — the frame separates the three kinds BY THE TYPE COLUMN RATHER THAN BY COLOUR OR ICONOGRAPHY, so no row carries a pill, tone or glyph.** ⚠ **`LSC-011.c` records the one unavailable cell: a channel event has no persisted outcome, and none is fabricated.** ✅ **No backend change, no endpoint, no migration — `fetchActivity` already took a kind filter and a page.** 🔴 **`FRAME 18`–`20` remain BLOCKED, `FRAME 22` remains, and no Daraz call, product pull or publishing exists.** **21 tests; `src/product` + `src/design` 554/554; build clean.** |
 | **1.2.0** | **2026-08-18** | ✅ **`FRAME 17` ACCEPTED AS IMPLEMENTED.** **`ChannelListingBatchEditPage.tsx` was reconciled in place to the approved pack — every component present: header, five-fact strip, `minmax(0,1fr) 320px` split, all seven field rows on `170px minmax(0,1fr) 200px`, capability badges and legend, per-channel sidebar and consequence footer — tagged `FRAME 17` and given a 23-test suite.** **`src/product` + `src/design` 533/533; `npm run build` clean.** ✅ **`LSC-010` extended to `FRAME 17`, the register row updated, `LSC-011` narrowed to `FRAME 18`–`22`, and `LSC-040` reduced to two draft pages.** 🔴 **NOTHING ELSE IS ACCEPTED BY THIS: `FRAME 18`–`20` remain BLOCKED on a production `ChannelAdapterPort`, `FRAME 21`–`22` remain, no Daraz synchronisation, product pull or publishing exists, and the percentage, nearest-৳ 10 rounding, suffix and media transforms remain UNRATIFIED and inert** (`LSC-030.a`, `LSC-051`–`LSC-053`). ✅ **Documentation only — no frontend, backend or migration change.** |
 | **1.1.0** | **2026-08-18** | ✅ **`LSC-050.b` — THE `FRAME 17` APPLY SET IS PINNED.** **A Listing whose `mappingState` is `UNMAPPED` is excluded from a batch edit apply, because it holds no ERP intended values to change** — **the rule the approved pack states and the implementation follows.** 🔴 **It only ever NARROWS the apply set, leaves `PRD-187.c`/`INV-108.4` untouched, and authorises NOTHING else: not Daraz sync, not a product or listing pull, not publishing, and none of the unratified percentage, nearest-৳ 10 rounding, suffix or media transforms.** ⚠ **Records that the stated reason is strongest for SKU-attached fields (`INV-106.2`) and weaker for Listing-level fields, and that WIDENING the apply set would be a `PRD-187` decision, not this contract's** (`DOC-006`). ✅ **No frontend, backend, migration or other document changed.** |
 | **1.0.0** | **2026-08-18** | **Initial ratification** (`DOC-092`). ✅ **Registers the Claude Design project as source authority and the tracked rendered pack as repo-local visual authority.** **Records the `FRAME 01`–`FRAME 22` register, `01`–`16` complete and `17`–`22` remaining, the three draft surfaces, and the implementation constraints `FRAME 01`–`16` established** — `LISTING_GRID`, tokens, `requireManager()` gating, money as strings, no mocked fields. 🔴 **Records that `ChannelAdapterPort` has no `src/main` implementation, that `FRAME 15`/`16` have moved no bytes to Daraz, that `17`/`21`/`22` are local-only, and that `18`/`19`/`20` are blocked.** ⚠ **`LSC-002` records why the `.dc.html` authoring source is not tracked: the MCP read cap truncates it at exactly 262,144 bytes and loses `FRAME 21`–`22`.** ✅ **The tracked rendered pack is proven to be the project's own file — byte-for-byte identical across the full capped read.** 🔴 **No design was created, altered or inferred.** |
