@@ -1,6 +1,8 @@
 package com.trioloo.erp.integration.api;
 
 import com.trioloo.erp.integration.application.ChannelAuthorisationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.trioloo.erp.integration.infrastructure.daraz.DarazProtocolException;
 import com.trioloo.erp.integration.infrastructure.daraz.DarazTransportException;
 import org.springframework.http.HttpStatus;
@@ -38,6 +40,17 @@ import java.util.UUID;
 @RequestMapping("/api/integration/daraz")
 public class DarazCallbackController {
 
+    /**
+     * 🔴 WHAT MAY BE LOGGED HERE IS DELIBERATELY NARROW: an exception CLASS, the provider's own
+     * error CODE, an outcome name, and a shop id. 
+     *
+     * <p>🔴 NEVER the authorisation code, the state, a token, the App Secret, the request URI or
+     * the response body ({@code API-070.a}). The signed URI carries the App Key; the body carries
+     * tokens outright; the state is sufficient to consume an attempt. Exception MESSAGES are not
+     * logged either — a provider message can echo request parameters straight back.
+     */
+    private static final Logger log = LoggerFactory.getLogger(DarazCallbackController.class);
+
     /** The approved Shops & Channels surfaces the operator is returned to. */
     private static final String SHOP_DETAIL = "/administration/shops/";
     private static final String SHOP_WORKSPACE = "/administration/shops";
@@ -63,6 +76,14 @@ public class DarazCallbackController {
         ChannelAuthorisationService.AuthorisationResult result = authorisation.complete(code, state);
 
         /*
+          ⚠ Every callback leaves a trace. Before this, a completed authorisation and a silently
+          failing one were indistinguishable in the journal — both produced a 302 and nothing else.
+        */
+        log.info("Daraz callback completed: outcome={} channelInstance={}",
+                result.outcome(),
+                result.channelInstanceId() == null ? "unresolved" : result.channelInstanceId());
+
+        /*
           ⚠ ONLY THE OUTCOMES THAT ACTUALLY NAME TWO ACCOUNTS CARRY ONE. On success the bound and
           attempted accounts are the same value, so sending it would put a seller identity in the
           URL and the access log for no benefit — and the page already reads the bound account from
@@ -83,6 +104,20 @@ public class DarazCallbackController {
      */
     @ExceptionHandler({DarazProtocolException.class, DarazTransportException.class})
     public ResponseEntity<Void> providerFailure(RuntimeException e) {
+        /*
+          🔴 THE LINE WHOSE ABSENCE CAUSED THE INCIDENT. Provider failures were redirected silently,
+          so five live authorisation attempts produced 302s and ZERO journal entries — there was
+          nothing to diagnose from. The shop is not named here because this handler genuinely does
+          not know it; the service logs the resolved instance a moment earlier, and the two lines
+          pair up by time.
+
+          ⚠ The stack trace is deliberately not attached: these exceptions carry no cause by
+          construction, and a provider client's trace can quote the signed request URI.
+        */
+        log.warn("Daraz callback failed at the provider: type={} providerCode={} outcome=PROVIDER_ERROR",
+                e.getClass().getSimpleName(),
+                e instanceof DarazProtocolException protocol ? protocol.providerCode() : null);
+
         return redirectTo(null, "PROVIDER_ERROR", null);
     }
 

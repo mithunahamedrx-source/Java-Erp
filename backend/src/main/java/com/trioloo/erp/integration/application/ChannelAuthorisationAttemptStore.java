@@ -3,6 +3,7 @@ package com.trioloo.erp.integration.application;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelAuthorisationAttemptEntity;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelAuthorisationAttemptRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -83,9 +84,23 @@ public class ChannelAuthorisationAttemptStore {
      * them apart would let a caller probe which states exist. Of two concurrent callbacks
      * presenting the same state, the conditional {@code UPDATE} lets exactly one through.
      *
+     * <p>🔴 IT COMMITS IN ITS OWN TRANSACTION, AND THAT IS THE POINT. Completion continues into a
+     * provider call that can fail. If consumption shared the caller's transaction, that failure
+     * would ROLL THE CONSUMPTION BACK — and the state, already presented to the provider, would
+     * become usable again. That is not a one-time state.
+     *
+     * <p>⚠ THIS WAS A REAL PRODUCTION FAULT, NOT A THEORETICAL ONE. A failing token exchange rolled
+     * back {@code consumed_at}, so the database showed five untouched attempts while the callback
+     * had in fact reached the provider every time — the evidence erased itself and the incident
+     * looked like a state-matching bug it never was.
+     *
+     * <p>✅ BURNING THE STATE ON FAILURE IS THE CORRECT OUTCOME. The authorisation code behind it is
+     * already spent at the provider, so a retry could not have succeeded anyway; the operator starts
+     * a fresh attempt, which is exactly what {@code SCS-044}'s not-completed outcome invites.
+     *
      * @return the trusted correlation facts, or empty if the state may not be used.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<ConsumedAttempt> consume(String state, Instant now) {
         if (state == null || state.isBlank()) {
             return Optional.empty();

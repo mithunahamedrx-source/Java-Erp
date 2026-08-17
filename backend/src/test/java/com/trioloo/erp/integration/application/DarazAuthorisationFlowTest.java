@@ -1,6 +1,7 @@
 package com.trioloo.erp.integration.application;
 
 import com.trioloo.erp.integration.infrastructure.daraz.DarazProperties;
+import com.trioloo.erp.integration.infrastructure.daraz.DarazProtocolException;
 import com.trioloo.erp.integration.infrastructure.daraz.DarazTransport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The Daraz authorisation flow end to end, with several shops connected at once.
@@ -313,24 +315,70 @@ class DarazAuthorisationFlowTest {
                 Integer.class, shopA)).isEqualTo(1);
     }
 
-    /** 🔴 A shop the provider cannot identify as Bangladeshi is never bound. */
+    /**
+     * 🔴 A shop the provider cannot identify as Bangladeshi is never bound — AND THE FAILURE IS LOUD.
+     *
+     * <p>⚠ THIS TEST PREVIOUSLY HID THE PRODUCTION BUG. It wrapped the call in {@code try/catch} and
+     * asserted only that nothing was written — which a transaction rollback satisfies trivially. It
+     * therefore passed while the real system silently rolled back the state consumption and logged
+     * nothing. The exception is now asserted, and so is the consumption.
+     */
     @Test
-    @DisplayName("a token with no Bangladesh seller id binds nothing")
-    void missingBangladeshSellerBindsNothing() {
+    @DisplayName("a token with no Bangladesh seller id is refused loudly and binds nothing")
+    void missingBangladeshSellerIsRefusedLoudly() {
         tokenResponse = """
                 {"access_token":"a","refresh_token":"r","expires_in":100,"refresh_expires_in":200,
                  "country_user_info":[{"country":"sg","seller_id":"SG-1","user_id":1}]}""";
 
         String state = stateFor(shopA);
-        try {
-            authorisation.complete("code", state);
-        } catch (RuntimeException expected) {
-            /* The adapter refuses; what matters is that nothing was written. */
-        }
+
+        assertThatThrownBy(() -> authorisation.complete("code", state))
+                .isInstanceOf(DarazProtocolException.class)
+                .hasMessageContaining("no Bangladesh account");
 
         assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
                 String.class, shopA)).isNull();
         assertThat(credentials.load(shopA)).isEmpty();
         assertThat(connectionOf(shopA)).isEqualTo("NONE");
+    }
+
+    /**
+     * 🔴 PATCH B — THE STATE IS BURNED EVEN WHEN THE EXCHANGE FAILS.
+     *
+     * <p>⚠ THIS IS THE REGRESSION TEST FOR THE LIVE INCIDENT. Consumption used to share the
+     * caller's transaction, so a failing token exchange rolled {@code consumed_at} back. Production
+     * showed five untouched attempts while every callback had in fact reached the provider — the
+     * evidence erased itself, and the state stayed replayable.
+     */
+    @Test
+    @DisplayName("a failed token exchange still consumes the state, and it cannot be replayed")
+    void failedExchangeBurnsTheStateAndStoresNothing() {
+        tokenResponse = """
+                {"code":"IllegalAccessToken","type":"ISV","message":"provider text","request_id":"r1"}""";
+
+        String state = stateFor(shopA);
+
+        assertThatThrownBy(() -> authorisation.complete("the-code", state))
+                .isInstanceOf(DarazProtocolException.class);
+
+        /* 🔴 Consumed despite the failure — the outer rollback must not reach it. */
+        assertThat(jdbc.queryForObject(
+                "SELECT consumed_at FROM channel_authorisation_attempt "
+                        + "WHERE channel_instance_id = ? ORDER BY created_at DESC LIMIT 1",
+                Instant.class, shopA)).isNotNull();
+
+        /* 🔴 And nothing was bound or stored. */
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shopA)).isNull();
+        assertThat(credentials.load(shopA)).isEmpty();
+        assertThat(connectionOf(shopA)).isEqualTo("NONE");
+
+        /* 🔴 The same state is now spent — replay is refused. */
+        tokenResponse = tokenFor("BD-SELLER-A");
+        var replay = authorisation.complete("the-code", state);
+        assertThat(replay.outcome())
+                .isEqualTo(ChannelAuthorisationService.AuthorisationResult.Outcome.NOT_COMPLETED);
+        assertThat(replay.channelInstanceId()).isNull();
+        assertThat(credentials.load(shopA)).isEmpty();
     }
 }

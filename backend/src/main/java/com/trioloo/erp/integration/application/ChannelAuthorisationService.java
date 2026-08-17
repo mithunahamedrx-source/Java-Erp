@@ -11,6 +11,8 @@ import com.trioloo.erp.system.application.ShopNotFoundException;
 import com.trioloo.erp.system.domain.ChannelTypeCode;
 import com.trioloo.erp.system.infrastructure.persistence.ShopEntity;
 import com.trioloo.erp.system.infrastructure.persistence.ShopRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,9 @@ import java.util.UUID;
  */
 @Service
 public class ChannelAuthorisationService {
+
+    /** 🔴 Shop ids and outcomes only — never a state, code, token or provider payload. */
+    private static final Logger log = LoggerFactory.getLogger(ChannelAuthorisationService.class);
 
     /**
      * How long an authorisation attempt stays usable.
@@ -146,6 +151,12 @@ public class ChannelAuthorisationService {
             return AuthorisationResult.notCompleted(null);
         }
         UUID shopId = consumed.get().channelInstanceId();
+        /*
+          ⚠ This is the line that names the shop when the exchange later fails. The controller's
+          handler cannot see it — the exception aborts before a result exists — so the pair of
+          lines is what makes a provider failure attributable to a specific shop.
+        */
+        log.info("Authorisation callback resolved channelInstance={} from its stored state", shopId);
 
         /*
           ⚠ A missing code is the seller declining or the provider erroring. The state is already

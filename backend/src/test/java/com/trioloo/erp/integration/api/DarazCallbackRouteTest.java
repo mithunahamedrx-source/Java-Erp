@@ -1,5 +1,8 @@
 package com.trioloo.erp.integration.api;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.trioloo.erp.integration.application.ChannelAuthorisationAttemptStore;
 import com.trioloo.erp.integration.infrastructure.daraz.DarazProperties;
 import com.trioloo.erp.integration.infrastructure.daraz.DarazTransport;
@@ -20,6 +23,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
+import java.util.stream.Collectors;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -83,12 +87,20 @@ class DarazCallbackRouteTest {
     @Autowired JdbcTemplate jdbc;
 
     private MockMvc mvc;
+    private ListAppender<ILoggingEvent> logs;
+    private Logger rootLogger;
     private UUID shop;
     private UUID actor;
 
     @BeforeEach
     void setUp() {
         /* 🔴 The real security chain, so permitAll is genuinely exercised rather than bypassed. */
+        /* Capture everything the application logs during the callback. */
+        logs = new ListAppender<>();
+        logs.start();
+        rootLogger = (Logger) org.slf4j.LoggerFactory.getLogger("com.trioloo");
+        rootLogger.addAppender(logs);
+
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .build();
@@ -100,7 +112,16 @@ class DarazCallbackRouteTest {
 
     @AfterEach
     void tearDown() {
+        if (rootLogger != null && logs != null) {
+            rootLogger.detachAppender(logs);
+        }
         clean();
+    }
+
+    private String capturedLog() {
+        return logs.list.stream()
+                .map(e -> e.getLevel() + " " + e.getFormattedMessage())
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     private void clean() {
@@ -249,5 +270,105 @@ class DarazCallbackRouteTest {
 
         assertThat(locationOf(result))
                 .isEqualTo("/administration/shops/" + shop + "?authorisation=NOT_COMPLETED");
+    }
+
+    // ============================================================ PATCH A — observability
+
+    /**
+     * 🔴 THE REGRESSION TEST FOR THE LIVE INCIDENT. Five real authorisations failed at the provider,
+     * each returning 302, and the journal contained NOTHING — the exception handler redirected in
+     * silence. There was literally nothing to diagnose from.
+     */
+    @Test
+    @DisplayName("PATCH A — a provider failure is logged with its type and provider code")
+    void providerFailureIsLogged() throws Exception {
+        tokenResponse = """
+                {"code":"IllegalAccessToken","type":"ISV","message":"provider text here","request_id":"r1"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "the-code").param("state", stateForShop())).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).contains("DarazProtocolException");
+        assertThat(captured).contains("IllegalAccessToken");
+        assertThat(captured).contains("PROVIDER_ERROR");
+        /* The shop is named by the service line that pairs with it. */
+        assertThat(captured).contains(shop.toString());
+    }
+
+    @Test
+    @DisplayName("PATCH A — every callback outcome is logged, success included")
+    void outcomeIsAlwaysLogged() throws Exception {
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(capturedLog()).contains("outcome=AUTHORISED");
+        assertThat(capturedLog()).contains(shop.toString());
+    }
+
+    @Test
+    @DisplayName("PATCH A — an unusable state is logged as unresolved, naming no shop")
+    void unresolvedStateIsLogged() throws Exception {
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", "forged")).andReturn();
+
+        assertThat(capturedLog()).contains("outcome=NOT_COMPLETED");
+        assertThat(capturedLog()).contains("unresolved");
+    }
+
+    /**
+     * 🔴 THE SECRET-HYGIENE GUARANTEE. Logs are read by people, shipped to aggregators and pasted
+     * into issue trackers. Nothing that can authorise anything may appear in one.
+     */
+    @Test
+    @DisplayName("PATCH A — no code, state, token, secret, body or provider URL is ever logged")
+    void logsCarryNoSecrets() throws Exception {
+        String state = stateForShop();
+        tokenResponse = """
+                {"access_token":"super-secret-access","refresh_token":"super-secret-refresh",
+                 "expires_in":259200,"refresh_expires_in":604800,
+                 "country_user_info":[{"country":"bd","seller_id":"BD-SELLER-A","user_id":1}]}""";
+
+        mvc.perform(get(CALLBACK)
+                .param("code", "the-authorisation-code").param("state", state)).andReturn();
+
+        String captured = capturedLog();
+        assertThat(captured).doesNotContain("the-authorisation-code");
+        assertThat(captured).doesNotContain(state);
+        assertThat(captured).doesNotContain("super-secret-access");
+        assertThat(captured).doesNotContain("super-secret-refresh");
+        assertThat(captured).doesNotContain("test-app-secret-not-a-real-value");
+        assertThat(captured).doesNotContain("api.daraz.com.bd");
+        assertThat(captured).doesNotContain("sign=");
+    }
+
+    @Test
+    @DisplayName("PATCH A — a provider failure log repeats none of the provider's own message")
+    void providerMessageIsNotEchoed() throws Exception {
+        tokenResponse = """
+                {"code":"IncompleteSignature","type":"ISV","message":"echoed request parameters here"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(capturedLog()).doesNotContain("echoed request parameters here");
+        assertThat(capturedLog()).contains("IncompleteSignature");
+    }
+
+    // ============================================================ PATCH B — the state is burned
+
+    @Test
+    @DisplayName("PATCH B — a provider failure through the callback still consumes the state")
+    void providerFailureStillConsumesTheState() throws Exception {
+        tokenResponse = """
+                {"code":"IllegalAccessToken","type":"ISV","message":"m","request_id":"r"}""";
+
+        mvc.perform(get(CALLBACK).param("code", "c").param("state", stateForShop())).andReturn();
+
+        assertThat(jdbc.queryForObject(
+                "SELECT consumed_at FROM channel_authorisation_attempt "
+                        + "WHERE channel_instance_id = ? ORDER BY created_at DESC LIMIT 1",
+                Instant.class, shop)).isNotNull();
+
+        assertThat(jdbc.queryForObject("SELECT external_account_identity FROM channel_instance WHERE id = ?",
+                String.class, shop)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_credential WHERE channel_instance_id = ?",
+                Integer.class, shop)).isZero();
     }
 }
