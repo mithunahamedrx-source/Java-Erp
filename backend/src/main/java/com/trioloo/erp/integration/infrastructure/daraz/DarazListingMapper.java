@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Turns one Daraz product into a {@link ReportedListingSnapshot} — {@code DZC-026}.
@@ -31,6 +32,26 @@ import java.util.Map;
  * ({@code PRD-178}).
  */
 final class DarazListingMapper {
+
+    /**
+     * Attributes that already have a dedicated column, and must NOT be duplicated here.
+     *
+     * <p>🔴 THE DUPLICATE IS WHAT BROKE THE FIRST LIVE PULL. {@code attributes.description} is
+     * already {@code reported_description}, which is unbounded {@code text}; copying it into the
+     * generic attribute table, whose {@code reported_value} is {@code varchar(1024)}, overflowed on
+     * the first real product and rolled the whole discovery back. ⚠ The copy was never useful —
+     * it was the same fact recorded twice, in the narrower of the two places.
+     */
+    private static final Set<String> DEDICATED_ELSEWHERE = Set.of("name", "description");
+
+    /**
+     * 🔴 TRIOLOO'S PERSISTENCE LIMITS, NOT THE PROVIDER'S. {@code channel_listing_attribute}
+     * stores {@code attribute_key varchar(160)} and {@code reported_value varchar(1024)}. Daraz
+     * publishes no limit on either, so a value that does not fit is an ordinary occurrence and must
+     * be handled, not treated as bad data.
+     */
+    private static final int MAX_ATTRIBUTE_KEY = 160;
+    private static final int MAX_ATTRIBUTE_VALUE = 1024;
 
     private DarazListingMapper() {
     }
@@ -190,13 +211,35 @@ final class DarazListingMapper {
             return out;
         }
         attributes.properties().forEach(entry -> {
-            JsonNode value = entry.getValue();
-            if (value != null && value.isValueNode()) {
-                String text = value.asText("");
-                if (!text.isBlank()) {
-                    out.put(entry.getKey(), text);
-                }
+            String key = entry.getKey();
+            /*
+              ⚠ A key that will not fit cannot be stored at all: it is the attribute's IDENTITY, and
+              a truncated key would silently collide with another attribute on the next read.
+            */
+            if (key == null || key.isBlank() || key.length() > MAX_ATTRIBUTE_KEY) {
+                return;
             }
+            /* 🔴 Already recorded on its own column — see DEDICATED_ELSEWHERE. */
+            if (DEDICATED_ELSEWHERE.contains(key)) {
+                return;
+            }
+            JsonNode value = entry.getValue();
+            if (value == null || !value.isValueNode()) {
+                return;
+            }
+            String text = value.asText("");
+            if (text.isBlank()) {
+                return;
+            }
+            /*
+              🔴 TOO LONG TO STORE IS REPORTED AS UNREADABLE, NEVER TRUNCATED. A truncated
+              REPORTED value would misstate what the channel said, and {@code PRD-181} compares
+              intent against reported — so the listing would read as DIVERGED forever, on a
+              difference Trioloo invented. ✅ A null value here becomes
+              {@code reported_readable = false} with no value, which is the model's existing way of
+              saying "this exists and could not be recorded".
+            */
+            out.put(key, text.length() > MAX_ATTRIBUTE_VALUE ? null : text);
         });
         return out;
     }

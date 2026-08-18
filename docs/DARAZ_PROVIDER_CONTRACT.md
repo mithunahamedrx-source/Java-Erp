@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.6.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.6.1 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -422,7 +422,7 @@ indicates success.
 | `stock` / `stockReadable` | SKU `quantity` | ⚠ `Available` is a DIFFERENT field and is not substituted. 🔴 Inventory CONTAINERS are not mapped — see `DZC-031` |
 | `channelCategory` / `channelCategoryReadable` | `primary_category` | ⚠ **A numeric ID, not a name.** 🔴 No category-name lookup is in scope; the ID is reported as given |
 | `listingStatus` | `status` | 🔴 **`readable` semantics do not apply — it is an enum.** ⚠ Per `DZC-024.d` the true value set is NOT PUBLISHED, so any unrecognised value maps to NO status change rather than a guess |
-| `attributes` | `attributes` object | ✅ Reported as name→value text. ⚠ Category-dependent; never validated against an invented schema |
+| `attributes` | `attributes` object | ✅ Reported as name→value text, MINUS `name` and `description`, which have dedicated columns. ⚠ Category-dependent; never validated against an invented schema. 🔴 Bounded by Trioloo persistence — see `DZC-031.h` |
 | `mediaReferences` | `images`, else `marketImages` | ✅ Per `DZC-024.b`, tolerate array-or-string; empty when neither parses |
 | `skus[]` | `skus[]` | See below |
 
@@ -486,6 +486,26 @@ indicates success.
 > never what Trioloo should do.** ✅ **The ERP's own figure is untouched — `PRD-112`/`PRD-126` make
 > Published Marketplace Stock a MANUALLY controlled business figure that is never derived from a
 > channel read.**
+>
+> **h.** ⚠ **GENERIC ATTRIBUTE VALUES ARE BOUNDED BY TRIOLOO'S OWN PERSISTENCE, AND THE FIRST LIVE
+> PULL PROVED IT THE HARD WAY.** **`channel_listing_attribute` stores `attribute_key varchar(160)`
+> and `reported_value varchar(1024)`; Daraz publishes no limit on either.** 🔴 **The first
+> discovery against a real seller failed with *value too long for type character varying(1024)* and
+> rolled the whole catalogue back.**
+>
+> **h.i.** 🔴 **A FIELD WITH A DEDICATED HOME IS NOT DUPLICATED INTO THE GENERIC ATTRIBUTES.**
+> **`attributes.name` is the reported title and `attributes.description` is the reported
+> description, which is an UNBOUNDED `text` column.** ⚠ **Copying the description into the narrower
+> generic table recorded the same fact twice, in the place that could not hold it.**
+> **h.ii.** 🔴 **AN OVER-LONG VALUE IS REPORTED UNREADABLE, NEVER TRUNCATED.** **The attribute keeps
+> its key and is stored with `reported_readable = false` and no value.** ⚠ **A truncated REPORTED
+> value would misstate what the channel said, and `PRD-181` compares intent against reported — the
+> listing would read DIVERGED forever, on a difference Trioloo invented.**
+> **h.iii.** ⚠ **AN ATTRIBUTE WHOSE KEY WILL NOT FIT IS DROPPED ENTIRELY.** **The key is the
+> attribute's identity; a truncated one would silently collide with another on the next read.**
+> **h.iv.** ✅ **NO COLUMN WAS WIDENED AND NO MIGRATION WAS TAKEN.** ⚠ **Widening asks what a channel
+> attribute IS — `intended_value` is bounded too — and that is a `DB-`/`PRD-` decision, not a
+> mapping one.**
 >
 > **g.** ✅ **CLOSING `b` NEEDS DOCUMENTATION, NOT A DECISION.** **If the provider later publishes the
 > container semantics, mapping them becomes an ordinary amendment.** 🔴 **Until then, a number
@@ -605,6 +625,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.6.1** | **2026-08-18** | ⚠ **`DZC-031.h` ADDED — GENERIC ATTRIBUTE VALUES ARE BOUNDED BY TRIOLOO'S OWN PERSISTENCE, LEARNED FROM THE FIRST LIVE PULL.** **`channel_listing_attribute` stores `attribute_key varchar(160)` and `reported_value varchar(1024)`; the first discovery against a real seller failed with *value too long for type character varying(1024)* and rolled the whole catalogue back.** 🔴 **`name` and `description` are no longer duplicated into the generic attributes — they already own dedicated columns, and `reported_description` is unbounded `text`.** 🔴 **An over-long value keeps its key and is recorded `reported_readable = false` with NO value rather than truncated, because a truncated reported value would read as permanently DIVERGED under `PRD-181`.** ⚠ **An attribute whose KEY will not fit is dropped, since the key is its identity.** ✅ **No column widened, no migration taken — that is a `DB-`/`PRD-` decision, not a mapping one.** ✅ **Mapper-side fix only; no endpoint, parameter or response field changed.** |
 | **1.6.0** | **2026-08-18** | ✅ **`DZC-031` ADDED — REPORTED STOCK IS SKU `quantity`, SETTLED FROM THE FIRST LIVE PROBE.** **The live response carried `quantity`, `Available`, `channelInventories`, `multiWarehouseInventories` and `fblWarehouseInventories` at SKU level; the last three appear ZERO times in the `/products/get` reference.** ✅ **`quantity` is confirmed by symmetry with the documented write API `/product/price_quantity/update`, which sets *price and quantity* — the same pair the read returns.** 🔴 **The three containers are NOT MAPPED, no warehouse aggregation is inferred, `Available` is not mapped, and the `options=1` extras are not requested.** ⚠ **Records that `quantity`'s meaning for a Global Plus or FBL listing is NOT PUBLISHED — which does not block reporting it, because `API-062.c` makes the adapter an observer and `PRD-112`/`PRD-126` keep Published Marketplace Stock a manually controlled ERP figure.** 🔴 **No provider value, token or secret is recorded — field names and node presence only.** ✅ **No code change: the mapper already reads `quantity` and already ignores the containers.** |
 | **1.5.0** | **2026-08-18** | ✅ **§9 CLARIFIED BY THE FIRST IMPLEMENTATION — THREE POINTS THE PROTOCOL READING COULD NOT HAVE SETTLED ON PAPER.** 🔴 **`DZC-028.e` — the scroll value is written with `Z` rather than a numeric offset, because a literal `+` in a query value is decoded as a SPACE by many servers while the signature spans the raw value, producing a signature error that is not a signing defect.** ✅ **`DZC-028.f` — a full page that shares one update time, or carries none, cannot scroll and reports `complete=false` rather than looping or presenting a partial catalogue as complete.** ⚠ **`DZC-029.d`/`.e` — POST is no longer the obstacle for `readListing`; the unpublished CONTENT TYPE is, so it refuses rather than guessing a header, and refuses rather than returning empty, which would falsely tell the operator the channel did not return the listing.** 🔴 **No endpoint, parameter or response field was invented.** |
 | **1.4.0** | **2026-08-18** | ✅ **§9 ADDED — THE LISTING READ CONTRACT, `DZC-020`–`DZC-030`, RECORDED BEFORE ANY ADAPTER CODE EXISTS.** **`GetProducts` → `/products/get` (`GET`) from Daraz's own migration guide, with parameters, envelope, product/SKU/attribute field lists and the published error codes including the `901` per-second QPS throttle; `/product/item/get` (`POST`, `item_id` required, `seller_sku` deprecated since 2023-11-15) for the single read.** ✅ **`DZC-026` maps every `ReportedListingSnapshot` and `ReportedSkuSnapshot` member to a documented source or an explicit `readable=false`** — **`SellerSku` is the channel SKU, `ShopSku`/`SkuId` are not, and `variationLabel` is NOT PUBLISHED.** 🔴 **`DZC-027` forbids writing intent, creating mappings, deciding divergence, or treating absence as zero.** ✅ **`DZC-028` scopes the first gate to `filter=live` with date scrolling, since `offset` is deprecated and capped at 10000.** ⚠ **`DZC-029` records that `readListing`'s endpoint is a `POST` while `DarazTransport` is `GET`-only.** ✅ **`DZC-030` sets the refresh contract and a conservative on-demand default; the safety margin remains a reviewer decision.** 🔴 **Four value formats recorded as NOT PUBLISHED rather than guessed. No secret or token value appears.** |

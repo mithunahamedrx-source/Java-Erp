@@ -740,4 +740,68 @@ class ListingRefreshTest {
             jdbc.update("DELETE FROM " + table);
         }
     }
+
+    // ============================ bounded attributes, the first-live-pull regression
+
+    /**
+     * 🔴 THE REGRESSION TEST FOR THE FIRST LIVE SYNC NOW. It failed with
+     * {@code value too long for type character varying(1024)} inserting into
+     * {@code channel_listing_attribute}, and the whole discovery rolled back — a real seller's
+     * catalogue, lost to one long attribute.
+     *
+     * <p>⚠ EVERY EXISTING TEST PASSED THROUGH THIS CODE and none caught it, because every fixture
+     * used short values. The column limit only exists in the database, so only a test that actually
+     * writes can prove the behaviour.
+     */
+    @Test
+    @DisplayName("🔴 an attribute too long to store is recorded unreadable, and the refresh succeeds")
+    void overlongAttributeDoesNotBreakPersistence() {
+        actingAll();
+        UUID id = seed("SHOPIFY", "88401", true);
+        capability = readable(ListingFieldKey.TITLE, ListingFieldKey.DESCRIPTION,
+                ListingFieldKey.ATTRIBUTES);
+
+        /* A description far past the generic column, exactly as a real product carries. */
+        String longDescription = "<p>" + "d".repeat(4000) + "</p>";
+        Map<String, String> attributes = new java.util.LinkedHashMap<>();
+        attributes.put("brand", "Zeon");
+        /* 🔴 A null value is the adapter saying: this attribute exists and could not be recorded. */
+        attributes.put("warranty", null);
+
+        response = () -> Optional.of(new ReportedListingSnapshot("88401", "Long listing", true,
+                longDescription, true, null, false, null, false, null, null, false,
+                null, false, null, false, null, attributes, null, false, List.of()));
+
+        /* ✅ No DataIntegrityViolationException — this is the line that used to throw. */
+        RefreshResultView result = operations.refreshOne(id);
+        assertThat(result.outcome()).isEqualTo("SUCCEEDED");
+
+        /* ✅ The long description landed on its own unbounded column. */
+        assertThat(queries.detail(id).reportedDescription()).isEqualTo(longDescription);
+
+        /* ✅ The ordinary attribute stored normally. */
+        assertThat(jdbc.queryForObject(
+                "SELECT reported_value FROM channel_listing_attribute "
+                        + "WHERE channel_listing_id = ? AND attribute_key = 'brand'", String.class, id))
+                .isEqualTo("Zeon");
+        assertThat(jdbc.queryForObject(
+                "SELECT reported_readable FROM channel_listing_attribute "
+                        + "WHERE channel_listing_id = ? AND attribute_key = 'brand'", Boolean.class, id))
+                .isTrue();
+
+        /* 🔴 The unrecordable one kept its KEY, with no value and readable=false. */
+        assertThat(jdbc.queryForObject(
+                "SELECT reported_value FROM channel_listing_attribute "
+                        + "WHERE channel_listing_id = ? AND attribute_key = 'warranty'", String.class, id))
+                .isNull();
+        assertThat(jdbc.queryForObject(
+                "SELECT reported_readable FROM channel_listing_attribute "
+                        + "WHERE channel_listing_id = ? AND attribute_key = 'warranty'", Boolean.class, id))
+                .isFalse();
+
+        /* 🔴 And no copy of the description was written into the generic table. */
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM channel_listing_attribute WHERE channel_listing_id = ? "
+                        + "AND attribute_key = 'description'", Long.class, id)).isZero();
+    }
 }

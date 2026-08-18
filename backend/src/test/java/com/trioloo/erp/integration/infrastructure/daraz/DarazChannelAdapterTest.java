@@ -491,4 +491,99 @@ class DarazChannelAdapterTest {
         assertThat(transportCalls.get()).isZero();
         assertThat(tokenCalls.get()).isZero();
     }
+
+    // ================================= bounded attributes, after the first live pull failed
+
+    /** Builds an attributes object with a value of an exact length. */
+    private static String withAttribute(String key, int length) {
+        return json("{'code':'0','data':{'products':[{'item_id':'9','attributes':{"
+                + "'name':'Monitor','" + key + "':'" + "x".repeat(length) + "'},"
+                + "'skus':[{'SellerSku':'X'}]}]}}");
+    }
+
+    private Map<String, String> attributesOf(String body) {
+        response = body;
+        return adapter().discoverActive(SHOP, null).listings().getFirst().attributes();
+    }
+
+    /**
+     * 🔴 THE DEFECT THE FIRST LIVE PULL FOUND. `attributes.description` is already
+     * `reported_description`, an unbounded `text` column. Copying it into the generic attribute
+     * table, whose `reported_value` is `varchar(1024)`, overflowed on the first real product and
+     * rolled the entire discovery back.
+     */
+    @Test
+    @DisplayName("🔴 description is not duplicated into the generic attributes")
+    void descriptionIsNotDuplicated() {
+        response = oneProduct();
+        ReportedListingSnapshot listing = adapter().discoverActive(SHOP, null).listings().getFirst();
+
+        assertThat(listing.attributes()).doesNotContainKey("description");
+        /* ✅ It is still reported — on the column that can hold it. */
+        assertThat(listing.description()).isEqualTo("<p>Crisp</p>");
+        assertThat(listing.descriptionReadable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("🔴 name is not duplicated into the generic attributes")
+    void nameIsNotDuplicated() {
+        response = oneProduct();
+        ReportedListingSnapshot listing = adapter().discoverActive(SHOP, null).listings().getFirst();
+
+        assertThat(listing.attributes()).doesNotContainKey("name");
+        assertThat(listing.title()).isEqualTo("Hi-Power 22 Inch IPS Monitor");
+        assertThat(listing.titleReadable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("attributes without a dedicated home are still mapped normally")
+    void ordinaryAttributesStillMap() {
+        response = oneProduct();
+        Map<String, String> attributes =
+                adapter().discoverActive(SHOP, null).listings().getFirst().attributes();
+
+        assertThat(attributes).containsEntry("brand", "Zeon");
+        assertThat(attributes).containsEntry("short_description", "Crisp panel");
+    }
+
+    @Test
+    @DisplayName("a value of exactly the persistence limit stays readable")
+    void exactlyAtTheLimitIsReadable() {
+        Map<String, String> attributes = attributesOf(withAttribute("warranty", 1024));
+        assertThat(attributes).containsKey("warranty");
+        assertThat(attributes.get("warranty")).hasSize(1024);
+    }
+
+    /**
+     * 🔴 ONE CHARACTER OVER IS UNREADABLE, NOT TRUNCATED. A truncated REPORTED value would
+     * misstate what the channel said, and `PRD-181` compares intent against reported — so the
+     * listing would read DIVERGED forever on a difference Trioloo invented.
+     */
+    @Test
+    @DisplayName("🔴 one character over the limit is reported unreadable, never truncated")
+    void oneOverTheLimitIsUnreadable() {
+        Map<String, String> attributes = attributesOf(withAttribute("warranty", 1025));
+
+        /* ✅ The key survives, so the attribute is known to EXIST. */
+        assertThat(attributes).containsKey("warranty");
+        /* 🔴 With no value — which the persistence layer records as readable=false. */
+        assertThat(attributes.get("warranty")).isNull();
+    }
+
+    @Test
+    @DisplayName("a very long value is not shortened to fit")
+    void longValueIsNotShortened() {
+        Map<String, String> attributes = attributesOf(withAttribute("warranty", 50_000));
+        assertThat(attributes.get("warranty")).isNull();
+        assertThat(attributes).containsKey("warranty");
+    }
+
+    /** ⚠ A key that will not fit is the attribute's IDENTITY; a truncated one would collide. */
+    @Test
+    @DisplayName("an attribute whose KEY cannot be stored is dropped entirely")
+    void overlongKeyIsDropped() {
+        String key = "k".repeat(161);
+        Map<String, String> attributes = attributesOf(withAttribute(key, 10));
+        assertThat(attributes).doesNotContainKey(key);
+    }
 }

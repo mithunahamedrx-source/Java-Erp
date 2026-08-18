@@ -647,7 +647,12 @@ public class ChannelListingOperationService {
                 attribute = new ChannelListingAttributeEntity(UUID.randomUUID(), listingId,
                         entry.getKey(), null, next++);
             }
-            attribute.applyReported(entry.getValue(), true);
+            /*
+              🔴 READABLE MEANS "WE HAVE THE VALUE", NOT "ALWAYS". An adapter reports a null
+              value for an attribute it saw but could not record — too long for this column, for
+              instance. Marking that readable would assert an empty value the channel never sent.
+            */
+            attribute.applyReported(entry.getValue(), entry.getValue() != null);
             attributes.save(attribute);
         }
     }
