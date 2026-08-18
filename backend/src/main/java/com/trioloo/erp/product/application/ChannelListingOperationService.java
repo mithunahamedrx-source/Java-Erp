@@ -33,6 +33,8 @@ import com.trioloo.erp.product.infrastructure.persistence.ChannelListingReported
 import com.trioloo.erp.product.infrastructure.persistence.ChannelListingRepository;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelListingSkuEntity;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelListingSkuRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -73,6 +75,16 @@ import java.util.UUID;
  */
 @Service
 public class ChannelListingOperationService {
+
+    /**
+     * ⚠ {@code PRJ-210} — an OPERATIONAL log, never an audit or business record. The business
+     * facts a discovery run produces are the batch, the per-listing operations and the activity
+     * entries; this only makes a completed run visible to whoever is watching the service.
+     *
+     * <p>🔴 NOTHING THE PROVIDER SAID IS EVER LOGGED — no title, price, stock figure, item id,
+     * seller SKU, image reference, token or signed URI. Counts and Trioloo's own identifiers only.
+     */
+    private static final Logger log = LoggerFactory.getLogger(ChannelListingOperationService.class);
 
     private static final String SOURCE_CHANNEL = "CHANNEL";
 
@@ -213,11 +225,13 @@ public class ChannelListingOperationService {
             DiscoveryPage page = adapter.get().discoverActive(channelInstanceId, cursor);
             for (ReportedListingSnapshot snapshot : page.listings()) {
                 seen++;
-                ChannelListingEntity listing = listings
+                ChannelListingEntity known = listings
                         .findByChannelInstanceIdAndExternalListingIdIgnoreCase(
                                 channelInstanceId, snapshot.externalListingId())
                         .orElse(null);
-                if (listing == null) {
+                boolean newlyRecorded = known == null;
+                ChannelListingEntity listing;
+                if (newlyRecorded) {
                     // PRD-178 — a newly discovered listing is UNMAPPED, which is a first-class
                     // state. It is never auto-mapped and never creates a Sellable Product.
                     listing = new ChannelListingEntity(UUID.randomUUID(), channelInstanceId,
@@ -225,10 +239,56 @@ public class ChannelListingOperationService {
                             actor.id(), now);
                     listings.save(listing);
                     created++;
+                } else {
+                    listing = known;
                 }
-                applySnapshot(listing, snapshot, actor.id(), now);
+                /*
+                  🔴 PRD-186.a — ONE OPERATION RECORD PER LISTING PER REQUESTED REMOTE ACT, and
+                  `discover` is one of the five kinds the rule names explicitly. Without this the
+                  run's only trace is an aggregate, which is exactly what PRD-186.b forbids:
+                  per-listing results are retained individually and never collapsed.
+
+                  ⚠ The record is opened BEFORE the snapshot is applied so the activity that
+                  application produces can name the operation that caused it.
+                */
+                ChannelListingOperationEntity operation = operations.save(
+                        new ChannelListingOperationEntity(UUID.randomUUID(), listing.getId(),
+                                batch.getId(), OperationKind.DISCOVER,
+                                OperationDirection.INBOUND, actor.id(), now));
+
+                applySnapshot(listing, snapshot, actor.id(), now, operation.getId(), batch.getId());
                 listing.recordSeenInDiscovery(now);
                 listings.save(listing);
+
+                /*
+                  🔴 THE ENTITY'S OWN settle, DELIBERATELY NOT THIS CLASS'S. The private
+                  settle(…) below also writes the listing's sync state and last-sync time, and
+                  INV-107.4 keeps those a DIFFERENT fact from an operation's outcome. What sync
+                  state a successfully read, still-UNMAPPED listing carries is not ratified, so
+                  recording the attempt must not silently decide it.
+
+                  ⚠ Counts only. The detail is operator-facing text and never carries a title,
+                  price, stock figure, item id or seller SKU.
+                */
+                String detail = (newlyRecorded
+                        ? "Discovered and newly recorded as UNMAPPED. "
+                        : "Reported values re-read on a Listing already known. ")
+                        + reportedShape(snapshot);
+                operation.settle(OperationOutcome.SUCCEEDED, detail,
+                        channel.getChannelType(), Instant.now(clock));
+                operations.save(operation);
+
+                /*
+                  ✅ PRD-186.f — DISCOVERY IS ONE OF THE EVENTS THE HISTORY MUST BE ABLE TO
+                  CARRY. Without this entry FRAME 21 shows a Listing that simply appeared, with
+                  no record of the run that found it.
+
+                  ⚠ It does NOT replace the CHANNEL_EVENT beside it. That entry says what the
+                  MARKETPLACE reported; this one says what TRIOLOO asked for and what came of it
+                  (PRD-186.e). Both are kept.
+                */
+                recordOperationActivity(operation, OperationOutcome.SUCCEEDED, detail,
+                        actor.id(), batch.getId(), now);
             }
             if (!page.complete()) {
                 complete = false;
@@ -240,7 +300,31 @@ public class ChannelListingOperationService {
 
         batch.complete(Instant.now(clock));
         batches.save(batch);
+        /*
+          ⚠ PRJ-210's "useful operation context". The first live pull produced NO application log
+          line at all, so a run that touched a real marketplace left nothing an operator could
+          read. Identifiers and counts only — see the field's note.
+        */
+        log.info("Discovery batch {} on channel instance {}: {} listing(s) returned, {} newly "
+                        + "recorded, complete={}{}",
+                batch.getId(), channelInstanceId, seen, created, complete,
+                incompleteReason == null ? "" : ", incomplete because: " + incompleteReason);
         return new DiscoveryOutcome(batch.getId(), seen, created, complete, incompleteReason);
+    }
+
+    /**
+     * A COUNT-ONLY description of what the channel returned for one listing.
+     *
+     * <p>🔴 It exists to keep provider values out of {@code detail}. An operation's detail is
+     * read by operators and exported; a title or a price belongs on the listing's reported side,
+     * not duplicated into an operation record.
+     */
+    private static String reportedShape(ReportedListingSnapshot snapshot) {
+        int skuCount = snapshot.skus() == null ? 0 : snapshot.skus().size();
+        int attributeCount = snapshot.attributes() == null ? 0 : snapshot.attributes().size();
+        return skuCount + (skuCount == 1 ? " orderable SKU and " : " orderable SKUs and ")
+                + attributeCount + (attributeCount == 1 ? " attribute" : " attributes")
+                + " reported.";
     }
 
     // =================================================================================
@@ -317,7 +401,7 @@ public class ChannelListingOperationService {
                     actorId, batchId);
             return;
         }
-        applySnapshot(listing, snapshot.get(), actorId, now);
+        applySnapshot(listing, snapshot.get(), actorId, now, operation.getId(), batchId);
         listings.save(listing);
         /*
           🔴 A SUCCESSFUL READ IS NOT AGREEMENT. Settling every successful refresh as
@@ -523,8 +607,30 @@ public class ChannelListingOperationService {
         operations.save(operation);
         listing.applySyncState(syncState, now);
         listings.save(listing);
-        activities.save(new ChannelListingActivityEntity(UUID.randomUUID(), listing.getId(),
-                ActivityKind.OPERATION,
+        recordOperationActivity(operation, outcome, detail, actorId, batchId, now);
+    }
+
+    /**
+     * The {@code OPERATION} entry for one settled act, {@code PRD-186.e} / {@code PRD-186.f}.
+     *
+     * <p>✅ THE THIRD KIND OF RECORD — a REQUESTED ACT WITH AN OUTCOME, which is neither a
+     * before/after field change nor an unsolicited channel event. {@code PRD-186.f} lists
+     * DISCOVERY among the events the history must be able to carry.
+     *
+     * <p>🔴 THE ACTOR IS THE REQUESTING OPERATOR, and that is the established semantic here, not
+     * a new one: a person asked for this act. ⚠ It is the exact opposite of a
+     * {@code CHANNEL_EVENT}, where the marketplace acted and the actor is NULL — the two kinds
+     * answer different questions and are never merged.
+     *
+     * <p>🔴 THE SUMMARY CARRIES NO PROVIDER VALUE. It is built from the operation's own kind and
+     * outcome plus the operator-facing detail, which callers keep free of titles, identifiers,
+     * SKUs, prices and stock figures.
+     */
+    private void recordOperationActivity(ChannelListingOperationEntity operation,
+                                         OperationOutcome outcome, String detail,
+                                         UUID actorId, UUID batchId, Instant now) {
+        activities.save(new ChannelListingActivityEntity(UUID.randomUUID(),
+                operation.getChannelListingId(), ActivityKind.OPERATION,
                 operation.getOperationKind() + " — " + outcome + (detail == null ? "" : ": " + detail),
                 SOURCE_CHANNEL, actorId, now)
                 .withOperation(operation.getId(), batchId));
@@ -552,7 +658,7 @@ public class ChannelListingOperationService {
      * reason the pair model exists ({@code INV-59.9}).
      */
     private void applySnapshot(ChannelListingEntity listing, ReportedListingSnapshot snapshot,
-                               UUID actorId, Instant now) {
+                               UUID actorId, Instant now, UUID operationId, UUID batchId) {
         listing.applyReportedContent(
                 snapshot.title(), snapshot.titleReadable(),
                 snapshot.description(), snapshot.descriptionReadable(),
@@ -565,10 +671,21 @@ public class ChannelListingOperationService {
         if (snapshot.listingStatus() != null) {
             // PRD-177.b — only a status the channel EXPLICITLY reported ever lands here.
             if (listing.getListingStatus() != snapshot.listingStatus()) {
+                /*
+                  🔴 THE ACTOR STAYS NULL, AND THAT IS THE SCHEMA'S OWN RULE: "NULL actor means
+                  the marketplace or the scheduler acted, not a person" (V6). The operator asked
+                  for the run; they did NOT set this status, and naming them here would attribute
+                  a marketplace fact to a person (PRJ-124, PRJ-130).
+
+                  ✅ PRD-186.f — the run that OBSERVED it is a different question, and the
+                  history must be able to carry batch membership. The operation and batch are
+                  therefore linked, which is what makes "which run reported this" answerable.
+                */
                 activities.save(new ChannelListingActivityEntity(UUID.randomUUID(),
                         listing.getId(), ActivityKind.CHANNEL_EVENT,
                         "Channel reported status " + snapshot.listingStatus() + ".",
-                        SOURCE_CHANNEL, null, now));
+                        SOURCE_CHANNEL, null, now)
+                        .withOperation(operationId, batchId));
             }
             listing.applyReportedStatus(snapshot.listingStatus());
         }

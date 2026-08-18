@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.59.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.60.1 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -1996,7 +1996,42 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 
 **What remains.** 🔴 **THE INTEGRATION-OWNED PROVIDER PROTOCOL WORK ONLY, AND IT IS NOW THE READ SIDE** — **a production `ChannelAdapterPort` implementation for Daraz listings: the listing/product read that `FRAME 18`–`FRAME 20` and the first live pull depend on** (`LSC-051`, `LSC-052`). ⚠ **THE AUTHORISATION SIDE IS NO LONGER AMONG THEM** — the authorisation adapter and its OAuth client shipped and are verified in production; see below. ✅ **The credential store is no longer among them: `V14` shipped it on 2026-08-16** (`TEC-119`, `TEC-120`). ✅ **THE CONNECTION HALF IS VERIFIED CLOSED, 2026-08-17.** **Shipped and confirmed in production: the Daraz authorisation adapter · the OAuth client · the callback route · provider request signing · the official Daraz endpoints · production App Key and App Secret · live seller authorisation · the seller identity read.** ✅ **`ChannelAuthorisationPort` was split into `initiate` and `complete` as `API-069.a` required; the synchronous-`authorise(UUID)` defect noted below is DISCHARGED.** **One real Bangladesh seller is bound, its credential encrypted at rest under key version 1, and the shop `CONNECTED`.** 🔴 **STILL OPEN AND NOT STARTED: the listing/product read · the first live pull** — **and the Listings `ChannelAdapterPort` they need still has no `src/main` implementation** (`LSC-052`). ✅ **THE PROTOCOL FOR THAT READ IS NOW RECORDED: `DARAZ_PROVIDER_CONTRACT.md` §9, `DZC-020`–`DZC-030` — `/products/get`, `/product/item/get`, the full `ReportedListingSnapshot` mapping, discovery scope and the refresh contract.** ✅ **AND THE READ HALF IS NOW BUILT, 2026-08-18: signed POST transport, on-demand token refresh, and `DarazChannelAdapter` implementing `declareCapability` and `discoverActive` over `/products/get`** (`LSC-052`). 🔴 **BUILT IS NOT RUN. No listing has been read from Daraz — the adapter is proven against a controlled double, the bean registers only where credentials are configured, and nothing has been deployed.** ⚠ **`readListing` and the entire outbound half still refuse, so the first live pull REMAINS NOT STARTED.** ✅ **RESOLVED — `ChannelAuthorisationPort` now exposes `initiate` and `complete`, as `API-069.a` ratifies. The former synchronous `authorise(UUID)` defect no longer exists.** ⚠ **Live marketplace verification remains out of scope and untouched.** ✅ **Everything else in this gap shipped.** ⚠ **`GAP-132`'s deferrals are unchanged, and `SCS-080`'s remaining deferrals — visible pagination, per-row menus, Suspend/Reactivate/Archive controls, Listing counts, per-field adapter capability — are unchanged and were not built.**
 
+---
 
+## GAP-134 — registered and RESOLVED 2026-08-18
+
+**Category:** Connected Listings · **Severity:** 🟠 High · **Class:** **A — implementation contradicted ratified architecture**
+**Source:** post-first-pull audit of the 2026-08-18 production discovery run against `PRD-186`
+
+**Problem.** 🔴 **`discover()` RECORDED NO PER-LISTING OPERATION, AND `PRD-186.a` REQUIRES ONE.** The rule reads *"ONE OPERATION RECORD PER LISTING PER REQUESTED REMOTE ACT"* and names **`discover`** among the five kinds; `PRD-189.d` repeats it — a sync run *"records per-listing results."* **The first live Daraz pull recorded 9 listings, 9 SKUs, 85 attributes, 1 batch and ZERO operations.**
+
+⚠ **The batch alone is an aggregate, which is exactly what `PRD-186.b` forbids:** per-listing results are retained individually and never collapsed. **Code was the defect, not the canon** (`DOC-003`).
+
+**What it also caused.**
+
+| Consequence | Mechanism |
+|---|---|
+| **Discovery activity carried a NULL `batch_id`** | the batch link is attached only where an operation settles |
+| **`FRAME 20`'s per-listing result had no source** | its "Channel read" table and outcome tallies read operation records |
+| **"Which run reported this?" was unanswerable** | nothing tied an observation to the run that produced it |
+
+**Resolution.** ✅ **Fixed in application code on 2026-08-18. NO MIGRATION — `channel_listing_operation` already held every required column.** Each listing a run processes now opens a `DISCOVER` / `INBOUND` operation carrying the requesting actor and time, settles it `SUCCEEDED` with a **count-only** detail and the adapter's channel type as provenance, and links it to the batch; the channel event the read produces now names both.
+
+✅ **AND THE HISTORY NOW CARRIES DISCOVERY ITSELF.** ⚠ **The first fix recorded the operation but wrote no `OPERATION`-kind ACTIVITY entry, so `FRAME 21` still showed a Listing that had simply appeared, with no trace of the run that found it — while `PRD-186.f` lists DISCOVERY among the events the history must be able to carry.** **Each per-listing discover operation now also writes an `OPERATION` entry, built by the same helper the refresh and push paths already used, so the three inbound and outbound acts share one definition rather than drifting apart.**
+
+> 🔴 **THE TWO KINDS ANSWER DIFFERENT QUESTIONS AND ARE NEVER MERGED** (`PRD-186.e`). **The `OPERATION` entry names the REQUESTING OPERATOR — a person asked for this act. The `CHANNEL_EVENT` beside it keeps its NULL actor because the MARKETPLACE acted.** ✅ **Both survive one run; neither replaces the other.** ⚠ **The summary is built from the operation's own kind, outcome and count-only detail, so no title, identifier, SKU, price or stock figure reaches it.**
+
+⚠ **Refresh needed no change** — it already routed through the shared settle path and has always written its `OPERATION` entry.
+
+> 🔴 **THE ATTEMPT IS NOT THE STANDING POSITION, AND THIS FIX DELIBERATELY DID NOT DECIDE ONE.** **`INV-107.4` keeps an operation's outcome and a Listing's sync state DIFFERENT FACTS.** The shared `settle(…)` path also writes `sync_state` and `last_sync_at`, so discovery deliberately does **not** use it: it calls the operation entity's own settle. ⚠ **`sync_state` remains `PENDING` and `last_sync_at` remains unset for a discovered Listing, exactly as before this fix.**
+
+**Still open — a business question, not an implementation one.**
+
+> **What sync state a successfully read, still-`UNMAPPED` Listing carries is NOT RATIFIED.** ⚠ **`PRD-181` decides divergence by comparing intent against reported, and an `UNMAPPED` Listing has NO intent to compare** (`PRD-178`). **Neither `SYNCED` nor `DIVERGED` is stated to apply, and `PENDING` is a default rather than a decision.** 🔴 **Owner: `PRD-186` / `INV-107`. Not decided here.**
+
+**Registered alongside, not resolved here.** ⚠ **`GAP-133`'s read-side lines are now STALE** — they still read *"STILL OPEN AND NOT STARTED: the listing/product read · the first live pull"*, *"BUILT IS NOT RUN. No listing has been read from Daraz"* and *"Live marketplace verification remains out of scope and untouched."* **All three were falsified by the 2026-08-18 production pull.** 🔴 **Correcting them is a status reconciliation of `GAP-133`, not a consequence of this fix, and was deliberately not performed here.**
+
+**Verification.** ✅ **`ListingDiscoveryTest` — 17 tests, the first coverage `discover()` has ever had.** ⚠ **The defect shipped because nothing tested the method at all:** the adapter's `discoverActive` was tested, the service method that consumes it was not. **Backend suite 605/605.**
 
 ---
 
