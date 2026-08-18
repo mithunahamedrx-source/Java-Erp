@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { PageHeader } from '../shell/AppShell';
 import { Card, EmptyState, StatusPill, buttonStyle } from '../ui/primitives';
 import { OPERATION_OUTCOME_ROLE, semanticRoleOf } from '../design/semanticRole';
 import { OperationalRegion } from '../ui/OperationalRegion';
@@ -98,7 +99,32 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
 
   return (
     <div data-testid="listing-batch" style={{ display: 'grid', gap: 'var(--space-6)' }}>
+      {/*
+        🔴 THE TITLE NAMES THE ACT THAT ACTUALLY RAN. The pack draws "Push result" because its
+        example is a push; saying that over a DISCOVER batch would describe an outbound act
+        Trioloo has never performed. The kind is read from the record.
+      */}
+      <PageHeader
+        title={`${titleFor(batch.operationKind)} — run ${batch.id.slice(0, 8)}`}
+        subtitle="Products · Listings"
+        actions={
+          <Link
+            data-testid="batch-back"
+            to="/inventory/products/listings"
+            style={{ ...buttonStyle('secondary', 'button'), textDecoration: 'none' }}
+          >
+            Back to Listings
+          </Link>
+        }
+      />
+
       {error && <div style={noticeStyle}>{error}</div>}
+
+      <div data-testid="batch-subject" style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>
+        {batch.scopeDescription ?? 'No scope description'} · started {when(batch.requestedAt)}
+        {batch.requestedByName ? ` by ${batch.requestedByName}` : ''}
+        {batch.completedAt ? ` · completed ${when(batch.completedAt)}` : ' · not completed'}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))`, gap: 'var(--space-5)' }}>
         {tiles.map(([key, label, value]) => (
@@ -111,32 +137,46 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
         ))}
       </div>
 
+      {/*
+        🔴 `INV-107.1` / `INV-107.2` — THE STRIP IS AN AGGREGATE AND THE FRAME SAYS SO. Per-listing
+        outcomes are retained individually and are never collapsed into a batch verdict; a failure
+        on three members puts none of the others in doubt.
+      */}
+      <div data-testid="batch-aggregate-note" style={mutedNote}>
+        The summary is an aggregate. Each Listing keeps its own outcome — a failure on some
+        Listings does not put the others in doubt.
+      </div>
+
       <Card>
         <div style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'nowrap' }}>
-          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-heading-ink)' }}>
-              {batch.operationKind}
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {batch.scopeDescription ?? 'No scope description'} · requested by {batch.requestedByName ?? 'System'} at {batch.requestedAt}
-            </div>
-          </div>
-          <select
-            data-testid="batch-outcome-filter"
-            aria-label="Filter members by outcome"
-            value={outcome}
-            onChange={(event) => {
-              setPage(0);
-              setOutcome(event.target.value as OperationOutcome | '');
-            }}
-            style={selectStyle}
-          >
-            {['', 'SUCCEEDED', 'FAILED', 'MANUAL_REQUIRED', 'DIVERGED', 'REQUESTED', 'IN_PROGRESS'].map((option) => (
-              <option key={option} value={option}>
-                {option === '' ? 'Outcome: all' : option}
-              </option>
+          {/* ⚠ The subject is stated once, above. This row carries the controls only. */}
+          <div style={{ minWidth: 0, flex: '1 1 auto' }} />
+          {/*
+            ⚠ THE FRAME'S TABS CARRY THEIR COUNTS, and every count is the SERVER'S — derived
+            from the batch's members (`INV-108.2`). Filtering and paging run on the server, so
+            a tab never re-counts a page the browser happens to hold.
+          */}
+          <div data-testid="batch-outcome-filter" role="tablist" aria-label="Filter members by outcome" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            {([
+              ['', 'All', batch.requested],
+              ['SUCCEEDED', 'Successful', batch.succeeded],
+              ['FAILED', 'Failed', batch.failed],
+              ['MANUAL_REQUIRED', 'Manual required', batch.manualRequired],
+              ['DIVERGED', 'Diverged', batch.diverged],
+            ] as const).map(([value, label, count]) => (
+              <button
+                key={value || 'all'}
+                type="button"
+                role="tab"
+                aria-selected={outcome === value}
+                data-testid={`batch-filter-${value || 'all'}`}
+                onClick={() => { setPage(0); setOutcome(value as OperationOutcome | ''); }}
+                style={outcome === value ? tabActive : tab}
+              >
+                {label} {count}
+              </button>
             ))}
-          </select>
+          </div>
           {/*
             🔴 `PRD-186.d` — retry targets FAILED members only. MANUAL_REQUIRED and DIVERGED
             are deliberately excluded: a person must decide those outcomes before anything is
@@ -147,6 +187,25 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
               Retry {batch.failed} failed
             </button>
           )}
+        </div>
+
+        {/*
+          ⚠ THE PACK'S TWO HEADER ACTIONS, EACH STATED HONESTLY.
+
+          🔴 "Export result" has NO endpoint — nothing serialises a batch — so it is named as
+          unavailable rather than rendered as a control that would do nothing.
+
+          🔴 "Retry N failed" is offered ONLY when failed members exist (`PRD-186.d`), and an
+          inbound run records none. ⚠ Retrying anything OUTBOUND additionally needs an adapter
+          that can send, which does not exist (`LSC-051`).
+        */}
+        <div data-testid="batch-actions-unavailable" style={{ padding: '0 22px 18px' }}>
+          <div style={mutedNote}>
+            Exporting a run is not available — no export of a batch exists yet.
+            {batch.failed === 0
+              ? ' Retry addresses failed members only, and this run recorded none.'
+              : ' Retry addresses failed members only; items needing manual attention must be resolved by a person first.'}
+          </div>
         </div>
       </Card>
 
@@ -183,6 +242,10 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
                     <div style={{ flex: '1 1 0', minWidth: 0, ...cellText, color: 'var(--color-text-secondary)' }} title={member.detail ?? ''}>
                       {member.detail ?? '-'}
                     </div>
+                    {/* The pack times a settled member; an unsettled one has no time to show. */}
+                    <div style={{ width: '150px', flexShrink: 0, ...cellText, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                      {member.completedAt ? when(member.completedAt) : '—'}
+                    </div>
                     <Link
                       to={`/inventory/products/listings/${member.channelListingId}`}
                       style={{ ...buttonStyle('secondary', 'row-action'), padding: '0 12px', textDecoration: 'none', flexShrink: 0 }}
@@ -198,7 +261,7 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
           {members.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-6)' }}>
               <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-                {page * size + 1}-{Math.min((page + 1) * size, totalElements)} of {totalElements}
+                {page * size + 1}–{Math.min((page + 1) * size, totalElements)} of {totalElements} results
               </span>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <button type="button" data-testid="batch-page-prev" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} style={pageButton}>
@@ -225,6 +288,32 @@ export default function ChannelListingBatchPage(): React.JSX.Element {
 const tile: React.CSSProperties = { background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--elevation-card)', padding: '12px 14px', minWidth: 0 };
 const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'nowrap', width: '100%', minWidth: 0, padding: '8px 4px' };
 const cellText: React.CSSProperties = { fontSize: '12.5px', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
-const selectStyle: React.CSSProperties = { height: 'var(--control-height-row-action)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border-control)', padding: '0 8px', fontSize: '13px', fontFamily: 'inherit', background: 'var(--color-surface)', flexShrink: 0 };
 const pageButton: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '9px', border: '1px solid var(--color-border-control)', background: 'var(--color-surface)', color: 'var(--color-text-muted)', fontFamily: 'inherit', cursor: 'pointer' };
 const noticeStyle: React.CSSProperties = { fontSize: '13px', color: 'var(--color-text-primary)', background: 'var(--color-status-neutral-bg)', border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', padding: '10px 14px' };
+
+/**
+ * The act the run actually performed, named for the operator.
+ *
+ * <p>🔴 The pack's example is a push, so it prints "Push result". Printing that over an
+ * INBOUND run would describe an outbound act Trioloo has never performed, so the record's own
+ * kind decides the words.
+ */
+function titleFor(kind: string): string {
+  switch (kind) {
+    case 'DISCOVER': return 'Discovery result';
+    case 'REFRESH': return 'Refresh result';
+    case 'PUSH_UPDATE': return 'Push result';
+    case 'PUBLISH_CREATE': return 'Publish result';
+    case 'WITHDRAW': return 'Withdraw result';
+    default: return 'Operation result';
+  }
+}
+
+function when(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? '—' : at.toLocaleString();
+}
+
+const mutedNote: React.CSSProperties = { fontSize: '11.5px', color: 'var(--color-text-secondary)', lineHeight: 1.6 };
+const tab: React.CSSProperties = { height: 'var(--control-height-row-action)', padding: '0 11px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border-control)', background: 'var(--color-surface)', color: 'var(--color-text-secondary)', fontFamily: 'inherit', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' };
+const tabActive: React.CSSProperties = { ...tab, border: '1.5px solid var(--color-ink)', color: 'var(--color-heading-ink)', fontWeight: 700 };
