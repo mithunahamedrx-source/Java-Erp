@@ -720,8 +720,14 @@ describe('Frame 06 — Listing Detail', () => {
 
     await waitFor(() => expect(screen.getByTestId('comparison-push-sale_price')).toBeTruthy());
     expect((screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('comparison-capability-sale_price').textContent)
+    /*
+      ⚠ THE REASON IS STATED ONCE, ABOVE THE TABLE, not beside every difference. It is one fact
+      about the CHANNEL rather than about a row, and repeating it filled the resolution column
+      with the same sentence down the page.
+    */
+    expect(screen.getByTestId('comparison-capability-note').textContent)
       .toContain('No marketplace adapter is configured');
+    expect(screen.queryByTestId('comparison-capability-sale_price')).toBeNull();
   });
 
   /** 🔴 Frame 08 still opens from the staged row, with both values in the money language. */
@@ -877,5 +883,116 @@ describe('Frame 06 — a discovered Listing with nothing authored yet', () => {
     renderDetail();
     await waitFor(() => expect(screen.getByTestId('detail-resolve')).toBeTruthy());
     expect(document.body.textContent).toContain('Not set locally');
+  });
+});
+
+/**
+ * PROVIDER MARKUP MADE READABLE — the production defect of 2026-08-19.
+ *
+ * 🔴 A Daraz `short_description` arrived as `<ul><li>Processor : Intel&reg; …</li></ul>` and
+ * rendered as raw tag soup in the attribute table and the Intended-vs-Reported column, making
+ * the page unreadable and one row taller than the rest of it.
+ *
+ * 🔴 THE FIX IS PRESENTATION ONLY. Nothing stored changes, and no markup is ever executed —
+ * `dangerouslySetInnerHTML` appears nowhere in this codebase.
+ */
+describe('Frame 06 — provider markup is rendered as readable text', () => {
+  const HTML_DESCRIPTION = '<ul style="margin:0"> <li>Processor : Intel&reg; Core&trade; i5-7500</li>'
+    + ' <li>RAM : 8GB DDR4 Any Brands&nbsp;</li> </ul>';
+
+  const WITH_MARKUP: ChannelListing = {
+    ...LISTING,
+    intendedTitle: null,
+    intendedDescription: null,
+    reportedDescription: HTML_DESCRIPTION,
+    reportedDescriptionReadable: true,
+    channelReportedTitle: 'Intel Core i5 7500 Desktop PC',
+    reportedTitleReadable: true,
+  };
+
+  const MARKUP_ROWS: readonly ComparisonRow[] = [
+    {
+      fieldKey: 'attribute:short_description',
+      label: 'short_description',
+      intendedValue: null,
+      reportedValue: HTML_DESCRIPTION,
+      reportedReadable: true,
+      state: 'DIVERGED',
+      resolvable: true,
+    },
+  ];
+
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  /** 🔴 The attribute cell shows words, not tags. */
+  it('renders a marketplace attribute as readable text', async () => {
+    stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
+
+    const cell = screen.getByTestId('attribute-reported-attribute:short_description');
+    const text = cell.textContent ?? '';
+    expect(text).toContain('Processor : Intel® Core™ i5-7500');
+    expect(text).toContain('RAM : 8GB DDR4 Any Brands');
+    expect(text).not.toContain('<li>');
+    expect(text).not.toContain('&reg;');
+    expect(text).not.toContain('&nbsp;');
+    expect(text).not.toContain('margin:0');
+  });
+
+  /** 🔴 NOTHING IS EXECUTED — the value becomes text nodes, never elements. */
+  it('never turns provider markup into live elements', async () => {
+    stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
+
+    const cell = screen.getByTestId('attribute-reported-attribute:short_description');
+    expect(cell.querySelector('ul')).toBeNull();
+    expect(cell.querySelector('li')).toBeNull();
+    expect(cell.innerHTML).not.toContain('<ul');
+  });
+
+  /** ⚠ A long value is CONTAINED so the row keeps the height its neighbours have. */
+  it('contains a long value instead of letting it set the row height', async () => {
+    stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
+
+    const style = screen.getByTestId('attribute-reported-attribute:short_description').getAttribute('style') ?? '';
+    expect(style).toContain('max-height');
+    expect(style).toContain('overflow-y: auto');
+  });
+
+  /** ✅ The description gets its own readable pair rather than a clipped one-line cell. */
+  it('shows the reported description as a readable block', async () => {
+    stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-reported-description')).toBeTruthy());
+
+    const text = screen.getByTestId('detail-reported-description').textContent ?? '';
+    expect(text).toContain('Processor : Intel® Core™ i5-7500');
+    expect(text).not.toContain('<ul');
+    expect(screen.getByTestId('detail-intended-description').textContent).toContain('Not set locally');
+  });
+
+  /**
+   * 🔴 `DZC-026` — the channel's own title is shown as received, and `name_en` is NEVER
+   * substituted for it. It remains an ordinary attribute.
+   */
+  it('shows the channel reported title without substituting an attribute', async () => {
+    stubApiWithComparison(
+      [
+        ...MARKUP_ROWS,
+        { fieldKey: 'attribute:name_en', label: 'name_en', intendedValue: null, reportedValue: 'English Name', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+      ],
+      WITH_MARKUP,
+    );
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
+
+    /* ✅ name_en appears in the attribute table, where it belongs. */
+    expect(screen.getByTestId('attribute-reported-attribute:name_en').textContent).toContain('English Name');
+    /* 🔴 And the page heading is not it. */
+    expect(document.querySelector('h1')?.textContent ?? '').not.toContain('English Name');
   });
 });

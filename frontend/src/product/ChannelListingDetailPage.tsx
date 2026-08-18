@@ -7,6 +7,7 @@ import { Card, EmptyState, Notice, buttonStyle } from '../ui/primitives';
 import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import { formatMoment, formatShortMoment } from '../platform/datetime';
 import { ChannelListingComparison, displayComparisonValue } from './ChannelListingComparison';
+import { isLongProviderText, readableProviderText } from './providerText';
 import { MappingModal } from './MappingModal';
 import { PushReviewModal } from './PushReviewModal';
 import { ListingRefreshState, useListingRefresh } from './ListingRefreshState';
@@ -400,6 +401,18 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             <Section id="overview" label="Overview" refs={sectionRefs}>
               <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px 24px', margin: 0 }}>
                 <Fact label="Intended title" value={item.intendedTitle} missing="Not set locally" />
+                {/*
+                  ⚠ THE CHANNEL'S OWN TITLE, SHOWN AS RECEIVED. It is the page heading's
+                  fallback, but an operator comparing the two needs to see it named as the
+                  CHANNEL'S rather than inferred from the heading.
+                  🔴 `DZC-026` — `attributes.name` and nothing else. No attribute is
+                  substituted for it, in any language.
+                */}
+                <Fact
+                  label="Channel reported title"
+                  value={item.reportedTitleReadable ? readableProviderText(item.channelReportedTitle) : null}
+                  missing="Not readable from this channel"
+                />
                 <Fact label="Channel / Shop" value={item.channelName ?? item.channelInstance} />
                 <Fact label="Listing status" value={item.listingStatus} missing="No status reported" strong />
                 {/* 🔴 `PRD-188.b` — absence is stated, never blank and never faked. */}
@@ -413,6 +426,38 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                 <Fact label="Last successful push" value={formatMoment(item.lastSuccessfulPushAt)} missing="Never pushed" />
                 <Fact label="Last seen in discovery" value={formatMoment(item.lastSeenInDiscoveryAt)} missing="Not seen in a run" />
               </dl>
+
+              {/*
+                ⚠ DESCRIPTION IS THE ONE FACT THE FACT-GRID CANNOT HOLD. It is a paragraph, not
+                a value, and a marketplace writes it as HTML — so it gets its own readable pair
+                rather than a clipped one-line cell that showed the operator `<ul><li>…`.
+
+                🔴 PRESENTATION ONLY. `readableProviderText` never changes what is stored, and
+                the intended side stays exactly what a person authored (`PRD-181.a`).
+              */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px', marginTop: '18px' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={columnLabel}>Intended description</div>
+                  <div data-testid="detail-intended-description" style={descriptionBlock(item.intendedDescription)}>
+                    {item.intendedDescription ?? 'Not set locally'}
+                  </div>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={columnLabel}>Channel reported description</div>
+                  <div
+                    data-testid="detail-reported-description"
+                    style={{
+                      ...descriptionBlock(item.reportedDescriptionReadable ? readableProviderText(item.reportedDescription) : null),
+                      color: item.reportedDescriptionReadable ? 'var(--color-text-primary)' : 'var(--color-text-demoted)',
+                      fontStyle: item.reportedDescriptionReadable ? 'normal' : 'italic',
+                    }}
+                  >
+                    {item.reportedDescriptionReadable
+                      ? readableProviderText(item.reportedDescription) ?? '—'
+                      : 'Not readable from this channel'}
+                  </div>
+                </div>
+              </div>
             </Section>
 
             {/* ------------------------------------------------------------------ B */}
@@ -597,10 +642,26 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                   {attributeRows.map((row) => (
                     <div key={row.fieldKey} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '12px', padding: '9px 0', borderBottom: '1px solid var(--color-divider-light)', fontSize: '12.5px', minWidth: 0 }}>
                       <div style={{ fontWeight: 600, ...clip }}>{row.label}</div>
-                      <div style={clip}>{row.intendedValue ?? '—'}</div>
-                      {/* 🔴 `SYS-034` — unreadable is said in words, never shown as empty. */}
-                      <div style={{ ...clip, color: row.reportedReadable ? 'var(--color-text-primary)' : 'var(--color-text-demoted)', fontStyle: row.reportedReadable ? 'normal' : 'italic' }}>
-                        {row.reportedReadable ? row.reportedValue ?? '—' : 'Not readable from this channel'}
+                      <div style={attributeCell(row.intendedValue)} data-testid={`attribute-intended-${row.fieldKey}`}>
+                        {readableProviderText(row.intendedValue) ?? '—'}
+                      </div>
+                      {/*
+                        🔴 `SYS-034` — unreadable is said in words, never shown as empty.
+                        ⚠ A readable value is shown through `readableProviderText`: a marketplace
+                        writes attributes as HTML, and the raw fragment was rendering as tag soup
+                        on one clipped line. Presentation only — the stored value is untouched.
+                      */}
+                      <div
+                        data-testid={`attribute-reported-${row.fieldKey}`}
+                        style={{
+                          ...attributeCell(row.reportedReadable ? row.reportedValue : null),
+                          color: row.reportedReadable ? 'var(--color-text-primary)' : 'var(--color-text-demoted)',
+                          fontStyle: row.reportedReadable ? 'normal' : 'italic',
+                        }}
+                      >
+                        {row.reportedReadable
+                          ? readableProviderText(row.reportedValue) ?? '—'
+                          : 'Not readable from this channel'}
                       </div>
                     </div>
                   ))}
@@ -960,6 +1021,19 @@ const columnLabel: React.CSSProperties = {
   fontWeight: 700,
 };
 const clip: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 };
+
+/**
+ * An attribute cell: one line when the value is short, a CONTAINED scrolling block when the
+ * marketplace wrote a paragraph into it.
+ *
+ * <p>🔴 CONTAINED, NEVER TRUNCATED — the whole value stays reachable, and the row keeps the
+ * height its neighbours have.
+ */
+function attributeCell(value: string | null): React.CSSProperties {
+  return isLongProviderText(readableProviderText(value))
+    ? { minWidth: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '108px', overflowY: 'auto', lineHeight: 1.5 }
+    : clip;
+}
 const captionStyle: React.CSSProperties = { fontSize: '11.5px', color: 'var(--color-text-demoted)', margin: '10px 0 0', lineHeight: 1.6 };
 /**
  * ⚠ DEVELOPMENT ONLY — the Frame 16 states a real adapter would produce.
@@ -1160,3 +1234,23 @@ const DEV_STAGED_FACTS = {
   syncState: 'DIVERGED',
   divergedFactCount: 2,
 } as const satisfies Partial<ChannelListing>;
+
+/**
+ * A description block: readable, contained, and never the height of the page.
+ *
+ * <p>🔴 CONTAINED, NEVER TRUNCATED — a long marketplace description scrolls inside its own box
+ * so the whole value stays reachable while the section keeps its shape.
+ */
+function descriptionBlock(value: string | null): React.CSSProperties {
+  return {
+    fontSize: '12.5px',
+    lineHeight: 1.6,
+    marginTop: '4px',
+    minWidth: 0,
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    ...(isLongProviderText(value)
+      ? { maxHeight: '150px', overflowY: 'auto', paddingRight: '6px' }
+      : null),
+  };
+}

@@ -250,24 +250,29 @@ describe('Frame 07 — Intended vs reported', () => {
     renderComparison({ rows: [DIVERGED], item: { ...ITEM, adapterAvailable: false } as ChannelListing });
     const push = screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement;
     expect(push.disabled).toBe(true);
-    expect(screen.getByTestId('comparison-capability-sale_price').textContent)
-      .toContain('No marketplace adapter is configured for this channel.');
+    /* ⚠ The reason is one fact about the CHANNEL and is stated once, above the table. */
+    expect(screen.getByTestId('comparison-capability-note').textContent)
+      .toContain('No marketplace adapter is configured for this channel');
   });
 
   /**
-   * 🔴 The capability sentence is a full sentence in a 240px column. It must STACK beneath
-   * the actions; as a `flex-basis: 100%` child of a nowrap row it did not wrap at all and
-   * escaped the card to the right.
+   * 🔴 THE CAPABILITY SENTENCE IS NOT IN THE ROW AT ALL, which is what finally fixed it. A full
+   * sentence in a 240px resolution column could not fit however it was stacked, and repeating
+   * it beside every difference filled the column with the same words down the page.
+   *
+   * ⚠ It is one fact about the CHANNEL, so it is stated ONCE above the table. The resolution
+   * cell now holds actions only, and the action pair still never wraps.
    */
-  it('stacks the capability sentence under the actions instead of beside them', () => {
+  it('keeps the capability sentence out of the resolution column entirely', () => {
     renderComparison({ rows: [DIVERGED], item: { ...ITEM, adapterAvailable: false } as ChannelListing });
-    const note = screen.getByTestId('comparison-capability-sale_price');
-    expect(note.getAttribute('style')).not.toContain('flex-basis');
-    const cell = note.parentElement as HTMLElement;
-    expect(cell.getAttribute('style')).toContain('flex-direction: column');
-    // The action pair itself still never wraps.
+
+    expect(screen.queryByTestId('comparison-capability-sale_price')).toBeNull();
+    expect(screen.getByTestId('comparison-capability-note')).toBeTruthy();
+
     const actions = screen.getByTestId('comparison-push-sale_price').parentElement as HTMLElement;
     expect(actions.getAttribute('style')).toContain('flex-wrap: nowrap');
+    /* 🔴 The sentence is not a descendant of the row's resolution cell. */
+    expect(actions.textContent ?? '').not.toContain('No marketplace adapter');
   });
 
   /** 🔴 Structured operational rows do not wrap, and no row scrolls horizontally. */

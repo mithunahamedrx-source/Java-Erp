@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.9.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.10.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -435,6 +435,43 @@ this document follows.
 > `GAP-134` untouched, `name_en` not mapped to a title, price mapping unchanged, and `FRAME 18` still
 > has no component.**
 
+> **`LSC-058` — ✅ ADDED 2026-08-19. PROVIDER MARKUP IS NORMALISED FOR DISPLAY, AND ONLY FOR
+> DISPLAY.**
+>
+> **A marketplace writes its description and attributes as HTML.** **The first live Daraz pull
+> returned `short_description` as `<ul><li>Processor : Intel&reg; Core&trade; i5-7500</li>…`,
+> and rendering it raw turned the Listing detail and `FRAME 07` into tag soup — one attribute
+> made a comparison row taller than the rest of the page.**
+>
+> **a.** 🔴 **NOTHING STORED CHANGES.** **`PRD-181` keeps the reported side a MIRRORED EXTERNAL
+> FACT and `DZC-031.h` governs how it is persisted.** ✅ **Normalisation is the last step before
+> pixels: entities a provider actually writes are decoded, block and list tags become line
+> breaks and bullets, inline `style` is dropped, and every remaining tag is stripped.**
+>
+> **b.** 🔴 **PROVIDER MARKUP IS NEVER EXECUTED.** **`dangerouslySetInnerHTML` appears nowhere in
+> the frontend and must not be introduced.** ⚠ **A marketplace description is UNTRUSTED
+> THIRD-PARTY INPUT; the normaliser is a pure string transform whose output is rendered as
+> TEXT.** ✅ **Entities are decoded AFTER tags are stripped, so an escaped tag can never be
+> reassembled into a live one.**
+>
+> **c.** 🔴 **NORMALISED TEXT IS FOR READING, NEVER FOR COMPARING OR SENDING.** **It is never
+> written back, never pushed, and never used to decide whether two values differ** — **`PRD-181`
+> compares what was stored.**
+>
+> **d.** ✅ **LONG VALUES ARE CONTAINED, NEVER TRUNCATED.** **A long description scrolls inside
+> its own block so the whole value stays reachable and the row keeps the height its neighbours
+> have.** ⚠ **A shortened copy would misstate what the channel said, exactly as `DZC-031.h`
+> refuses to truncate on the way in.**
+>
+> **e.** ✅ **A CHANNEL FACT IS STATED ONCE, NOT PER ROW.** **The missing-adapter reason moved
+> out of `FRAME 07`'s resolution column to a single line above the table** — **it describes the
+> CHANNEL, and repeating it beside every difference filled a 240px column with one sentence
+> over and over.** 🔴 **The push controls' disabled state is unchanged.**
+>
+> **f.** 🔴 **NO MAPPING OR BUSINESS RULE IS TOUCHED.** **`name_en` remains an ordinary reported
+> attribute and is not promoted to a title (`DZC-026`), the price mapping is unchanged, no
+> reported value is written into intent, and `GAP-134` stays open.**
+
 ---
 
 # 6. State of the world
@@ -456,6 +493,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.10.0** | **2026-08-19** | ✅ **`LSC-058` ADDED — PROVIDER MARKUP IS NORMALISED FOR DISPLAY, AND ONLY FOR DISPLAY.** **The first live Daraz pull returned `short_description` as an HTML fragment, and rendering it raw turned Listing detail and `FRAME 07` into tag soup — one attribute made a comparison row taller than the rest of the page.** ✅ **Entities a provider actually writes are decoded, block and list tags become line breaks and bullets, inline `style` is dropped, and remaining tags are stripped.** 🔴 **NOTHING STORED CHANGES — the reported side stays a mirrored external fact, and normalised text is never written back, pushed, or used to decide whether two values differ.** 🔴 **Provider markup is NEVER executed: `dangerouslySetInnerHTML` appears nowhere and entities are decoded AFTER tags are stripped, so an escaped tag cannot be reassembled into a live one.** ✅ **Long values are CONTAINED and scroll, never truncated.** ✅ **The missing-adapter reason moved out of the resolution column to one line above the table — it describes the channel, not a row.** 🔴 **No mapping or business rule touched: `name_en` stays an attribute, price mapping unchanged, no intent written, `GAP-134` open.** ✅ **Frontend only. `src/product` + `src/design` 656/656; build clean.** |
 | **1.9.0** | **2026-08-18** | 🟨 **`LSC-057` ADDED — `FRAME 19`’S INBOUND HALF RECONCILED AGAINST REAL RECORDED BATCHES; THE FRAME IS NOT COMPLETE.** **`ChannelListingBatchPage.tsx` reconciled IN PLACE and tagged `FRAME 19`: subject with actor and both times, server-derived summary strip, the `INV-107.1` aggregate note, outcome tabs carrying the server’s counts, server-side filtering and paging, and one row per `E-107` operation. 11 tests.** 🔴 **The title names the act that actually ran — a `DISCOVER` run is a "Discovery result", never the pack’s "Push result".** 🔴 **No `FAILED` or `DIVERGED` member is fabricated in the screen or its fixtures.** 🔴 **"Export result" and "Retry N failed" are stated as unavailable — no export endpoint exists, and retry addresses failed members which an inbound run does not produce (`PRD-186.d`).** 🔴 **The OUTBOUND half remains BLOCKED on an adapter and a documented Daraz write protocol (`LSC-051`); `FRAME 18` still has no component.** ✅ **Also `LSC-003`: `FRAME 04`, `FRAME 11` and `FRAME 19` now named in their own source, with a traceability test.** 🔴 **No business question decided — `GAP-134` untouched, no `sync_state` written, `name_en` not mapped, price mapping unchanged.** ✅ **Frontend only. `src/product` + `src/design` 637/637; build clean.** |
 | **1.8.0** | **2026-08-18** | ✅ **`FRAME 20` IMPLEMENTED — Sync Now and the shared operation result.** **`ChannelListingSyncPage.tsx` was reconciled IN PLACE at its existing route: the request surface carries the channel selection, the one-channel-per-sync scope enforced as a RADIO GROUP (`PRD-189.b`), the disabled state for an adapter reporting nothing readable, the "What sync does" block with "Sync never pushes", the absence-is-not-deletion footnote and Cancel / Start sync; the result surface carries the completion banner, the three real tallies, the batch-derived Manual required and Errors, and a per-`E-107` "Channel read" table.** 🔴 **FOUR FIGURES THE PACK DRAWS ARE RENDERED UNAVAILABLE RATHER THAN INVENTED — reported changes found, new divergences, not-returned-this-run and retry — because a discovery run tracks none of them** (`LSC-034`, `LSC-056.c`). 🔴 **The monthly-automatic last-run time is NOT fabricated: the cadence is ratified but no scheduler exists.** ⚠ **A channel’s "last read" is often absent because discovery does not write a sync time — a consequence of the OPEN `GAP-134` question, not worked around here.** 🔴 **`FRAME 18` and `FRAME 19` are UNCHANGED and remain blocked on the OUTBOUND half; `LSC-011` and `LSC-051` narrowed to those two.** 🔴 **No business question decided: workspace summary untouched, no stored `sync_state` written or overridden, `name_en` not mapped to a title, price mapping unchanged.** ✅ **Frontend only — no backend, endpoint or migration change. 19 tests; `src/product` + `src/design` 601/601; build clean.** |
 | **1.7.0** | **2026-08-18** | ✅ **`LSC-055` ADDED — `FRAME 10` EXPLAINS AN UNAUTHORED LISTING INSTEAD OF A SILENT BLANK FORM.** **A discovered Listing has no intended content (`PRD-181.a`), so the edit form is legitimately empty; in production that read as a broken page.** ✅ **The page now states the condition and links to the intended-versus-reported comparison where `PRD-184.b` Accept Marketplace is offered per field.** 🔴 **Reported values appear as READ-ONLY CONTEXT BENEATH each field and NEVER in the input — pre-filling would author intent by page load, and opening the page writes nothing.** ⚠ **The context is withdrawn once the operator authors that field.** 🔴 **The reported value is shown AS RECEIVED and clamped visually rather than truncated.** 🔴 **NO TITLE RULE CHANGED — display stays `intendedTitle` → `channelReportedTitle` → *Untitled listing*, and `name_en` is NOT promoted to the title.** 🔴 **The workspace summary is untouched and `GAP-134` remains open and undecided.** ✅ **Frontend only — no backend, endpoint or migration change. `src/product` + `src/design` 582/582, build clean; backend 610/610.** |

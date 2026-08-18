@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from '../ui/Overlay';
+import { isLongProviderText, readableProviderText } from './providerText';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
 import { acceptMarketplaceValue, requestOperation } from './channelListingApi';
@@ -43,7 +44,52 @@ export function displayComparisonValue(
   if (value === null) {
     return null;
   }
-  return MONEY_FIELDS.has(fieldKey) ? formatMoneyForDisplay(value) : value;
+  /*
+    🔴 PRESENTATION ONLY — see `providerText.ts`. A marketplace writes its description and
+    attributes as HTML, and rendering the raw fragment turns a comparison row into tag soup.
+    ⚠ The STORED value is untouched, and every comparison the server makes still uses it.
+  */
+  return MONEY_FIELDS.has(fieldKey)
+    ? formatMoneyForDisplay(value)
+    : readableProviderText(value);
+}
+
+/**
+ * A value shown at its natural size, or CONTAINED when it would otherwise set the row height.
+ *
+ * <p>🔴 CONTAINED, NEVER TRUNCATED. A long marketplace description scrolls inside its own box,
+ * so the whole value stays available and the row keeps the height its neighbours have. ⚠ A
+ * shortened copy would misstate what the channel said, exactly as `DZC-031.h` refuses to
+ * truncate on the way in.
+ */
+export function ComparisonValue({
+  value,
+  emphasis,
+  testId,
+}: {
+  readonly value: string | null;
+  readonly emphasis?: boolean;
+  readonly testId?: string;
+}): React.JSX.Element {
+  const long = isLongProviderText(value);
+  return (
+    <div
+      data-testid={testId}
+      data-long={long ? 'true' : undefined}
+      style={{
+        fontSize: emphasis ? '15px' : '12.5px',
+        fontWeight: emphasis ? 800 : 600,
+        color: 'var(--color-text-primary)',
+        overflowWrap: 'anywhere',
+        whiteSpace: 'pre-wrap',
+        ...(long
+          ? { maxHeight: '132px', overflowY: 'auto', fontSize: '12px', fontWeight: 500, lineHeight: 1.55 }
+          : null),
+      }}
+    >
+      {value ?? '—'}
+    </div>
+  );
 }
 
 type Resolution = { readonly kind: 'accept' | 'push'; readonly row: ComparisonRow };
@@ -127,6 +173,22 @@ export function ChannelListingComparison({
         </div>
       </div>
 
+      {/*
+        ⚠ ONE FACT ABOUT THE CHANNEL, STATED ONCE. It used to print beside every difference,
+        which filled the resolution column with the same sentence repeated down the page. It
+        belongs to the channel, not to any row.
+
+        🔴 IT IS ALSO THE HONEST BOUNDARY. Outbound is not implemented: `pushUpdate` refuses and
+        contacts nothing (`LSC-053`). Where no adapter is configured the push controls are
+        disabled, and this says why once.
+      */}
+      {mayPublish && !item.adapterAvailable && (
+        <div data-testid="comparison-capability-note" style={{ ...quietNote, marginTop: '12px' }}>
+          No marketplace adapter is configured for this channel, so nothing can be sent from
+          here. Accepting a marketplace value is unaffected — it changes ERP intent only.
+        </div>
+      )}
+
       <div style={{ ...gridRow, marginTop: '18px', paddingBottom: '8px', borderBottom: '1px solid var(--color-border-card)' }}>
         <div style={columnLabel}>Fact</div>
         <div style={columnLabel}>ERP intended</div>
@@ -192,9 +254,11 @@ export function ChannelListingComparison({
               </div>
 
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: diverged ? '15px' : '12.5px', fontWeight: diverged ? 800 : 600, color: 'var(--color-text-primary)', overflowWrap: 'anywhere' }}>
-                  {display(row, row.intendedValue) ?? '—'}
-                </div>
+                <ComparisonValue
+                  value={display(row, row.intendedValue)}
+                  emphasis={diverged}
+                  testId={`comparison-intended-${row.fieldKey}`}
+                />
                 {unsent && item.lastSuccessfulPushAt && (
                   <div style={subNote}>Last pushed {formatMoment(item.lastSuccessfulPushAt)}</div>
                 )}
@@ -208,9 +272,11 @@ export function ChannelListingComparison({
                 */}
                 {readable ? (
                   <>
-                    <div style={{ fontSize: diverged ? '15px' : '12.5px', fontWeight: diverged ? 800 : 600, color: 'var(--color-text-primary)', overflowWrap: 'anywhere' }}>
-                      {display(row, row.reportedValue) ?? '—'}
-                    </div>
+                    <ComparisonValue
+                      value={display(row, row.reportedValue)}
+                      emphasis={diverged}
+                      testId={`comparison-reported-${row.fieldKey}`}
+                    />
                     {unsent && (
                       <div style={subNote}>Consistent with the last push — not a divergence</div>
                     )}
@@ -396,12 +462,11 @@ function resolutionFor(
         )}
       </div>
       {!mayManage && !mayPublish && <span style={quietNote}>You cannot resolve this difference.</span>}
-      {/* ⚠ Capability, not authority — said once, and only where it actually blocks. */}
-      {mayPublish && !item.adapterAvailable && (
-        <span data-testid={`comparison-capability-${row.fieldKey}`} style={quietNote}>
-          No marketplace adapter is configured for this channel.
-        </span>
-      )}
+      {/*
+        ⚠ THE CAPABILITY REASON IS NOT REPEATED HERE. It is one fact about the CHANNEL, not
+        about this row, and printing it beside every difference filled the resolution column
+        with the same sentence over and over. It is stated ONCE above the table instead.
+      */}
     </>
   );
 }
