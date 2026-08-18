@@ -50,9 +50,18 @@ class DarazAuthorisationAdapterTest {
     }
 
     private DarazAuthorisationAdapter adapter(String key, String secret, String redirect, String body) {
-        DarazTransport transport = uri -> {
-            captured = uri;
-            return body;
+        DarazTransport transport = new DarazTransport() {
+            @Override
+            public String get(java.net.URI uri) {
+                captured = uri;
+                return body;
+            }
+
+            @Override
+            public String post(java.net.URI uri, String requestBody, String contentType) {
+                /* 🔴 GET-only by design: the token exchange is a GET (`DZC-004`). */
+                throw new UnsupportedOperationException("This test transport is GET-only.");
+            }
         };
         return new DarazAuthorisationAdapter(
                 new DarazProperties(key, secret, redirect), new DarazRequestSigner(), transport, clock);

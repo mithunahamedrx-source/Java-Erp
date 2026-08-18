@@ -1,5 +1,6 @@
 package com.trioloo.erp.integration.infrastructure.daraz;
 
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -26,8 +27,41 @@ public class RestClientDarazTransport implements DarazTransport {
 
     @Override
     public String get(URI uri) {
+        return send(() -> client.get().uri(uri).retrieve().body(String.class));
+    }
+
+    /**
+     * 🔴 {@code DZC-029} — the POST half, and it differs from {@link #get} in exactly one way:
+     * it carries a body and declares a content type. Everything else — no interpretation of the
+     * payload, the same status-versus-unreachable split, the same silence about the URI — is
+     * deliberately identical, so no endpoint can acquire special error behaviour by being a POST.
+     *
+     * <p>⚠ THE MEDIA TYPE IS PARSED BEFORE THE CALL. An unusable content type is a programming
+     * fault, not a provider fault, and reporting it as "could not be completed" would blame the
+     * marketplace for a local mistake.
+     */
+    @Override
+    public String post(URI uri, String body, String contentType) {
+        MediaType mediaType = MediaType.parseMediaType(contentType);
+        String payload = body == null ? "" : body;
+        return send(() -> client.post()
+                .uri(uri)
+                .contentType(mediaType)
+                .body(payload)
+                .retrieve()
+                .body(String.class));
+    }
+
+    /**
+     * The one place a Daraz call's failure is classified.
+     *
+     * <p>🔴 GET AND POST SHARE IT SO THEY CANNOT DRIFT APART. Two copies of this logic would
+     * eventually disagree about what "reached" means, and the diagnostics built on that distinction
+     * would quietly stop being comparable.
+     */
+    private String send(java.util.function.Supplier<String> call) {
         try {
-            return client.get().uri(uri).retrieve().body(String.class);
+            return call.get();
         } catch (RestClientResponseException e) {
             /*
               A response DID arrive; only its status is unusable. The status is safe to carry — the

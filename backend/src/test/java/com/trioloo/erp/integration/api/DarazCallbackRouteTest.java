@@ -80,11 +80,21 @@ class DarazCallbackRouteTest {
         @Bean
         @Primary
         DarazTransport fakeTransport() {
-            return uri -> {
-                if (transportFailure != null) {
-                    throw transportFailure;
+            return new DarazTransport() {
+                @Override
+                public String get(java.net.URI uri) {
+                    if (transportFailure != null) {
+                        throw transportFailure;
+                    }
+                    return tokenResponse;
                 }
-                return tokenResponse;
+
+                @Override
+                public String post(java.net.URI uri, String body, String contentType) {
+                    /* 🔴 This double serves the TOKEN exchange, which is a GET. A test that
+                       reached here would be exercising a path it never meant to. */
+                    throw new UnsupportedOperationException("This test transport is GET-only.");
+                }
             };
         }
     }
