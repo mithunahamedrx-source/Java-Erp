@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.5.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.6.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -419,7 +419,7 @@ indicates success.
 | `salePrice` / `salePriceReadable` | SKU `price` | ⚠ **SKU-level only — there is NO product-level price.** For a single-SKU product it is that SKU's `price`; 🔴 for a multi-SKU product `readable=false` at listing level, because no published rule says which SKU speaks for the listing |
 | `promotionPrice` / `promotionPriceReadable` | SKU `special_price` | Same single-SKU rule |
 | `promotionStartsAt` / `promotionEndsAt` / `promotionWindowReadable` | SKU `special_from_time` / `special_to_time` | 🔴 **`readable=false` unless the value parses** — the format is NOT PUBLISHED (`DZC-024.c`) |
-| `stock` / `stockReadable` | SKU `quantity` | ⚠ `Available` is a DIFFERENT documented field and is not substituted |
+| `stock` / `stockReadable` | SKU `quantity` | ⚠ `Available` is a DIFFERENT field and is not substituted. 🔴 Inventory CONTAINERS are not mapped — see `DZC-031` |
 | `channelCategory` / `channelCategoryReadable` | `primary_category` | ⚠ **A numeric ID, not a name.** 🔴 No category-name lookup is in scope; the ID is reported as given |
 | `listingStatus` | `status` | 🔴 **`readable` semantics do not apply — it is an enum.** ⚠ Per `DZC-024.d` the true value set is NOT PUBLISHED, so any unrecognised value maps to NO status change rather than a guess |
 | `attributes` | `attributes` object | ✅ Reported as name→value text. ⚠ Category-dependent; never validated against an invented schema |
@@ -430,7 +430,7 @@ indicates success.
 |---|---|---|
 | `channelSku` | **`SellerSku`** | ✅ The seller's own SKU code, which is what `E-106` means by a channel SKU. ⚠ **`ShopSku` and `SkuId` are marketplace-side identifiers and are NOT the channel SKU** |
 | `salePrice` / `promotionPrice` / window | `price` / `special_price` / `special_from_time` / `special_to_time` | As above, with `readable=false` on unparseable dates |
-| `stock` / `stockReadable` | `quantity` | ✅ |
+| `stock` / `stockReadable` | `quantity` | ✅ The field the documented WRITE API pairs with `price` — see `DZC-031` |
 | `variationLabel` | — | 🔴 **NOT PUBLISHED as a field.** ⚠ The sample's `SellerSku` (`39817:01:01`) hints at encoded variation, and decoding it would be invention. **`null`** |
 
 > **`DZC-027` — 🔴 WHAT THE ADAPTER MUST NEVER DO WITH THIS RESPONSE.**
@@ -444,6 +444,52 @@ indicates success.
 > **d.** 🔴 **NEVER TREAT ABSENCE AS ZERO.** **An unreadable price is `readable=false`, never `0`.**
 > **e.** 🔴 **NEVER MAP `rejectReason`, `violationDetail`, `hiddenReason`, `suspendedSkus` OR `trialProduct`.**
 > ⚠ **They are real published fields with no `E-106`/`E-107` home, and inventing one is a business decision.**
+
+> **`DZC-031` — ✅ REPORTED STOCK IS SKU `quantity`, AND THE INVENTORY CONTAINERS ARE NOT MAPPED.**
+> **Added 2026-08-18 from the first live `/products/get` probe.**
+>
+> **The live response carried four stock-bearing names at SKU level: `quantity`, `Available`,
+> `channelInventories`, `multiWarehouseInventories` and `fblWarehouseInventories`.** ⚠ **Only the
+> presence of those names is evidence; the probe reported no value from any of them.**
+>
+> **a.** ✅ **`quantity` IS THE REPORTED STOCK, AND THE DOCUMENTATION SUPPORTS IT BY SYMMETRY.**
+> **`/products/get` returns `price` and `quantity` together at SKU level, and the documented write
+> API `/product/price_quantity/update` (`UpdatePriceQuantity`) is described as updating *the price
+> and quantity* — *"SKU prices and total inventory".*** ✅ **The field the platform's own write API
+> sets is the field its read API returns.**
+>
+> **b.** 🔴 **`channelInventories`, `multiWarehouseInventories` AND `fblWarehouseInventories` ARE NOT
+> PUBLISHED AND ARE NOT MAPPED.** **They appear ZERO times in the `/products/get` reference — not in
+> its Response Parameters table, not in its sample.** ⚠ **They exist in the live response and
+> nowhere in the contract.** ✅ **Their NAMES are retained as diagnostic evidence; their contents are
+> not read, not summed and not interpreted.**
+>
+> **c.** 🔴 **NO WAREHOUSE AGGREGATION IS INFERRED.** **Nothing published says whether a container's
+> entries are alternatives, partitions or overlapping views of the same units.** ⚠ **Adding them up,
+> or taking a maximum, or preferring one over `quantity`, would each produce a different number and
+> none of them is documented. A wrong stock figure does not fail loudly — it oversells.**
+>
+> **d.** 🔴 **`Available` IS NOT MAPPED.** **It sits beside `quantity` in the official sample and is
+> defined nowhere.** ⚠ **Its name invites the assumption that it is sellable stock, which is exactly
+> why it is left alone.**
+>
+> **e.** 🔴 **THE `options` EXTRAS ARE NOT REQUESTED.** **`options=1` is documented to add
+> `ReservedStock`, `RtsStock`, `PendingStock`, `RealTimeStock` and `FulfillmentBySellable`.**
+> ✅ **The parameter is not sent, so none of them arrives, and none is mapped.** ⚠ **Requesting them
+> would gather facts this contract has no rule for.**
+>
+> **f.** ⚠ **ONE LIMIT IS RECORDED RATHER THAN RESOLVED.** **The documentation routes inventory for a
+> *Global Plus* item through `UpdateSellableQuantity`/`AdjustSellableQuantity` instead, and
+> distinguishes *total inventory* from *sellable inventory*.** 🔴 **What `quantity` MEANS for a
+> Global-Plus or FBL listing is therefore NOT PUBLISHED.** ✅ **This does not block reporting it:
+> `API-062.c` makes the adapter an observer, and the reported side records what the channel said,
+> never what Trioloo should do.** ✅ **The ERP's own figure is untouched — `PRD-112`/`PRD-126` make
+> Published Marketplace Stock a MANUALLY controlled business figure that is never derived from a
+> channel read.**
+>
+> **g.** ✅ **CLOSING `b` NEEDS DOCUMENTATION, NOT A DECISION.** **If the provider later publishes the
+> container semantics, mapping them becomes an ordinary amendment.** 🔴 **Until then, a number
+> nobody can define is worse than an absent one** (`DZC-027.d`).
 
 ### 9.6 Discovery and single-read semantics
 
@@ -524,6 +570,8 @@ indicates success.
 | **`/products/get` value formats** | 🔴 **NOT PUBLISHED** — price scale/currency, image array-or-string, promotion date format, true `status` value set (`DZC-024`). Does not block: each is read defensively and reports `readable=false` rather than guessing |
 | **`sku_seller_list` parameter** | 🔴 **NOT PUBLISHED** — the reference's description field is empty. Does not block: it is optional and unused |
 | **`/auth/token/refresh` response fields** | ⚠ **NOT SEPARATELY PUBLISHED** — expected to mirror creation (`DZC-030`). Confirm at the first refresh with safe field-name diagnostics |
+| **SKU inventory containers** | 🔴 **NOT PUBLISHED** — `channelInventories`, `multiWarehouseInventories`, `fblWarehouseInventories` appear in the live response and nowhere in the reference (`DZC-031.b`). Does not block: reported stock is `quantity`, and the containers are left unmapped |
+| **`quantity` for Global Plus / FBL** | ⚠ **NOT PUBLISHED** — the docs route such inventory through `UpdateSellableQuantity` and distinguish total from sellable (`DZC-031.f`). Does not block: the adapter REPORTS the channel's own field and decides nothing |
 | **Local-seller token shape** | 🔴 **NOT PUBLISHED — OBSERVED.** Resolved empirically at the first live authorisation and recorded in §6.1; the documentation describes only the cross-border shape |
 | **Bangladesh REST base** | ✅ **CLOSED** — explicitly documented per region |
 | **Timestamp skew window** | ✅ **CLOSED** — ±7200 seconds |
@@ -557,6 +605,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.6.0** | **2026-08-18** | ✅ **`DZC-031` ADDED — REPORTED STOCK IS SKU `quantity`, SETTLED FROM THE FIRST LIVE PROBE.** **The live response carried `quantity`, `Available`, `channelInventories`, `multiWarehouseInventories` and `fblWarehouseInventories` at SKU level; the last three appear ZERO times in the `/products/get` reference.** ✅ **`quantity` is confirmed by symmetry with the documented write API `/product/price_quantity/update`, which sets *price and quantity* — the same pair the read returns.** 🔴 **The three containers are NOT MAPPED, no warehouse aggregation is inferred, `Available` is not mapped, and the `options=1` extras are not requested.** ⚠ **Records that `quantity`'s meaning for a Global Plus or FBL listing is NOT PUBLISHED — which does not block reporting it, because `API-062.c` makes the adapter an observer and `PRD-112`/`PRD-126` keep Published Marketplace Stock a manually controlled ERP figure.** 🔴 **No provider value, token or secret is recorded — field names and node presence only.** ✅ **No code change: the mapper already reads `quantity` and already ignores the containers.** |
 | **1.5.0** | **2026-08-18** | ✅ **§9 CLARIFIED BY THE FIRST IMPLEMENTATION — THREE POINTS THE PROTOCOL READING COULD NOT HAVE SETTLED ON PAPER.** 🔴 **`DZC-028.e` — the scroll value is written with `Z` rather than a numeric offset, because a literal `+` in a query value is decoded as a SPACE by many servers while the signature spans the raw value, producing a signature error that is not a signing defect.** ✅ **`DZC-028.f` — a full page that shares one update time, or carries none, cannot scroll and reports `complete=false` rather than looping or presenting a partial catalogue as complete.** ⚠ **`DZC-029.d`/`.e` — POST is no longer the obstacle for `readListing`; the unpublished CONTENT TYPE is, so it refuses rather than guessing a header, and refuses rather than returning empty, which would falsely tell the operator the channel did not return the listing.** 🔴 **No endpoint, parameter or response field was invented.** |
 | **1.4.0** | **2026-08-18** | ✅ **§9 ADDED — THE LISTING READ CONTRACT, `DZC-020`–`DZC-030`, RECORDED BEFORE ANY ADAPTER CODE EXISTS.** **`GetProducts` → `/products/get` (`GET`) from Daraz's own migration guide, with parameters, envelope, product/SKU/attribute field lists and the published error codes including the `901` per-second QPS throttle; `/product/item/get` (`POST`, `item_id` required, `seller_sku` deprecated since 2023-11-15) for the single read.** ✅ **`DZC-026` maps every `ReportedListingSnapshot` and `ReportedSkuSnapshot` member to a documented source or an explicit `readable=false`** — **`SellerSku` is the channel SKU, `ShopSku`/`SkuId` are not, and `variationLabel` is NOT PUBLISHED.** 🔴 **`DZC-027` forbids writing intent, creating mappings, deciding divergence, or treating absence as zero.** ✅ **`DZC-028` scopes the first gate to `filter=live` with date scrolling, since `offset` is deprecated and capped at 10000.** ⚠ **`DZC-029` records that `readListing`'s endpoint is a `POST` while `DarazTransport` is `GET`-only.** ✅ **`DZC-030` sets the refresh contract and a conservative on-demand default; the safety margin remains a reviewer decision.** 🔴 **Four value formats recorded as NOT PUBLISHED rather than guessed. No secret or token value appears.** |
 | **1.3.0** | **2026-08-17** | 🔴 **`DZC-010` AMENDED — THE CONTRACT DESCRIBED ONLY ONE OF TWO REAL RESPONSE SHAPES.** ⚠ **The documented `country_user_info[]` is what a CROSS-BORDER seller receives; a live Bangladesh LOCAL seller returned NO such array, one flat `user_info` object, and the venture named only at the top level — so every local seller was refused.** ✅ **§6.1 adds the local branch: `country_user_info[].seller_id` remains the documented cross-border path and still wins when present; `user_info.seller_id` is the observed local path, GUARDED BY the top-level `country` being Bangladesh.** 🔴 **The rejection of `account`/email as binding identity is preserved in full, and extended to `user_id`, `short_code`, `country`, `account_platform`, `code`, `request_id` and `_trace_id_`.** ⚠ **A populated cross-border array with no Bangladesh entry is NOT rescued by `user_info`.** 🔴 **Live evidence is recorded as FIELD NAMES ONLY — no secret or response value appears in this document.** |
