@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.4.1 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.5.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -239,10 +239,20 @@ this document follows.
 
 # 5. Sequencing
 
-> **`LSC-052` — 🔴 `ChannelAdapterPort` HAS NO IMPLEMENTATION IN `src/main`.** **The only implementation is an
-> anonymous one inside `ListingRefreshTest`.** **In production `ChannelAdapterRegistry.forChannelType()`
-> returns `Optional.empty()` for EVERY channel type**, and every outbound or readback request ends in a
-> refusal that names the missing capability and the channel.
+> **`LSC-052` — ⚠ AMENDED 2026-08-18. A DARAZ ADAPTER NOW EXISTS IN `src/main`, AND IT IS READ-ONLY AND
+> CONDITIONAL.** **`DarazChannelAdapter` implements `channelType`, `declareCapability` and `discoverActive`
+> against `/products/get` (`DZC-020`–`DZC-028`).**
+>
+> **a.** 🔴 **IT REGISTERS ONLY WHERE DARAZ CREDENTIALS ARE CONFIGURED.** **An adapter with no App Key would
+> resolve, declare capability, then fail every call — which reads as a BROKEN integration rather than an
+> absent one.** ✅ **Where it is unconfigured, `ChannelAdapterRegistry` still returns `Optional.empty()` and
+> the honest "no marketplace adapter is configured" refusal still stands.**
+> **b.** 🔴 **`readListing` REFUSES — the content type `/product/item/get` expects is NOT PUBLISHED**
+> (`DZC-029.d`).
+> **c.** 🔴 **`pushUpdate`, `publishCreate` AND `withdraw` REFUSE AND CONTACT NOTHING.** ⚠ **No field is
+> declared writable, because nothing is written.**
+> **d.** 🔴 **NO LISTING HAS BEEN READ FROM DARAZ.** **The adapter is proven against a controlled double;
+> production has not run it, and `GAP-133`'s first live pull remains NOT STARTED.**
 
 > **`LSC-053` — ⚠ `FRAME 15` AND `FRAME 16` ARE COMPLETE AS SCREENS AND REFUSALS, AND HAVE NEVER MOVED A BYTE
 > TO DARAZ.** **Push and Refresh are fully built, tested and correct in their refusal path — but no listing
@@ -298,7 +308,7 @@ this document follows.
 |---|---|
 | Daraz **connection** half | ✅ **Verified closed 2026-08-17** — one seller bound, credential encrypted at rest, shop `CONNECTED` |
 | Daraz **listing/product pull** | 🔴 **NOT STARTED** |
-| Production `ChannelAdapterPort` | 🔴 **None** (`LSC-052`) |
+| Production `ChannelAdapterPort` | ⚠ **Daraz READ half only, conditional on configuration** (`LSC-052`) — outbound still refuses |
 | `FRAME 01`–`17` · `FRAME 21`–`22` | ✅ Complete — `src/product` + `src/design` 573/573, build clean |
 | `FRAME 18`–`20` | 🔴 **Blocked** on a production `ChannelAdapterPort` (`LSC-051`) — **0 tests** |
 | Channel-event outcome | ⚠ **Not persisted** — `FRAME 21` renders it unavailable rather than deriving one (`LSC-011.c`) |
@@ -310,6 +320,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.5.0** | **2026-08-18** | ⚠ **`LSC-052` AMENDED — `ChannelAdapterPort` NO LONGER HAS ZERO `src/main` IMPLEMENTATIONS.** **`DarazChannelAdapter` implements the READ half — `channelType`, `declareCapability` and `discoverActive` over `/products/get` — and registers ONLY where Daraz credentials are configured, so an unconfigured deployment still gets the honest "no marketplace adapter is configured" refusal.** 🔴 **`readListing` refuses because the content type is NOT PUBLISHED; `pushUpdate`, `publishCreate` and `withdraw` refuse and contact nothing; no field is declared writable.** 🔴 **`FRAME 18`–`20` REMAIN BLOCKED — they need the outbound half and their own surfaces, and neither exists.** ⚠ **No listing has been read from Daraz: the adapter is proven against a controlled double and production has not run it.** |
 | **1.4.1** | **2026-08-18** | ✅ **`LSC-040` CORRECTED — A STALE COVERAGE RANGE, FOUND BY THE LOCAL-FRAMES CLOSURE AUDIT.** **It read "zero tests cover `FRAME 18`–`FRAME 22`", which stopped being true the moment `FRAME 22` shipped with 19 tests in v1.4.0.** ✅ **Now `FRAME 18`–`FRAME 20`, matching the two draft pages the rule already named.** 🔴 **Wording only — no rule, status, frame or decision changed, and `FRAME 18`–`20` remain BLOCKED on a production `ChannelAdapterPort`** (`LSC-051`). |
 | **1.4.0** | **2026-08-18** | ✅ **`FRAME 22` IMPLEMENTED — local CSV import, and the LAST unblocked frame.** **`ChannelListingImportPage.tsx` was RECONCILED IN PLACE: it had been a 21-line delegation to the generic `ProductCsvImportPage`, which cannot express this frame.** **Route, endpoints and the shared component Stock and Sellable use are unchanged; only `readTextFile` moved to `platform/file.ts`.** **All four steps present — upload with the ratified column contract, validation tally and invalid-row table on `60px 1.3fr 1.3fr minmax(0,2.2fr) 130px` with paging and download, review with the consequence block, and the result step.** ⚠ **`LSC-011.d` records three unavailable cells (no unchanged tally, no listing reference on a row outcome, no per-field review breakdown), that the import is ALL-OR-NOTHING where the mock implies partial apply, and that the ratified column names are shown rather than the mock's caption.** 🔴 **Apply is functional ONLY on a clean file and refuses otherwise; "Review & Push" is present and inert because `FRAME 18` is blocked.** ✅ **No backend change, no endpoint, no migration.** **19 tests; `src/product` + `src/design` 573/573; build clean.** |
 | **1.3.0** | **2026-08-18** | ✅ **`FRAME 21` IMPLEMENTED — local activity and operation history.** **`ListingActivityPage.tsx` is a new surface at `/inventory/products/listings/:id/activity`, entered from the `FRAME 06` detail aside that already named `FRAME 21` as the owner of the full history.** **Every component present: subject header, the four type filters, the six-column chronology on `112px 128px minmax(0,1fr) 150px 150px 120px`, server-side paging and the frame's footnote.** 🔴 **Type and Outcome are plain tracked text — the frame separates the three kinds BY THE TYPE COLUMN RATHER THAN BY COLOUR OR ICONOGRAPHY, so no row carries a pill, tone or glyph.** ⚠ **`LSC-011.c` records the one unavailable cell: a channel event has no persisted outcome, and none is fabricated.** ✅ **No backend change, no endpoint, no migration — `fetchActivity` already took a kind filter and a page.** 🔴 **`FRAME 18`–`20` remain BLOCKED, `FRAME 22` remains, and no Daraz call, product pull or publishing exists.** **21 tests; `src/product` + `src/design` 554/554; build clean.** |

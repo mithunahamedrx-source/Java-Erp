@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.4.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.5.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -342,7 +342,7 @@ indicates success.
 | `create_after` / `create_before` | String | No | ISO 8601 creation-date bounds |
 | `update_after` / `update_before` | String | No | ISO 8601 update-date bounds |
 | `limit` | String | No | Page size. 🔴 **Maximum 50** |
-| `offset` | String | No | 🔴 **DEPRECATED.** *"It is recommended to use date for scrolling query."* 🔴 **Maximum offset 10000** |
+| `offset` | String | No | 🔴 **DEPRECATED.** *"It is recommended to use date for scrolling query."* 🔴 **Maximum offset 10000.** ⚠ **NOT USED by the implementation** |
 | `options` | String | No | `options=1` adds `ReservedStock`, `RtsStock`, `PendingStock`, `RealTimeStock`, `FulfillmentBySellable` |
 | `sku_seller_list` | String | No | ⚠ **Description field is EMPTY in the reference — NOT PUBLISHED** |
 
@@ -457,6 +457,18 @@ indicates success.
 > ceiling — sets `complete=false` with an `incompleteReason`.**
 > **d.** ✅ **Paging uses `limit` ≤ 50 with date scrolling; `nextCursor` carries the scroll position.**
 > 🔴 **`offset` is deprecated and capped, and is not the paging mechanism.**
+>
+> **e.** ⚠ **AMENDED 2026-08-18 — THE SCROLL VALUE IS WRITTEN WITH `Z`, NOT A NUMERIC OFFSET, AND THE REASON
+> IS A TRANSMISSION HAZARD.** **The documented sample writes `+0800`; a literal `+` in a query value is
+> decoded as a SPACE by many servers.** 🔴 **The signature spans the RAW value (`DZC-008`) while the
+> provider would verify against the corrupted one, producing a signature error that looks like a signing
+> defect and is not one.** ✅ **`Z` is valid ISO 8601 and cannot be misread.** ⚠ **Which spellings the
+> parameter actually accepts is NOT PUBLISHED; if a live diagnostic shows `Z` is rejected, the fix is
+> percent-encoding the offset form — never sending a bare `+`.**
+>
+> **f.** ✅ **A RUN THAT CANNOT SCROLL REPORTS ITSELF INCOMPLETE.** **A full page whose entries all share one
+> update time, or which carries no update time at all, cannot yield a next cursor** — **so the run stops
+> with `complete=false` and a reason rather than looping or presenting a partial catalogue as the whole one.**
 
 > **`DZC-029` — ⚠ `readListing` HAS A DOCUMENTED ENDPOINT AND A TRANSPORT GAP.**
 >
@@ -466,7 +478,17 @@ indicates success.
 > one, `readListing` cannot be implemented against it.**
 > **c.** ⚠ **THE FALLBACK IS NOT A SUBSTITUTE AND IS RECORDED AS SUCH.** **A single listing could be located
 > through paged `/products/get`, but that reads a seller's whole catalogue to find one row and cannot be
-> called a targeted read.** 🔴 **Adding POST to the transport is the correct fix.**
+> called a targeted read.** ✅ **The transport gained POST on 2026-08-18, so the method is no longer the
+> obstacle.**
+>
+> **d.** ⚠ **AMENDED 2026-08-18 — THE REMAINING OBSTACLE IS THE CONTENT TYPE, AND IT IS STILL NOT PUBLISHED.**
+> **`DZC-021` records that the reference does not say which content type `/product/item/get` expects.**
+> 🔴 **`DarazChannelAdapter.readListing` therefore REFUSES rather than guessing a header, and refuses
+> rather than returning empty** — **an empty result means *the channel did not return this listing*, which
+> the caller reports to the operator in exactly those words (`PRD-177`), and saying it would be false when
+> nothing was asked.**
+> **e.** ✅ **CLOSING IT NEEDS ONE SAFE LIVE DIAGNOSTIC, NOT A DECISION.** **One signed call against a
+> connected shop, reporting field NAMES only, settles both the accepted content type and the response shape.**
 
 ### 9.7 Token refresh
 
@@ -535,6 +557,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.5.0** | **2026-08-18** | ✅ **§9 CLARIFIED BY THE FIRST IMPLEMENTATION — THREE POINTS THE PROTOCOL READING COULD NOT HAVE SETTLED ON PAPER.** 🔴 **`DZC-028.e` — the scroll value is written with `Z` rather than a numeric offset, because a literal `+` in a query value is decoded as a SPACE by many servers while the signature spans the raw value, producing a signature error that is not a signing defect.** ✅ **`DZC-028.f` — a full page that shares one update time, or carries none, cannot scroll and reports `complete=false` rather than looping or presenting a partial catalogue as complete.** ⚠ **`DZC-029.d`/`.e` — POST is no longer the obstacle for `readListing`; the unpublished CONTENT TYPE is, so it refuses rather than guessing a header, and refuses rather than returning empty, which would falsely tell the operator the channel did not return the listing.** 🔴 **No endpoint, parameter or response field was invented.** |
 | **1.4.0** | **2026-08-18** | ✅ **§9 ADDED — THE LISTING READ CONTRACT, `DZC-020`–`DZC-030`, RECORDED BEFORE ANY ADAPTER CODE EXISTS.** **`GetProducts` → `/products/get` (`GET`) from Daraz's own migration guide, with parameters, envelope, product/SKU/attribute field lists and the published error codes including the `901` per-second QPS throttle; `/product/item/get` (`POST`, `item_id` required, `seller_sku` deprecated since 2023-11-15) for the single read.** ✅ **`DZC-026` maps every `ReportedListingSnapshot` and `ReportedSkuSnapshot` member to a documented source or an explicit `readable=false`** — **`SellerSku` is the channel SKU, `ShopSku`/`SkuId` are not, and `variationLabel` is NOT PUBLISHED.** 🔴 **`DZC-027` forbids writing intent, creating mappings, deciding divergence, or treating absence as zero.** ✅ **`DZC-028` scopes the first gate to `filter=live` with date scrolling, since `offset` is deprecated and capped at 10000.** ⚠ **`DZC-029` records that `readListing`'s endpoint is a `POST` while `DarazTransport` is `GET`-only.** ✅ **`DZC-030` sets the refresh contract and a conservative on-demand default; the safety margin remains a reviewer decision.** 🔴 **Four value formats recorded as NOT PUBLISHED rather than guessed. No secret or token value appears.** |
 | **1.3.0** | **2026-08-17** | 🔴 **`DZC-010` AMENDED — THE CONTRACT DESCRIBED ONLY ONE OF TWO REAL RESPONSE SHAPES.** ⚠ **The documented `country_user_info[]` is what a CROSS-BORDER seller receives; a live Bangladesh LOCAL seller returned NO such array, one flat `user_info` object, and the venture named only at the top level — so every local seller was refused.** ✅ **§6.1 adds the local branch: `country_user_info[].seller_id` remains the documented cross-border path and still wins when present; `user_info.seller_id` is the observed local path, GUARDED BY the top-level `country` being Bangladesh.** 🔴 **The rejection of `account`/email as binding identity is preserved in full, and extended to `user_id`, `short_code`, `country`, `account_platform`, `code`, `request_id` and `_trace_id_`.** ⚠ **A populated cross-border array with no Bangladesh entry is NOT rescued by `user_info`.** 🔴 **Live evidence is recorded as FIELD NAMES ONLY — no secret or response value appears in this document.** |
 | **1.2.0** | **2026-08-17** | 🔴 **`DZC-011` CORRECTED — IT WAS OVER-BROAD.** **v1.1.0 mapped ANY non-zero response from `/auth/token/refresh` to `REAUTH_REQUIRED`.** ⚠ **That would have told an operator to go and disturb a seller whose authorisation was perfectly healthy, merely because the refresh call was rate-limited, mis-signed, clock-skewed or hit a provider outage.** ✅ **`REAUTH_REQUIRED` now requires evidence about the CREDENTIAL itself — invalid, expired or revoked; everything else, including any unclassified non-zero code, is `ERROR`.** 🔴 **THE ENDPOINT INVOLVED PROVES NOTHING; ONLY EVIDENCE ABOUT THE CREDENTIAL DOES.** ⚠ **No new error code was invented to support this — the rule is a classification default, not a claim about Daraz’s catalogue.** |
