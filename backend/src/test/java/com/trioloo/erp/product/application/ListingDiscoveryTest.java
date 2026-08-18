@@ -552,6 +552,94 @@ class ListingDiscoveryTest {
     }
 
     // =================================================================================
+    // 🔴 The all-null-actor 500 — the live production defect of 2026-08-18
+    // =================================================================================
+
+    /**
+     * 🔴 THE REGRESSION TEST FOR A LIVE 500. Every listing detail page returned
+     * {@code HTTP 500} in production because its activity aside was ALL-NULL-ACTOR:
+     * {@code ActorDirectory.namesOf} hands back an immutable {@code Map.of()} when given no
+     * identifiers, and {@code Map.of().get(null)} THROWS rather than returning null.
+     *
+     * <p>⚠ THE SHAPE IS THE v14h ONE, REPRODUCED DELIBERATELY. That pull wrote channel events
+     * and no operation records at all, so every page of activity carried a null actor and
+     * nothing else. The {@code OPERATION} rows are removed here to recreate exactly that.
+     *
+     * <p>⚠ NO EXISTING TEST COULD HAVE CAUGHT IT: every other fixture has at least one
+     * operator-attributed row on the page, which makes {@code namesOf} return a {@code HashMap},
+     * whose {@code get(null)} is harmless.
+     */
+    @Test
+    @DisplayName("A page whose rows ALL have a null actor resolves instead of throwing")
+    void allNullActorPageDoesNotThrow() {
+        actingAll();
+        page = catalogue(1);
+        operations.discover(channelId);
+        UUID listingId = jdbc.queryForObject("SELECT id FROM channel_listing", UUID.class);
+        jdbc.update("DELETE FROM channel_listing_activity WHERE entry_kind = 'OPERATION'");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM channel_listing_activity WHERE actor_id IS NOT NULL",
+                Long.class)).isZero();
+
+        List<ListingViews.ActivityView> entries = operations
+                .activity(listingId, null, PageRequest.of(0, 3)).getContent();
+
+        assertThat(entries).hasSize(1);
+        assertThat(entries.getFirst().entryKind()).isEqualTo(ActivityKind.CHANNEL_EVENT);
+        /* 🔴 NULL, not "System" and not the operator who triggered the run. */
+        assertThat(entries.getFirst().actorName()).isNull();
+    }
+
+    /**
+     * 🔴 {@code FRAME 06}'s activity aside is exactly {@code page=0&size=3} — the call that
+     * actually 500'd — and {@code FRAME 21}'s filtered view must survive the same data.
+     */
+    @Test
+    @DisplayName("FRAME 06 aside and FRAME 21 filter both survive all-null-actor data")
+    void frame06AndFrame21SurviveNullActors() {
+        actingAll();
+        page = catalogue(1);
+        operations.discover(channelId);
+        UUID listingId = jdbc.queryForObject("SELECT id FROM channel_listing", UUID.class);
+        jdbc.update("DELETE FROM channel_listing_activity WHERE entry_kind = 'OPERATION'");
+
+        /* FRAME 06 — the aside, unfiltered, three at a time. */
+        assertThat(operations.activity(listingId, null, PageRequest.of(0, 3)).getContent())
+                .hasSize(1);
+        /* FRAME 21 — the filtered chronology. */
+        assertThat(operations.activity(listingId, ActivityKind.CHANNEL_EVENT, PageRequest.of(0, 20))
+                .getContent()).hasSize(1);
+        /* ✅ A filter that matches NOTHING is also an empty id list — the same trap. */
+        assertThat(operations.activity(listingId, ActivityKind.FIELD_CHANGE, PageRequest.of(0, 20))
+                .getContent()).isEmpty();
+    }
+
+    /**
+     * ✅ THE FIX RESOLVES REAL ACTORS EXACTLY AS BEFORE. A mixed page keeps the operator's name
+     * on the {@code OPERATION} entry and keeps {@code null} on the {@code CHANNEL_EVENT} — the
+     * null is not allowed to spread to its neighbour.
+     */
+    @Test
+    @DisplayName("A mixed page resolves the real actor and leaves the null actor null")
+    void mixedPageResolvesRealActorOnly() {
+        actingAll();
+        page = catalogue(1);
+        operations.discover(channelId);
+        UUID listingId = jdbc.queryForObject("SELECT id FROM channel_listing", UUID.class);
+
+        List<ListingViews.ActivityView> entries = operations
+                .activity(listingId, null, PageRequest.of(0, 20)).getContent();
+
+        assertThat(entries).hasSize(2);
+        ListingViews.ActivityView operation = entries.stream()
+                .filter(e -> e.entryKind() == ActivityKind.OPERATION).findFirst().orElseThrow();
+        ListingViews.ActivityView event = entries.stream()
+                .filter(e -> e.entryKind() == ActivityKind.CHANNEL_EVENT).findFirst().orElseThrow();
+        assertThat(operation.actorName()).isEqualTo("discovery-tester (test)");
+        assertThat(event.actorName()).isNull();
+    }
+
+    // =================================================================================
     // Helpers
     // =================================================================================
 

@@ -929,8 +929,27 @@ public class ChannelListingOperationService {
         // person. It is never backfilled with the operator who happened to trigger the run.
         return page.map(a -> new ListingViews.ActivityView(a.getId(), a.getEntryKind(),
                 a.getSummary(), a.getFieldKey(), a.getBeforeValue(), a.getAfterValue(),
-                a.getSource(), actorNames.get(a.getActorId()), a.getOperationId(), a.getBatchId(),
-                a.getOccurredAt()));
+                a.getSource(), actorName(actorNames, a.getActorId()), a.getOperationId(),
+                a.getBatchId(), a.getOccurredAt()));
+    }
+
+    /**
+     * The display name for an activity's actor, or {@code null} when there is no person to name.
+     *
+     * <p>🔴 THE NULL CHECK IS THE WHOLE POINT, AND IT IS NOT DEFENSIVE PADDING. A
+     * {@code CHANNEL_EVENT} carries a NULL actor by design — the marketplace acted, not a person
+     * — and {@code ActorDirectory.namesOf} returns an IMMUTABLE {@code Map.of()} when it is
+     * handed no identifiers. ⚠ {@code Map.of().get(null)} THROWS rather than returning null, so
+     * a page whose rows ALL have a null actor took the whole endpoint down with a 500.
+     *
+     * <p>⚠ Every listing detail page hit this in production on 2026-08-18: the first Daraz pull
+     * wrote nine channel events and nothing else, so every activity page was all-null-actor.
+     *
+     * <p>🔴 NO NAME IS INVENTED HERE. "System", "Daraz" or the operator who triggered the run
+     * would each assert something the record does not say ({@code PRJ-124}, {@code PRD-186.e}).
+     */
+    private static String actorName(Map<UUID, String> names, UUID actorId) {
+        return actorId == null ? null : names.get(actorId);
     }
 
     /** Recent batches, newest first. */
