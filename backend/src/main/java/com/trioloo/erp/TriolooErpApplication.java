@@ -2,6 +2,7 @@ package com.trioloo.erp;
 
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapApplication;
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapRunner;
+import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeApplication;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -41,13 +42,14 @@ public class TriolooErpApplication {
             return;
         }
         /*
-          🔴 THE DARAZ SHAPE PROBE RUNS WITHOUT A WEB SERVER, for the same reason. It needs the
-          full application context — credential store, signer, transport, repositories — so it
-          scans normally; it only refuses to bind 8080, which the live service already holds.
+          🔴 THE DARAZ SHAPE PROBE RUNS IN ITS OWN SCOPED CONTEXT, for exactly the reason above.
+          A first attempt reused THIS class with the web server switched off and died on
+          AuthenticationConfiguration, because NONE stops Tomcat but not component scanning.
+          DarazListingShapeApplication scans nothing and names its dependencies.
           ⚠ An ordinary start is unaffected: without the argument the runner returns immediately.
         */
         if (DarazListingShapeRunner.isProbeInvocation(args)) {
-            SpringApplication probe = new SpringApplication(TriolooErpApplication.class);
+            SpringApplication probe = new SpringApplication(DarazListingShapeApplication.class);
             probe.setWebApplicationType(WebApplicationType.NONE);
             probe.run(args);
             return;
