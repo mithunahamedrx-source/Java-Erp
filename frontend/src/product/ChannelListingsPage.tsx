@@ -56,7 +56,13 @@ type DevState =
 type EmptyReason = 'none-yet' | 'no-unmapped' | 'channel-none' | 'filtered';
 
 /**
- * The connected Listings workspace.
+ * FRAME 01, FRAME 04 AND FRAME 05 — the connected Listings workspace.
+ *
+ * <p>⚠ `LSC-003` — THREE FRAMES, ONE SURFACE, AND THE TAG NAMES ALL THREE. `FRAME 01` is the
+ * populated workspace, `FRAME 04` is the selection scope — this page versus all matching
+ * filters — and `FRAME 05` is the row action menu composed against real authority. They are
+ * one screen in the pack and one component here; splitting them would invent a boundary the
+ * design does not draw.
  *
  * 🔴 `TEC-096` / `PRD-174.b` — search, every filter, sorting, counting and "select all
  * matching" are resolved by the SERVER. The browser never filters or counts a 3000+ corpus.

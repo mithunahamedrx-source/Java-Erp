@@ -8,7 +8,13 @@ import { fetchBatch, fetchBatchMembers, retryBatch } from './channelListingApi';
 import type { BatchView, OperationOutcome, OperationView } from './channelListingApi';
 
 /**
- * One operation batch and its per-listing results.
+ * FRAME 19 — Batch result and retry, per-listing outcomes.
+ *
+ * <p>⚠ THE FRAME IS NOT COMPLETE. Its inbound half reads real recorded batches; its OUTBOUND
+ * half — a push result, a failed member, a retry that resends — cannot exist until an outbound
+ * adapter and a documented Daraz write protocol do (`LSC-051`).
+ *
+ * <p>One operation batch and its per-listing results.
  *
  * 🔴 `INV-108.1` — A BATCH IS NOT ATOMIC ACROSS AN EXTERNAL PARTY. Partial success is the
  * NORMAL outcome, not an anomaly, and this screen is built to present it as such.

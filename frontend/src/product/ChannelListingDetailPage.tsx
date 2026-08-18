@@ -27,7 +27,11 @@ import type {
 } from './channelListingApi';
 
 /**
- * FRAME 06 — Listing Detail.
+ * FRAME 06 AND FRAME 11 — Listing Detail, including the unmapped state.
+ *
+ * <p>⚠ `LSC-003` — `FRAME 11` IS THIS SAME PAGE WITH NO MAPPING, not a second surface. The
+ * pack draws the unmapped detail and its *Create Sellable Product* handoff as a STATE of the
+ * detail view, so it is tagged here rather than given a component that would duplicate it.
  *
  * <p>The operational truth view for ONE Listing: what it is, whose shop it is in, whether it
  * is mapped, what Trioloo intends, what the marketplace reports, and what may be done next.
