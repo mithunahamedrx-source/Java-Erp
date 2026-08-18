@@ -242,6 +242,73 @@ class ListingRefreshTest {
     }
 
     // =================================================================================
+    // API-063.a — the ADAPTER declares capability, and the workspace sees what it declared
+    // =================================================================================
+
+    /**
+     * 🔴 THE DEFECT THIS EXISTS FOR. {@code channels()} built its per-field capability list
+     * from {@code channel_adapter_capability} alone — a table NOTHING in this system ever
+     * writes. Every field therefore reported UNDECLARED, and the operator was told "what it
+     * can read or write is unknown" beside a channel whose adapter had just read nine real
+     * listings successfully.
+     *
+     * <p>✅ {@code API-063.a} makes the ADAPTER the declaring authority, so it is asked.
+     */
+    @Test
+    @DisplayName("API-063.a the channel view reports what the adapter actually declares")
+    void channelViewReportsTheAdapterDeclaration() {
+        actingAll();
+        seed("SHOPIFY", "88350", false);
+        capability = readable(ListingFieldKey.TITLE, ListingFieldKey.SALE_PRICE,
+                ListingFieldKey.LISTING_STOCK);
+
+        var channel = queries.channels().stream()
+                .filter(c -> "SHOPIFY".equals(c.channelType())).findFirst().orElseThrow();
+
+        assertThat(channel.capabilities()).isNotEmpty();
+        assertThat(channel.capabilities().stream()
+                .filter(ListingViews.CapabilityView::readable)
+                .map(ListingViews.CapabilityView::fieldKey))
+                .containsExactlyInAnyOrder(ListingFieldKey.TITLE, ListingFieldKey.SALE_PRICE,
+                        ListingFieldKey.LISTING_STOCK);
+    }
+
+    /**
+     * 🔴 READABLE IS NOT WRITABLE. The double declares three fields readable and none writable,
+     * exactly as the Daraz adapter does — and the view must not upgrade one into the other.
+     */
+    @Test
+    @DisplayName("API-063 a readable field is not reported writable")
+    void readableIsNotReportedWritable() {
+        actingAll();
+        seed("SHOPIFY", "88351", false);
+        capability = readable(ListingFieldKey.TITLE);
+
+        var channel = queries.channels().stream()
+                .filter(c -> "SHOPIFY".equals(c.channelType())).findFirst().orElseThrow();
+
+        assertThat(channel.capabilities().stream().noneMatch(ListingViews.CapabilityView::writable))
+                .isTrue();
+    }
+
+    /**
+     * 🔴 A CHANNEL WITH NO ADAPTER DECLARES NOTHING, and absence stays NO support rather than
+     * assumed support ({@code API-063}).
+     */
+    @Test
+    @DisplayName("API-063 a channel with no adapter declares nothing readable or writable")
+    void noAdapterDeclaresNothing() {
+        actingAll();
+        seed("DARAZ", "88352", false);
+
+        var channel = queries.channels().stream()
+                .filter(c -> "DARAZ".equals(c.channelType())).findFirst().orElseThrow();
+
+        assertThat(channel.capabilities().stream()
+                .noneMatch(c -> c.readable() || c.writable())).isTrue();
+    }
+
+    // =================================================================================
     // Adapter capability — "no adapter" is NOT "nothing readable"
     // =================================================================================
 

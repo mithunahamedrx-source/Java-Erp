@@ -15,11 +15,14 @@ import { ListingSkuSection } from './ListingSkuSection';
 import {
   fetchActivity,
   fetchChannelListing,
+  fetchChannels,
   fetchComparison,
   fetchMedia,
 } from './channelListingApi';
 import type {
   ActivityView,
+  CapabilityView,
+  ChannelView,
   RefreshResult,
   RefreshState,
   ChannelListing,
@@ -67,6 +70,12 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
   const [loadedComparison, setComparison] = useState<readonly ComparisonRow[]>([]);
   const [media, setMedia] = useState<MediaSetView | null>(null);
   const [activity, setActivity] = useState<readonly ActivityView[]>([]);
+  /*
+    🔴 `API-063.a` — WHAT THIS CHANNEL DECLARES IT CAN WRITE. Read separately because capability
+    belongs to the CHANNEL INSTANCE, not to one listing (`PRD-125`). ⚠ Without it the surface
+    cannot tell "readable" from "pushable" and would offer a push the channel never promised.
+  */
+  const [capabilities, setCapabilities] = useState<readonly CapabilityView[]>([]);
   const [error, setError] = useState<string | null>(null);
   /** 🔴 Frame 15 — exactly ONE listing, this listing's own channel and shop. */
   const [pushReviewOpen, setPushReviewOpen] = useState(false);
@@ -80,12 +89,22 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [listing, rows, mediaSet, activityPage] = await Promise.all([
+      const [listing, rows, mediaSet, activityPage, channelList] = await Promise.all([
         fetchChannelListing(id),
         fetchComparison(id),
         fetchMedia(id),
         fetchActivity(id, '', 0, 3),
+        /* ⚠ A read. It declares capability; it never changes one. */
+        fetchChannels().catch((): readonly ChannelView[] => []),
       ]);
+      /*
+        ⚠ CAPABILITY IS AN ENHANCEMENT, NOT A PRECONDITION. If the channel list cannot be read
+        the page still shows the listing; it simply declares nothing writable, which is the
+        fail-closed answer `API-063` already requires.
+      */
+      setCapabilities(
+        channelList.find((c) => c.id === listing.channelInstanceId)?.capabilities ?? [],
+      );
       setItem(listing);
       setComparison(rows);
       setMedia(mediaSet);
@@ -694,6 +713,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
               <ChannelListingComparison
                 item={item}
                 rows={comparison}
+                capabilities={capabilities}
                 mayManage={mayManage}
                 mayPublish={mayPublish}
                 onResolved={load}

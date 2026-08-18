@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { ChannelListingComparison } from './ChannelListingComparison';
-import type { ChannelListing, ComparisonRow } from './channelListingApi';
+import { ChannelListingComparison, declaresWritable } from './ChannelListingComparison';
+import type { CapabilityView, ChannelListing, ComparisonRow } from './channelListingApi';
 import { formatMoment } from '../platform/datetime';
 
 /**
@@ -64,16 +64,33 @@ const ALL = [ALIGNED, DIVERGED, NOT_READABLE, MANUAL, UNSENT];
 const compareMedia = vi.fn();
 const resolved = vi.fn(async () => undefined);
 
+/**
+ * A channel that declares every listing field WRITABLE.
+ *
+ * <p>⚠ HYPOTHETICAL, AND DELIBERATELY SO. No adapter declares this today — Daraz declares every
+ * field readable and none writable — but the push PATH must stay exercised so it does not rot
+ * before an outbound protocol exists (`API-063.a`).
+ */
+const WRITABLE: readonly CapabilityView[] = [
+  'title', 'description', 'sale_price', 'promotion_price', 'promotion_window', 'listing_stock',
+  'media', 'channel_category', 'attributes', 'orderable_skus', 'publication_intent',
+].map((fieldKey) => ({ fieldKey, readable: true, writable: true }));
+
+/** What Daraz actually declares: readable everywhere, writable nowhere. */
+const READ_ONLY: readonly CapabilityView[] = WRITABLE.map((c) => ({ ...c, writable: false }));
+
 function renderComparison(options: {
   rows?: readonly ComparisonRow[];
   mayManage?: boolean;
   mayPublish?: boolean;
   item?: ChannelListing;
+  capabilities?: readonly CapabilityView[];
 } = {}): ReturnType<typeof render> {
   return render(
     <ChannelListingComparison
       item={options.item ?? ITEM}
       rows={options.rows ?? ALL}
+      capabilities={options.capabilities ?? WRITABLE}
       mayManage={options.mayManage ?? true}
       mayPublish={options.mayPublish ?? true}
       onResolved={resolved}
@@ -464,5 +481,68 @@ describe('Frame 08 — Resolution dialogs', () => {
 
     gate.release();
     await waitFor(() => expect(screen.queryByTestId('accept-marketplace-dialog')).toBeNull());
+  });
+});
+
+/**
+ * READABLE, EDITABLE AND PUSHABLE ARE THREE DIFFERENT THINGS.
+ *
+ * 🔴 Daraz declares every listing field READABLE and NONE writable: no outbound write protocol
+ * is documented and `pushUpdate` refuses. A channel that reads nine listings perfectly still
+ * cannot be sent to, and the surface must say that rather than offer a control that cannot act.
+ */
+describe('Frame 07 — pushable is not readable', () => {
+  /** 🔴 The push control is disabled when the channel declares the field unwritable. */
+  it('disables Push ERP where the channel declares no writable field', () => {
+    renderComparison({ rows: [DIVERGED], capabilities: READ_ONLY });
+    const push = screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement;
+    expect(push.disabled).toBe(true);
+    expect(push.getAttribute('title')).toContain('does not declare this field writable');
+  });
+
+  /** ✅ And the reason distinguishes a read-capable channel from a missing adapter. */
+  it('explains that the channel can be read but not written', () => {
+    renderComparison({ rows: [DIVERGED], capabilities: READ_ONLY });
+    const note = screen.getByTestId('comparison-capability-note').textContent ?? '';
+    expect(note).toContain('can be READ but declares no field writable');
+    expect(note).not.toContain('No marketplace adapter is configured');
+    /* 🔴 Local work is untouched by an outbound limitation. */
+    expect(note).toContain('Accepting a marketplace value is unaffected');
+  });
+
+  /** 🔴 A missing adapter is a DIFFERENT cause and keeps its own sentence. */
+  it('keeps the missing-adapter reason distinct from the unwritable one', () => {
+    renderComparison({
+      rows: [DIVERGED],
+      item: { ...ITEM, adapterAvailable: false } as ChannelListing,
+      capabilities: READ_ONLY,
+    });
+    expect(screen.getByTestId('comparison-capability-note').textContent)
+      .toContain('No marketplace adapter is configured');
+  });
+
+  /** ✅ Accept Marketplace is NOT affected — it changes ERP intent and contacts nothing. */
+  it('still offers Accept Marketplace on a read-only channel', () => {
+    renderComparison({ rows: [DIVERGED], capabilities: READ_ONLY });
+    expect(screen.getByTestId('comparison-accept-sale_price')).toBeTruthy();
+  });
+
+  /** 🔴 An UNDECLARED capability is NO support, never assumed support (`API-063`). */
+  it('treats an absent declaration as not pushable', () => {
+    renderComparison({ rows: [DIVERGED], capabilities: [] });
+    expect((screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  /** ⚠ An attribute row resolves to the ATTRIBUTES capability, not to its own name. */
+  it('resolves an attribute row to the attributes capability', () => {
+    expect(declaresWritable(WRITABLE, 'attribute:Brand')).toBe(true);
+    expect(declaresWritable(READ_ONLY, 'attribute:Brand')).toBe(false);
+  });
+
+  /** ✅ Where a channel genuinely declares a field writable, the control is live. */
+  it('enables Push ERP where the channel declares the field writable', () => {
+    renderComparison({ rows: [DIVERGED], capabilities: WRITABLE });
+    expect((screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('comparison-capability-note')).toBeNull();
   });
 });

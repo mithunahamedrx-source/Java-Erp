@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.10.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.11.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -472,6 +472,36 @@ this document follows.
 > attribute and is not promoted to a title (`DZC-026`), the price mapping is unchanged, no
 > reported value is written into intent, and `GAP-134` stays open.**
 
+> **`LSC-059` — 🔴 ADDED 2026-08-19. READABLE, EDITABLE AND PUSHABLE ARE THREE DIFFERENT THINGS,
+> AND THE SURFACE NEVER CONFLATES THEM.**
+>
+> **a.** 🔴 **THE ADAPTER IS THE DECLARING AUTHORITY** (`API-063.a`, `PRD-125`), **and it is asked
+> directly.** ⚠ **The channel view previously built its per-field capability list from
+> `channel_adapter_capability` ALONE — a table NOTHING in this system writes.** **Every field
+> therefore reported UNDECLARED, and the operator was told *"what it can read or write is
+> unknown"* beside a channel whose adapter had just read nine real Listings.** ✅ **A stored row
+> still WINS where one exists, so a per-instance override remains possible.**
+>
+> **b.** 🔴 **ABSENT IS STILL NO SUPPORT, NEVER ASSUMED SUPPORT** (`API-063`). **A channel with no
+> adapter, or an adapter naming no field, declares nothing.**
+>
+> **c.** 🔴 **A FIELD IS NOT PUSHABLE BECAUSE IT IS READABLE.** **Daraz declares every listing
+> field READABLE and NONE writable — no outbound write protocol is documented (`DARAZ_PROVIDER_
+> CONTRACT.md` covers the READ side only) and `pushUpdate` refuses and contacts nothing.**
+> ✅ **`FRAME 07`'s push control is gated on DECLARED WRITABILITY, not on adapter presence.**
+>
+> **d.** ✅ **THE TWO UNAVAILABILITIES KEEP SEPARATE SENTENCES**, because they send an operator to
+> different places: *no adapter is configured* is waiting on Marketplace Integration; *the channel
+> can be READ but declares no field writable* is a declared property of that connection.
+>
+> **e.** ✅ **LOCAL WORK IS NEVER BLOCKED BY AN OUTBOUND LIMITATION.** **Editing intent and
+> *Accept Marketplace* change ERP values only and contact nothing** (`PRD-184.b`, `PRD-185`),
+> **so neither is withdrawn when a channel declares nothing writable.**
+>
+> **f.** 🔴 **NO WRITE PROTOCOL IS INVENTED HERE.** **Until `DARAZ_PROVIDER_CONTRACT.md` documents
+> the outbound endpoints, signing, bodies and errors, no field may be declared writable and no
+> real push may be implemented.**
+
 ---
 
 # 6. State of the world
@@ -493,6 +523,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.11.0** | **2026-08-19** | 🔴 **`LSC-059` ADDED — READABLE, EDITABLE AND PUSHABLE ARE THREE DIFFERENT THINGS.** **The channel view built its per-field capability list from `channel_adapter_capability` alone — a table nothing writes — so every field reported UNDECLARED and the operator saw *"what it can read or write is unknown"* beside a channel whose adapter had just read nine real Listings.** ✅ **`API-063.a` makes the ADAPTER the declaring authority, so it is now asked directly; a stored row still wins where one exists, and absent still means NO support.** 🔴 **`FRAME 07`'s push control is gated on DECLARED WRITABILITY rather than adapter presence — Daraz declares every field readable and NONE writable, because no outbound write protocol is documented and `pushUpdate` refuses.** ✅ **The two unavailabilities keep separate sentences: a missing adapter is not the same as a read-only connection.** ✅ **Local work is untouched — editing intent and Accept Marketplace contact nothing and stay available.** 🔴 **No write protocol invented; no field declared writable.** ✅ **Backend `ChannelListingQueryService` only — no migration, no endpoint or response-shape change. Backend 613/613; `src/product` + `src/design` 663/663; build clean.** |
 | **1.10.0** | **2026-08-19** | ✅ **`LSC-058` ADDED — PROVIDER MARKUP IS NORMALISED FOR DISPLAY, AND ONLY FOR DISPLAY.** **The first live Daraz pull returned `short_description` as an HTML fragment, and rendering it raw turned Listing detail and `FRAME 07` into tag soup — one attribute made a comparison row taller than the rest of the page.** ✅ **Entities a provider actually writes are decoded, block and list tags become line breaks and bullets, inline `style` is dropped, and remaining tags are stripped.** 🔴 **NOTHING STORED CHANGES — the reported side stays a mirrored external fact, and normalised text is never written back, pushed, or used to decide whether two values differ.** 🔴 **Provider markup is NEVER executed: `dangerouslySetInnerHTML` appears nowhere and entities are decoded AFTER tags are stripped, so an escaped tag cannot be reassembled into a live one.** ✅ **Long values are CONTAINED and scroll, never truncated.** ✅ **The missing-adapter reason moved out of the resolution column to one line above the table — it describes the channel, not a row.** 🔴 **No mapping or business rule touched: `name_en` stays an attribute, price mapping unchanged, no intent written, `GAP-134` open.** ✅ **Frontend only. `src/product` + `src/design` 656/656; build clean.** |
 | **1.9.0** | **2026-08-18** | 🟨 **`LSC-057` ADDED — `FRAME 19`’S INBOUND HALF RECONCILED AGAINST REAL RECORDED BATCHES; THE FRAME IS NOT COMPLETE.** **`ChannelListingBatchPage.tsx` reconciled IN PLACE and tagged `FRAME 19`: subject with actor and both times, server-derived summary strip, the `INV-107.1` aggregate note, outcome tabs carrying the server’s counts, server-side filtering and paging, and one row per `E-107` operation. 11 tests.** 🔴 **The title names the act that actually ran — a `DISCOVER` run is a "Discovery result", never the pack’s "Push result".** 🔴 **No `FAILED` or `DIVERGED` member is fabricated in the screen or its fixtures.** 🔴 **"Export result" and "Retry N failed" are stated as unavailable — no export endpoint exists, and retry addresses failed members which an inbound run does not produce (`PRD-186.d`).** 🔴 **The OUTBOUND half remains BLOCKED on an adapter and a documented Daraz write protocol (`LSC-051`); `FRAME 18` still has no component.** ✅ **Also `LSC-003`: `FRAME 04`, `FRAME 11` and `FRAME 19` now named in their own source, with a traceability test.** 🔴 **No business question decided — `GAP-134` untouched, no `sync_state` written, `name_en` not mapped, price mapping unchanged.** ✅ **Frontend only. `src/product` + `src/design` 637/637; build clean.** |
 | **1.8.0** | **2026-08-18** | ✅ **`FRAME 20` IMPLEMENTED — Sync Now and the shared operation result.** **`ChannelListingSyncPage.tsx` was reconciled IN PLACE at its existing route: the request surface carries the channel selection, the one-channel-per-sync scope enforced as a RADIO GROUP (`PRD-189.b`), the disabled state for an adapter reporting nothing readable, the "What sync does" block with "Sync never pushes", the absence-is-not-deletion footnote and Cancel / Start sync; the result surface carries the completion banner, the three real tallies, the batch-derived Manual required and Errors, and a per-`E-107` "Channel read" table.** 🔴 **FOUR FIGURES THE PACK DRAWS ARE RENDERED UNAVAILABLE RATHER THAN INVENTED — reported changes found, new divergences, not-returned-this-run and retry — because a discovery run tracks none of them** (`LSC-034`, `LSC-056.c`). 🔴 **The monthly-automatic last-run time is NOT fabricated: the cadence is ratified but no scheduler exists.** ⚠ **A channel’s "last read" is often absent because discovery does not write a sync time — a consequence of the OPEN `GAP-134` question, not worked around here.** 🔴 **`FRAME 18` and `FRAME 19` are UNCHANGED and remain blocked on the OUTBOUND half; `LSC-011` and `LSC-051` narrowed to those two.** 🔴 **No business question decided: workspace summary untouched, no stored `sync_state` written or overridden, `name_en` not mapped to a title, price mapping unchanged.** ✅ **Frontend only — no backend, endpoint or migration change. 19 tests; `src/product` + `src/design` 601/601; build clean.** |

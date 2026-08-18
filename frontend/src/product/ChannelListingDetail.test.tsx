@@ -110,6 +110,30 @@ const COMPARISON: readonly ComparisonRow[] = [
   { fieldKey: 'attribute:Warranty period', label: 'Warranty period', intendedValue: '12 months', reportedValue: null, reportedReadable: false, state: 'NOT_READABLE', resolvable: false },
 ];
 
+
+/**
+ * What the channel DECLARES, in the shape Daraz actually declares it: every listing field
+ * READABLE, and NONE writable.
+ *
+ * <p>🔴 READABLE IS NOT PUSHABLE. The adapter reads nine listings perfectly and declares no
+ * field writable, because no outbound write protocol is documented and `pushUpdate` refuses.
+ */
+const CHANNELS_CAPABILITY = [
+  {
+    id: LISTING.channelInstanceId,
+    code: 'DARAZ-A',
+    name: 'Daraz account A',
+    channelType: 'DARAZ',
+    adapterAvailable: true,
+    knownListings: 9,
+    lastSyncAt: null,
+    capabilities: [
+      'title', 'description', 'sale_price', 'promotion_price', 'listing_stock',
+      'media', 'channel_category', 'attributes', 'orderable_skus',
+    ].map((fieldKey) => ({ fieldKey, readable: true, writable: false })),
+  },
+];
+
 function stubApi(
   permissions: readonly string[] = [
     'product.channel-listing.view',
@@ -128,6 +152,7 @@ function stubApi(
       if (url.includes('/api/auth/me')) {
         return json({ id: 'dev', username: 'devuser', fullName: 'Dev User', roles: [], permissions });
       }
+      if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
       if (url.includes('/comparison')) return json(COMPARISON);
       if (url.includes('/media')) {
         return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });
@@ -167,6 +192,7 @@ function stubApiWithComparison(
           permissions: ['product.channel-listing.view', 'product.channel-listing.manage'],
         });
       }
+      if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
       if (url.includes('/comparison')) return json(rows);
       if (url.includes('/media')) {
         return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });

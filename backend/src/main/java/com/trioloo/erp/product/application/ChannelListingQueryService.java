@@ -6,6 +6,7 @@ import com.trioloo.erp.product.application.channel.ChannelAdapterRegistry;
 import com.trioloo.erp.product.domain.ListingFieldKey;
 import com.trioloo.erp.product.domain.MappingState;
 import com.trioloo.erp.product.domain.SyncState;
+import com.trioloo.erp.product.application.channel.ChannelCapabilityDeclaration;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelAdapterCapabilityEntity;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelAdapterCapabilityRepository;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelInstanceEntity;
@@ -237,7 +238,7 @@ public class ChannelListingQueryService {
                     known.stream().map(ChannelListingEntity::getLastSyncAt)
                             .filter(Objects::nonNull).max(java.time.Instant::compareTo)
                             .orElse(null),
-                    capabilityViews(capsByChannel.get(c.getId()))));
+                    capabilityViews(c, capsByChannel.get(c.getId()))));
         }
         return views;
     }
@@ -722,18 +723,44 @@ public class ChannelListingQueryService {
                 resolvable);
     }
 
+    /**
+     * What this channel instance declares it can read and write, per field.
+     *
+     * <p>🔴 THE ADAPTER IS THE DECLARING AUTHORITY ({@code API-063.a}, {@code PRD-125}), and it
+     * is asked directly. ⚠ A STORED ROW IS A PERSISTED COPY OF A DECLARATION, NOT A SECOND
+     * SOURCE OF TRUTH — nothing in this system writes one, so reading the table alone reported
+     * every field UNDECLARED for a channel whose adapter had just successfully read nine
+     * listings. The operator saw "what it can read or write is unknown" beside real data.
+     *
+     * <p>✅ A stored row still WINS where one exists, so a per-instance override remains
+     * possible without asking the adapter to know about it.
+     *
+     * <p>🔴 ABSENT IS STILL NO SUPPORT, NEVER ASSUMED SUPPORT. A channel with no adapter, or an
+     * adapter that names no field, declares nothing — exactly as before.
+     */
     private List<ListingViews.CapabilityView> capabilityViews(
+            ChannelInstanceEntity channel,
             List<ChannelAdapterCapabilityEntity> caps) {
         Map<String, ChannelAdapterCapabilityEntity> byKey = new HashMap<>();
         if (caps != null) {
             caps.forEach(c -> byKey.put(c.getFieldKey(), c));
         }
+        ChannelCapabilityDeclaration declared = adapters.forChannelType(channel.getChannelType())
+                .map(adapter -> adapter.declareCapability(channel.getId()))
+                .orElse(null);
+
         List<ListingViews.CapabilityView> out = new ArrayList<>();
         for (String key : ListingFieldKey.all()) {
-            ChannelAdapterCapabilityEntity cap = byKey.get(key);
-            // 🔴 An absent declaration is NO support, never assumed support (API-063).
-            out.add(new ListingViews.CapabilityView(key, cap != null && cap.isReadable(),
-                    cap != null && cap.isWritable()));
+            ChannelAdapterCapabilityEntity stored = byKey.get(key);
+            if (stored != null) {
+                out.add(new ListingViews.CapabilityView(key, stored.isReadable(), stored.isWritable()));
+                continue;
+            }
+            ChannelCapabilityDeclaration.FieldCapability live =
+                    declared == null ? null : declared.forField(key);
+            out.add(new ListingViews.CapabilityView(key,
+                    live != null && live.readable(),
+                    live != null && live.writable()));
         }
         return out;
     }

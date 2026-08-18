@@ -4,7 +4,7 @@ import { isLongProviderText, readableProviderText } from './providerText';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
 import { acceptMarketplaceValue, requestOperation } from './channelListingApi';
-import type { ChannelListing, ComparisonRow } from './channelListingApi';
+import type { CapabilityView, ChannelListing, ComparisonRow } from './channelListingApi';
 
 /**
  * FRAME 07 — Intended vs reported, and FRAME 08 — the resolution dialogs it launches.
@@ -92,11 +92,36 @@ export function ComparisonValue({
   );
 }
 
+/**
+ * Whether the CHANNEL declares this field WRITABLE — `API-063.a`, `PRD-125`.
+ *
+ * <p>🔴 THREE DIFFERENT THINGS, NEVER CONFLATED. A field can be READABLE FROM the channel,
+ * EDITABLE LOCALLY in Trioloo, and PUSHABLE TO the channel. Reading nine listings proves the
+ * first; it says nothing about the third.
+ *
+ * <p>⚠ An attribute row carries its attribute name (`attribute:Brand`), and capability is
+ * declared for the ATTRIBUTES field as a whole — so the row resolves to that key.
+ *
+ * <p>🔴 ABSENT IS NO SUPPORT, NEVER ASSUMED SUPPORT (`API-063`). An undeclared field is not
+ * pushable, and the control says so rather than offering an act that cannot happen.
+ */
+export function declaresWritable(
+  capabilities: readonly CapabilityView[] | undefined,
+  fieldKey: string,
+): boolean {
+  if (!capabilities || capabilities.length === 0) {
+    return false;
+  }
+  const key = fieldKey.startsWith('attribute:') ? 'attributes' : fieldKey;
+  return capabilities.find((c) => c.fieldKey === key)?.writable === true;
+}
+
 type Resolution = { readonly kind: 'accept' | 'push'; readonly row: ComparisonRow };
 
 export function ChannelListingComparison({
   item,
   rows,
+  capabilities,
   mayManage,
   mayPublish,
   onResolved,
@@ -104,6 +129,8 @@ export function ChannelListingComparison({
 }: {
   readonly item: ChannelListing;
   readonly rows: readonly ComparisonRow[];
+  /** What this channel instance declares it can write, per field (`API-063.a`). */
+  readonly capabilities?: readonly CapabilityView[];
   readonly mayManage: boolean;
   readonly mayPublish: boolean;
   readonly onResolved: () => Promise<void> | void;
@@ -116,6 +143,15 @@ export function ChannelListingComparison({
   const [error, setError] = useState<string | null>(null);
 
   const divergedCount = useMemo(() => rows.filter((r) => r.state === 'DIVERGED').length, [rows]);
+  /*
+    🔴 READABLE IS NOT PUSHABLE. A channel that reads nine listings perfectly may declare no
+    field writable, which is exactly what Daraz declares today: no outbound write protocol is
+    documented and `pushUpdate` refuses. The reason is stated once rather than per row.
+  */
+  const anyPushable = useMemo(
+    () => item.adapterAvailable && rows.some((r) => declaresWritable(capabilities, r.fieldKey)),
+    [item.adapterAvailable, rows, capabilities],
+  );
   const shown = differencesOnly ? rows.filter((r) => r.state === 'DIVERGED') : rows;
 
   const display = (row: ComparisonRow, value: string | null): string | null =>
@@ -182,10 +218,12 @@ export function ChannelListingComparison({
         contacts nothing (`LSC-053`). Where no adapter is configured the push controls are
         disabled, and this says why once.
       */}
-      {mayPublish && !item.adapterAvailable && (
+      {mayPublish && !anyPushable && (
         <div data-testid="comparison-capability-note" style={{ ...quietNote, marginTop: '12px' }}>
-          No marketplace adapter is configured for this channel, so nothing can be sent from
-          here. Accepting a marketplace value is unaffected — it changes ERP intent only.
+          {!item.adapterAvailable
+            ? 'No marketplace adapter is configured for this channel, so nothing can be sent from here.'
+            : `${item.channelName ?? 'This channel'} can be READ but declares no field writable, so no change can be sent yet. Reading and editing locally are unaffected.`}
+          {' '}Accepting a marketplace value is unaffected — it changes ERP intent only.
         </div>
       )}
 
@@ -289,7 +327,7 @@ export function ChannelListingComparison({
               </div>
 
               <div style={resolutionCell}>
-                {resolutionFor(row, { item, mayManage, mayPublish, setResolution, onCompareMedia })}
+                {resolutionFor(row, { item, capabilities, mayManage, mayPublish, setResolution, onCompareMedia })}
               </div>
             </div>
           );
@@ -379,13 +417,24 @@ function resolutionFor(
   row: ComparisonRow,
   ctx: {
     readonly item: ChannelListing;
+    readonly capabilities?: readonly CapabilityView[];
     readonly mayManage: boolean;
     readonly mayPublish: boolean;
     readonly setResolution: (r: Resolution) => void;
     readonly onCompareMedia: () => void;
   },
 ): React.ReactNode {
-  const { item, mayManage, mayPublish, setResolution, onCompareMedia } = ctx;
+  const { item, capabilities, mayManage, mayPublish, setResolution, onCompareMedia } = ctx;
+  /*
+    🔴 PUSHABLE IS NOT THE SAME AS READABLE. Daraz declares every listing field READABLE and
+    NONE writable, because no outbound write protocol is documented (`DZC` covers the read side
+    only) and `pushUpdate` refuses. Offering a push here would promise an act this system
+    cannot perform.
+  */
+  const pushable = item.adapterAvailable && declaresWritable(capabilities, row.fieldKey);
+  const pushBlockedReason = !item.adapterAvailable
+    ? 'No marketplace adapter is configured for this channel.'
+    : 'This channel does not declare this field writable, so it cannot be sent.';
 
   if (row.state === 'ALIGNED') {
     return <span style={quietNote}>Nothing to resolve</span>;
@@ -421,10 +470,10 @@ function resolutionFor(
       <button
         type="button"
         data-testid={`comparison-push-${row.fieldKey}`}
-        disabled={!item.adapterAvailable}
-        title={item.adapterAvailable ? undefined : 'No marketplace adapter is configured for this channel.'}
+        disabled={!pushable}
+        title={pushable ? undefined : pushBlockedReason}
         onClick={() => setResolution({ kind: 'push', row })}
-        style={{ ...actionPrimary, opacity: item.adapterAvailable ? 1 : 0.45 }}
+        style={{ ...actionPrimary, opacity: pushable ? 1 : 0.45 }}
       >
         Review &amp; Push
       </button>
@@ -452,10 +501,10 @@ function resolutionFor(
           <button
             type="button"
             data-testid={`comparison-push-${row.fieldKey}`}
-            disabled={!item.adapterAvailable}
-            title={item.adapterAvailable ? undefined : 'No marketplace adapter is configured for this channel.'}
+            disabled={!pushable}
+            title={pushable ? undefined : pushBlockedReason}
             onClick={() => setResolution({ kind: 'push', row })}
-            style={{ ...actionPrimary, opacity: item.adapterAvailable ? 1 : 0.45 }}
+            style={{ ...actionPrimary, opacity: pushable ? 1 : 0.45 }}
           >
             Push ERP
           </button>
