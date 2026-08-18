@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.3.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.4.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -297,6 +297,201 @@ indicates success.
 > ⚠ **THE RUNTIME CODE TABLE MUST BE LEARNED AT FIRST LIVE INTEGRATION** and folded back here. **Rate-limit
 > semantics are likewise unpublished.**
 
+## 9. Listing read — the product APIs
+
+> 🔴 **THIS SECTION EXISTS SO THE ADAPTER GATE NEVER GUESSES A RESPONSE SHAPE.** ⚠ **The connection gate
+> was delayed by exactly one unguessable fact — a local seller returns `user_info`, not `country_user_info`
+> (§6.1). Everything below is recorded from official documentation BEFORE any adapter code exists.**
+
+### 9.1 The endpoints
+
+> **`DZC-020` — ✅ THE LISTING READ IS `/products/get`, AND IT IS THE `GetProducts` OF THE LEGACY API.**
+>
+> **Daraz's own migration guide maps the legacy Seller Center method `GetProducts` to the REST path
+> `/products/get`.** ✅ **That mapping is a DARAZ-published source, and it is what ties the Lazada-hosted
+> reference below to this venture** — **the same shared-platform relationship §5 already relies on for the
+> signature algorithm.**
+>
+> **a.** ✅ **HTTP method: `GET`.** **The official sample sets `request.setHttpMethod("GET")`.**
+> **b.** ✅ **Base: the Bangladesh regional gateway `https://api.daraz.com.bd/rest`** (`DZC-001`), **signed
+> exactly as `DZC-008` specifies.** ⚠ **The reference page's own Service Endpoints table lists Lazada regions
+> only and does NOT list Bangladesh; `DZC-001` already decided the Daraz regional base and is unchanged.**
+> **c.** ✅ **Authorisation required. Common parameters are `app_key`, `timestamp`, `access_token`,
+> `sign_method`, `sign`** — **the same five §5 documents, with `access_token` now REQUIRED.**
+
+> **`DZC-021` — ✅ THE SINGLE-LISTING READ IS `/product/item/get`, AND IT IS A `POST`.**
+>
+> **Documented as *"Get single product by ItemId or SellerSku."***
+>
+> **a.** 🔴 **`item_id` (Number) is REQUIRED.** **The reference states plainly that Item Id must be selected
+> as the request parameter.**
+> **b.** 🔴 **`seller_sku` IS DEPRECATED and unsupported after 15 November 2023.** ⚠ **It must not be used
+> as a lookup key.**
+> **c.** 🔴 **THE METHOD IS `POST`, NOT `GET`, AND THAT IS AN IMPLEMENTATION CONSTRAINT TODAY.**
+> **`DarazTransport` currently exposes `String get(URI)` and nothing else.** ✅ **`DarazRequestSigner` already
+> accepts a body argument, so signing is ready; the TRANSPORT is what must gain a POST before `readListing`
+> can use this endpoint.**
+
+### 9.2 `/products/get` parameters
+
+> **`DZC-022` — ✅ EVERY BUSINESS PARAMETER IS OPTIONAL, AND THE REFERENCE CONTRADICTS ITSELF ON ONE.**
+
+| Parameter | Type | Required | Documented meaning |
+|---|---|---|---|
+| **`filter`** | String | **No** — ⚠ **but its own description ends "Mandatory."** | Status filter. Values: `all`, `live`, `inactive`, `deleted`, `pending`, `rejected`, `sold-out` |
+| `create_after` / `create_before` | String | No | ISO 8601 creation-date bounds |
+| `update_after` / `update_before` | String | No | ISO 8601 update-date bounds |
+| `limit` | String | No | Page size. 🔴 **Maximum 50** |
+| `offset` | String | No | 🔴 **DEPRECATED.** *"It is recommended to use date for scrolling query."* 🔴 **Maximum offset 10000** |
+| `options` | String | No | `options=1` adds `ReservedStock`, `RtsStock`, `PendingStock`, `RealTimeStock`, `FulfillmentBySellable` |
+| `sku_seller_list` | String | No | ⚠ **Description field is EMPTY in the reference — NOT PUBLISHED** |
+
+> **a.** ⚠ **THE `filter` CONFLICT IS RECORDED, NOT RESOLVED.** **The Required column says No; the description
+> says Mandatory.** ✅ **`DZC-025` sends it explicitly regardless, so the contradiction cannot bite.**
+> **b.** 🔴 **`offset` IS DEPRECATED AND CAPPED AT 10000 — A SELLER WITH MORE LISTINGS CANNOT BE PAGED BY
+> OFFSET AT ALL.** ✅ **Date scrolling on `create_after`/`update_after` is the documented replacement and is
+> what `DiscoveryPage.nextCursor` must carry.**
+
+### 9.3 Response envelope and shape
+
+> **`DZC-023` — ✅ THE ENVELOPE IS §7'S, WITH THE PAYLOAD UNDER `data`.**
+>
+> **`{ "code": "0", "data": { "total_products": Number, "products": [ … ] }, "request_id": "…" }`**
+>
+> **a.** ✅ **`code` `"0"` is success**, per `DZC-007`; any non-zero is a refusal.
+> **b.** ✅ **`total_products` is documented as ITEM level, not SKU level.**
+> **c.** ✅ **`request_id` is present and is safe to log** (`DZC-011`).
+
+**Product object — documented fields:** `item_id` · `primary_category` · `attributes` (Object) · `skus`
+(Object[]) · `created_time` · `updated_time` · `images` · `marketImages` · `status` · `subStatus` ·
+`hiddenStatus` · `hiddenReason` · `suspendedSkus` · `trialProduct` · `rejectReason[]`.
+
+**SKU object — documented fields:** `SkuId` · `SellerSku` · `ShopSku` · `Status` · `quantity` · `Available`
+· `price` · `special_price` · `special_from_time` · `special_to_time` · `special_to_date` · `Images[]` ·
+`Url` · `package_width` / `package_height` / `package_length` / `package_weight` · `product_weight`.
+
+**`attributes` object — fields seen in the official sample:** `name` · `description` · `short_description` ·
+`brand` · `warranty_type` · `gift_wrapping` · `name_engravement` · `preorder` · `preorder_days`.
+⚠ **THE ATTRIBUTE SET IS CATEGORY-DEPENDENT AND IS NOT AN EXHAUSTIVE PUBLISHED LIST.**
+
+> **`DZC-024` — ⚠ FOUR SHAPE FACTS ARE NOT PUBLISHED AND MUST NOT BE ASSUMED.**
+>
+> **a.** ⚠ **`price` and `special_price` carry NO published currency, scale or type.** **The sample shows bare
+> JSON numbers (`32`, `9`).** 🔴 **They are read as text and converted with exact decimal semantics; they are
+> never parsed into a binary float** (`DB-037`, `TEC-010`).
+> **b.** ⚠ **`images` and `marketImages` appear in the sample as a STRING containing a JSON array, while the
+> SKU-level `Images` is a real array.** 🔴 **NOT PUBLISHED which is authoritative; an implementation must
+> tolerate both and report `readable=false` when it can parse neither.**
+> **c.** ⚠ **`created_time` / `updated_time` appear as epoch-millisecond STRINGS; `special_from_time` /
+> `special_to_time` appear as `"2015-07-3100:00"`, which is not a documented format.** 🔴 **NOT PUBLISHED.**
+> **d.** ⚠ **`status` and `subStatus` appear in the sample as COMMA-JOINED VALUE LISTS
+> (`"Active,InActive,Pending QC,Suspended,Deleted"`), which is documentation shorthand for the possible
+> values rather than a real field value.** 🔴 **The true per-product value is NOT PUBLISHED.**
+
+### 9.4 Errors and limits
+
+> **`DZC-025` — ✅ THE PUBLISHED ERROR CODES FOR `/products/get`.**
+
+| Code | Meaning |
+|---|---|
+| `5` / `6` | Invalid request format · unexpected internal error |
+| `14` / `17` / `19` | Invalid offset · invalid date format · invalid limit (≤ 50) |
+| `36` | Invalid status filter |
+| `70` | Corrupt data in the SKU seller list |
+| `506` | Get product failed |
+| `901` | 🔴 **Rate limited — "API level QPS limiting flow, please retry in the next second"** |
+| `SellerNotVerified` | The seller's store-opening process is incomplete |
+
+> **a.** 🔴 **`901` IS THE ONLY PUBLISHED RATE-LIMIT SIGNAL, AND IT IS PER-SECOND QPS.** ✅ **It maps to
+> `ERROR`, never `REAUTH_REQUIRED`** (`DZC-011`) — **a throttle says nothing about the credential.**
+> **b.** ⚠ **No published quota, daily cap or burst allowance. NOT PUBLISHED.**
+
+### 9.5 Mapping to `ReportedListingSnapshot`
+
+> **`DZC-026` — ✅ THE COMPLETE FIELD MAPPING. 🔴 EVERY MEMBER IS EITHER SOURCED OR EXPLICITLY
+> `readable=false`; NONE IS INFERRED.**
+
+| `ReportedListingSnapshot` | Daraz source | Rule |
+|---|---|---|
+| `externalListingId` | `item_id` | ✅ The product identifier `DZC-021` also looks up by |
+| `title` / `titleReadable` | `attributes.name` | ✅ Readable when present |
+| `description` / `descriptionReadable` | `attributes.description` | ✅ Readable when present. ⚠ `short_description` is a DIFFERENT field and is not substituted |
+| `salePrice` / `salePriceReadable` | SKU `price` | ⚠ **SKU-level only — there is NO product-level price.** For a single-SKU product it is that SKU's `price`; 🔴 for a multi-SKU product `readable=false` at listing level, because no published rule says which SKU speaks for the listing |
+| `promotionPrice` / `promotionPriceReadable` | SKU `special_price` | Same single-SKU rule |
+| `promotionStartsAt` / `promotionEndsAt` / `promotionWindowReadable` | SKU `special_from_time` / `special_to_time` | 🔴 **`readable=false` unless the value parses** — the format is NOT PUBLISHED (`DZC-024.c`) |
+| `stock` / `stockReadable` | SKU `quantity` | ⚠ `Available` is a DIFFERENT documented field and is not substituted |
+| `channelCategory` / `channelCategoryReadable` | `primary_category` | ⚠ **A numeric ID, not a name.** 🔴 No category-name lookup is in scope; the ID is reported as given |
+| `listingStatus` | `status` | 🔴 **`readable` semantics do not apply — it is an enum.** ⚠ Per `DZC-024.d` the true value set is NOT PUBLISHED, so any unrecognised value maps to NO status change rather than a guess |
+| `attributes` | `attributes` object | ✅ Reported as name→value text. ⚠ Category-dependent; never validated against an invented schema |
+| `mediaReferences` | `images`, else `marketImages` | ✅ Per `DZC-024.b`, tolerate array-or-string; empty when neither parses |
+| `skus[]` | `skus[]` | See below |
+
+| `ReportedSkuSnapshot` | Daraz source | Rule |
+|---|---|---|
+| `channelSku` | **`SellerSku`** | ✅ The seller's own SKU code, which is what `E-106` means by a channel SKU. ⚠ **`ShopSku` and `SkuId` are marketplace-side identifiers and are NOT the channel SKU** |
+| `salePrice` / `promotionPrice` / window | `price` / `special_price` / `special_from_time` / `special_to_time` | As above, with `readable=false` on unparseable dates |
+| `stock` / `stockReadable` | `quantity` | ✅ |
+| `variationLabel` | — | 🔴 **NOT PUBLISHED as a field.** ⚠ The sample's `SellerSku` (`39817:01:01`) hints at encoded variation, and decoding it would be invention. **`null`** |
+
+> **`DZC-027` — 🔴 WHAT THE ADAPTER MUST NEVER DO WITH THIS RESPONSE.**
+>
+> **a.** 🔴 **NEVER WRITE PRODUCT-OWNED INTENT** (`API-062.c`). **`attributes.name` becomes the REPORTED
+> title, never the intended one.**
+> **b.** 🔴 **NEVER CREATE A SELLABLE PRODUCT MAPPING.** **`SellerSku` may look like an ERP SKU; `PRD-179`
+> requires confirmation and forbids matching by title.** ⚠ **A discovered listing stays `UNMAPPED`** (`PRD-178`).
+> **c.** 🔴 **NEVER DECIDE `DIVERGED` OR `MANUAL_REQUIRED` IN THE ADAPTER.** **It reports observed values;
+> `PRD-181` owns comparison** (`API-062.c`).
+> **d.** 🔴 **NEVER TREAT ABSENCE AS ZERO.** **An unreadable price is `readable=false`, never `0`.**
+> **e.** 🔴 **NEVER MAP `rejectReason`, `violationDetail`, `hiddenReason`, `suspendedSkus` OR `trialProduct`.**
+> ⚠ **They are real published fields with no `E-106`/`E-107` home, and inventing one is a business decision.**
+
+### 9.6 Discovery and single-read semantics
+
+> **`DZC-028` — ✅ THE FIRST GATE DISCOVERS `filter=live` ONLY.**
+>
+> **a.** ✅ **`discoverActive` means ACTIVE listings** (`PRD-175`), **and `live` is the documented value for that.**
+> **b.** 🔴 **`inactive`, `deleted`, `pending`, `rejected` and `sold-out` ARE DOCUMENTED AND ARE NOT USED IN
+> THE FIRST GATE.** ⚠ **Reading them would change what a discovery run MEANS, which `PRD-175`/`PRD-177` own.**
+> **c.** 🔴 **ABSENCE IS NOT DELETION** (`API-066.b`, `PRD-177`). **A listing a run did not return is left
+> exactly as it was.** ✅ **A run that stops early for ANY reason — `901`, a transport failure, the 10000 offset
+> ceiling — sets `complete=false` with an `incompleteReason`.**
+> **d.** ✅ **Paging uses `limit` ≤ 50 with date scrolling; `nextCursor` carries the scroll position.**
+> 🔴 **`offset` is deprecated and capped, and is not the paging mechanism.**
+
+> **`DZC-029` — ⚠ `readListing` HAS A DOCUMENTED ENDPOINT AND A TRANSPORT GAP.**
+>
+> **a.** ✅ **`/product/item/get` reads one product by `item_id`, which is exactly the
+> `externalListingId` the port supplies.**
+> **b.** 🔴 **IT IS A `POST`, AND `DarazTransport` HAS NO POST** (`DZC-021.c`). **Until the transport gains
+> one, `readListing` cannot be implemented against it.**
+> **c.** ⚠ **THE FALLBACK IS NOT A SUBSTITUTE AND IS RECORDED AS SUCH.** **A single listing could be located
+> through paged `/products/get`, but that reads a seller's whole catalogue to find one row and cannot be
+> called a targeted read.** 🔴 **Adding POST to the transport is the correct fix.**
+
+### 9.7 Token refresh
+
+> **`DZC-030` — 🔴 REFRESH IS NOT OPTIONAL POLISH; THE LIVE CREDENTIAL EXPIRES.**
+>
+> **`/auth/token/refresh` takes `refresh_token`** (§5) **and is documented alongside `/auth/token/create` under
+> the System category.** ⚠ **Its response FIELD SET is not separately published; it is expected to mirror
+> creation, and §6.1's shape lesson applies — the first refusal must report field NAMES safely rather than
+> assume.**
+>
+> **a.** ✅ **OBSERVED LIFETIMES, from the live credential bound 2026-08-17** — **access token ≈ 30 days,
+> refresh token ≈ 180 days.** 🔴 **No token value is recorded here or anywhere in this document.**
+> **b.** ✅ **CONSERVATIVE DEFAULT, PROPOSED AND NOT REQUIRING A REVIEWER DECISION:** **refresh when the access
+> token is expired or within a safety margin of expiry, immediately before an adapter call.**
+> **c.** 🔴 **IF REFRESH FAILS, NO LISTING API IS CALLED.** **The operation refuses and reports; it never
+> proceeds on a token believed dead.**
+> **d.** ✅ **CLASSIFICATION IS `DZC-011`'S, UNCHANGED.** **`REAUTH_REQUIRED` only on evidence about the
+> CREDENTIAL — invalid, expired or revoked. A `901` throttle or a transport failure is `ERROR`.**
+> **e.** ✅ **A SUCCESSFUL REFRESH IS STORED VIA THE EXISTING `ChannelCredentialStore.putRefreshed`**, which
+> already exists and is unused.
+>
+> ⚠ **ONE REVIEWER DECISION REMAINS: the safety margin, and whether refresh is also scheduled proactively
+> rather than only on demand.** 🔴 **On-demand with a margin is safe and is what `b` proposes; a scheduler is
+> a new operational behaviour and is NOT assumed.**
+
 ## 8. What remains unpublished — and why none of it blocks
 
 | Fact | Status |
@@ -304,6 +499,9 @@ indicates success.
 | **`/seller/get` response schema** | 🔴 **NOT PUBLISHED.** Does not block — identity comes from the documented token response instead (`DZC-010`) |
 | **Runtime error codes** | 🔴 **NOT PUBLISHED.** Does not block — mapping is driven by documented time facts and defaults to `ERROR` (`DZC-011`) |
 | **Rate-limit semantics** | ⚠ Unpublished — treated as `ERROR`, learn empirically |
+| **`/products/get` value formats** | 🔴 **NOT PUBLISHED** — price scale/currency, image array-or-string, promotion date format, true `status` value set (`DZC-024`). Does not block: each is read defensively and reports `readable=false` rather than guessing |
+| **`sku_seller_list` parameter** | 🔴 **NOT PUBLISHED** — the reference's description field is empty. Does not block: it is optional and unused |
+| **`/auth/token/refresh` response fields** | ⚠ **NOT SEPARATELY PUBLISHED** — expected to mirror creation (`DZC-030`). Confirm at the first refresh with safe field-name diagnostics |
 | **Local-seller token shape** | 🔴 **NOT PUBLISHED — OBSERVED.** Resolved empirically at the first live authorisation and recorded in §6.1; the documentation describes only the cross-border shape |
 | **Bangladesh REST base** | ✅ **CLOSED** — explicitly documented per region |
 | **Timestamp skew window** | ✅ **CLOSED** — ±7200 seconds |
@@ -321,10 +519,15 @@ All read from the provider's rendered official documentation on 2026-08-17, exce
 - [Daraz Open Platform — Seller authorization introduction](https://open.daraz.com/doc/doc.htm?#/?docId=490)
 - [Daraz Open Platform — Configure seller authorization](https://open.daraz.com/doc/doc.htm?nodeId=27493&docId=118729#/?docId=491)
 - [Daraz Open Platform — API Reference](https://open.daraz.com/doc/api.htm)
+- [Daraz Open Platform — Reconfigure existing app / legacy API name mapping](https://developer.alibaba.com/docs/doc.htm?articleId=120243&docType=1&source=search&treeId=754) — ✅ **the DARAZ-published source that maps `GetProducts` to `/products/get`**
+- [Open Platform — `/products/get` reference](https://open.lazada.com/apps/doc/api?path=/products/get)
+- [Open Platform — `/product/item/get` reference](https://open.lazada.com/apps/doc/api?path=/product/item/get)
 - [Lazada Open Platform — Signature algorithm](https://open.lazada.com/apps/doc/doc?nodeId=10450&docId=108068)
 
 ⚠ **The signature algorithm is published on the Lazada Open Platform documentation, to which Daraz's own API
 reference links directly for signing details** — the two ventures share one platform contract.
+
+⚠ **§9'S PARAMETER AND RESPONSE DETAIL IS READ FROM THE SAME SHARED PLATFORM REFERENCE, AND THE LINK IS NOT AN ASSUMPTION:** **Daraz's own migration guide names `/products/get` as the REST successor to `GetProducts`.** 🔴 **The Daraz API-reference site renders its catalogue through client-side script and could not be enumerated as static text; the shared reference was used for field detail and every Daraz-specific decision — regional base, signing, envelope — remains §1–§8's.**
 
 ---
 
@@ -332,6 +535,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.4.0** | **2026-08-18** | ✅ **§9 ADDED — THE LISTING READ CONTRACT, `DZC-020`–`DZC-030`, RECORDED BEFORE ANY ADAPTER CODE EXISTS.** **`GetProducts` → `/products/get` (`GET`) from Daraz's own migration guide, with parameters, envelope, product/SKU/attribute field lists and the published error codes including the `901` per-second QPS throttle; `/product/item/get` (`POST`, `item_id` required, `seller_sku` deprecated since 2023-11-15) for the single read.** ✅ **`DZC-026` maps every `ReportedListingSnapshot` and `ReportedSkuSnapshot` member to a documented source or an explicit `readable=false`** — **`SellerSku` is the channel SKU, `ShopSku`/`SkuId` are not, and `variationLabel` is NOT PUBLISHED.** 🔴 **`DZC-027` forbids writing intent, creating mappings, deciding divergence, or treating absence as zero.** ✅ **`DZC-028` scopes the first gate to `filter=live` with date scrolling, since `offset` is deprecated and capped at 10000.** ⚠ **`DZC-029` records that `readListing`'s endpoint is a `POST` while `DarazTransport` is `GET`-only.** ✅ **`DZC-030` sets the refresh contract and a conservative on-demand default; the safety margin remains a reviewer decision.** 🔴 **Four value formats recorded as NOT PUBLISHED rather than guessed. No secret or token value appears.** |
 | **1.3.0** | **2026-08-17** | 🔴 **`DZC-010` AMENDED — THE CONTRACT DESCRIBED ONLY ONE OF TWO REAL RESPONSE SHAPES.** ⚠ **The documented `country_user_info[]` is what a CROSS-BORDER seller receives; a live Bangladesh LOCAL seller returned NO such array, one flat `user_info` object, and the venture named only at the top level — so every local seller was refused.** ✅ **§6.1 adds the local branch: `country_user_info[].seller_id` remains the documented cross-border path and still wins when present; `user_info.seller_id` is the observed local path, GUARDED BY the top-level `country` being Bangladesh.** 🔴 **The rejection of `account`/email as binding identity is preserved in full, and extended to `user_id`, `short_code`, `country`, `account_platform`, `code`, `request_id` and `_trace_id_`.** ⚠ **A populated cross-border array with no Bangladesh entry is NOT rescued by `user_info`.** 🔴 **Live evidence is recorded as FIELD NAMES ONLY — no secret or response value appears in this document.** |
 | **1.2.0** | **2026-08-17** | 🔴 **`DZC-011` CORRECTED — IT WAS OVER-BROAD.** **v1.1.0 mapped ANY non-zero response from `/auth/token/refresh` to `REAUTH_REQUIRED`.** ⚠ **That would have told an operator to go and disturb a seller whose authorisation was perfectly healthy, merely because the refresh call was rate-limited, mis-signed, clock-skewed or hit a provider outage.** ✅ **`REAUTH_REQUIRED` now requires evidence about the CREDENTIAL itself — invalid, expired or revoked; everything else, including any unclassified non-zero code, is `ERROR`.** 🔴 **THE ENDPOINT INVOLVED PROVES NOTHING; ONLY EVIDENCE ABOUT THE CREDENTIAL DOES.** ⚠ **No new error code was invented to support this — the rule is a classification default, not a claim about Daraz’s catalogue.** |
 | **1.1.0** | **2026-08-17** | ✅ **CONTRACT COMPLETED.** **Bangladesh REST base explicitly confirmed from the per-region Service Endpoints table; timestamp skew ±7200s; `sign_method=sha256` resolved from the official sample's branch rather than from digest length.** 🔴 **`DZC-010` DECIDES THE BINDING IDENTITY — the Bangladesh `country_user_info[].seller_id` from the token response — BECAUSE `/seller/get` PUBLISHES NO RESPONSE SCHEMA**, and guessing a field on the one fact every reauthorisation is tested against would mis-bind shops silently. 🔴 **`DZC-011` maps provider failures from DOCUMENTED TIME FACTS and defaults to `ERROR`, because Daraz publishes no auth error codes; `REAUTH_REQUIRED` is reached only on a documented condition.** ⚠ **Unpublished items are listed with fail-safe fallbacks to confirm at first live authorisation.** 🔴 **No secret value appears in this document.** |
