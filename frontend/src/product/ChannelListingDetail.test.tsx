@@ -808,3 +808,74 @@ describe('Frames 11 + 12 — mapping from the Listing', () => {
     expect(screen.queryByTestId('detail-change-mapping')).toBeNull();
   });
 });
+
+/**
+ * FRAME 06 against a DISCOVERED listing — the production shape of 2026-08-18.
+ *
+ * 🔴 The claim is that a listing with NO intent and READABLE reported values still offers the
+ * ratified resolution path. `PRD-181` compares intent against reported, and a null intent
+ * beside a reported value DIFFERS — so `PRD-184.b` Accept Marketplace stays reachable and the
+ * operator is never stranded with an empty record and no way to fill it.
+ *
+ * ⚠ The reported title is NON-ASCII and mixed-language, exactly as the real seller's is.
+ */
+describe('Frame 06 — a discovered Listing with nothing authored yet', () => {
+  const DISCOVERED: ChannelListing = {
+    ...LISTING,
+    intendedTitle: null,
+    intendedDescription: null,
+    salePrice: null,
+    listingStock: null,
+    intendedChannelCategory: null,
+    channelReportedTitle: 'ইন্টেল কোর i5 7500 Desktop PC',
+    reportedTitleReadable: true,
+    syncState: 'PENDING',
+    hasUnsentLocalChanges: false,
+    lastSuccessfulPushAt: null,
+  };
+
+  /** Every readable reported fact differs from a null intent, so all of them are resolvable. */
+  const NULL_INTENT_ROWS: readonly ComparisonRow[] = [
+    { fieldKey: 'title', label: 'Title', intendedValue: null, reportedValue: 'ইন্টেল কোর i5 7500 Desktop PC', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+    { fieldKey: 'sale_price', label: 'Sale Price', intendedValue: null, reportedValue: '49800.00', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+  ];
+
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  /**
+   * 🔴 GATED ON THE LIVE COMPARISON, NOT ON THE STORED SYNC STATE. The listing reads PENDING —
+   * discovery deliberately does not decide a sync state (`INV-107.4`, `GAP-134`) — and the
+   * action must still appear, because a readable fact genuinely differs.
+   */
+  it('offers Resolve divergence even though the stored sync state is PENDING', async () => {
+    stubApiWithComparison(NULL_INTENT_ROWS, DISCOVERED);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-resolve')).toBeTruthy());
+    expect(screen.getByTestId('detail-resolve').textContent).toContain('Resolve divergence');
+  });
+
+  /**
+   * 🔴 THE TITLE FALLBACK IS PINNED. With no intended title the provider's own reported title
+   * is shown AS RECEIVED — non-ASCII, mixed-language and untranslated.
+   *
+   * ⚠ `name_en` is an ORDINARY reported attribute and is NEVER silently promoted to the title.
+   * Mapping it would be a `DZC-026` / `PRD-202` decision that no rule has taken.
+   */
+  it('falls back to the provider reported title without substituting name_en', async () => {
+    stubApiWithComparison(NULL_INTENT_ROWS, DISCOVERED);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-resolve')).toBeTruthy());
+    const heading = document.body.textContent ?? '';
+    expect(heading).toContain('ইন্টেল কোর i5 7500 Desktop PC');
+    /* 🔴 Not "Untitled listing" — a reported title exists and is used. */
+    expect(screen.queryByText('Untitled listing')).toBeNull();
+  });
+
+  /** ✅ The ERP side says plainly that nothing is authored, rather than showing a blank. */
+  it('states that the intended title is not set locally', async () => {
+    stubApiWithComparison(NULL_INTENT_ROWS, DISCOVERED);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-resolve')).toBeTruthy());
+    expect(document.body.textContent).toContain('Not set locally');
+  });
+});

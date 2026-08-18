@@ -840,3 +840,114 @@ describe('Frame 10 + 12 — mapping from Edit', () => {
     expect(screen.queryByTestId('edit-open-mapping')).toBeNull();
   });
 });
+
+/**
+ * A listing exactly as DISCOVERY leaves it: the channel has content, Trioloo has no opinion.
+ *
+ * 🔴 THIS IS THE PRODUCTION SHAPE OF 2026-08-18. The first live Daraz pull created nine
+ * listings with every intended column NULL, because `PRD-181.a` writes the REPORTED side only
+ * and never authors intent. The edit form was therefore entirely blank and was reported as
+ * broken — it was not: it was correct, and silent about why.
+ *
+ * ⚠ The reported title is deliberately NON-ASCII and mixed-language, exactly as the real
+ * seller's `attributes.name` is.
+ */
+const DISCOVERED: ChannelListing = {
+  ...LISTING,
+  intendedTitle: null,
+  intendedDescription: null,
+  intendedTitleBn: null,
+  intendedDescriptionBn: null,
+  effectiveTitleBn: null,
+  effectiveDescriptionBn: null,
+  salePrice: null,
+  promotionPrice: null,
+  effectiveSellingPrice: null,
+  listingStock: null,
+  publicationIntent: null,
+  intendedChannelCategory: null,
+  highlights: [],
+  highlightsBn: [],
+  effectiveHighlightsBn: [],
+  channelReportedTitle: 'ইন্টেল কোর i5 7500 Desktop PC',
+  reportedTitleReadable: true,
+  reportedDescription: '<ul><li>Processor : Intel Core i5-7500</li></ul>',
+  reportedDescriptionReadable: true,
+  reportedSalePrice: '49800.00',
+  reportedSalePriceReadable: true,
+  reportedStock: '100',
+  reportedStockReadable: true,
+  syncState: 'PENDING',
+  lastSuccessfulPushAt: null,
+  hasUnsentLocalChanges: false,
+  skus: [{ ...SKU, salePrice: null, listingStock: null, reportedSalePrice: '49800.00', reportedStock: '100' }],
+};
+
+describe('Frame 10 — a discovered Listing with nothing authored yet', () => {
+  beforeEach(() => { listingResponse = DISCOVERED; listingStatus = 200; stubApi(); });
+  afterEach(() => { listingResponse = LISTING; cleanup(); vi.unstubAllGlobals(); });
+
+  /**
+   * 🔴 THE BLANK FORM MUST EXPLAIN ITSELF. An empty form with no explanation reads as a
+   * failure to load, which is precisely how this was reported from production.
+   */
+  it('explains that no local content has been authored yet', async () => {
+    await loaded();
+    const notice = screen.getByTestId('edit-unauthored-notice');
+    expect(notice.textContent).toContain('No local content has been authored');
+    expect(notice.textContent).toContain('never writes intent on your behalf');
+  });
+
+  /** ✅ `PRD-184.b` — the ratified route from reported to intended is offered, not performed. */
+  it('points to the intended-vs-reported comparison', async () => {
+    await loaded();
+    const link = screen.getByTestId('edit-unauthored-resolve');
+    expect(link.getAttribute('href')).toBe('/inventory/products/listings/L-1');
+    expect(link.textContent).toContain('Compare intended vs reported');
+  });
+
+  /** 🔴 `PRD-181.a` — reported values are CONTEXT beside the field, never IN it. */
+  it('shows the reported values as read-only context', async () => {
+    await loaded();
+    expect(screen.getByTestId('reported-intendedTitle').textContent)
+      .toContain('ইন্টেল কোর i5 7500 Desktop PC');
+    expect(screen.getByTestId('reported-salePrice').textContent).toContain('49800.00');
+    expect(screen.getByTestId('reported-publishedMarketplaceStock').textContent).toContain('100');
+    expect(screen.getByTestId('reported-intendedDescription').textContent).toContain('Intel Core i5-7500');
+  });
+
+  /**
+   * 🔴 THE INPUTS STAY EMPTY. Pre-filling them would author intent by page load, which is
+   * exactly the deliberate operator act `PRD-184.a` requires.
+   */
+  it('leaves every input empty and writes no intent on render', async () => {
+    await loaded();
+    expect((screen.getByTestId('field-intended-title') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('field-intended-description') as HTMLTextAreaElement).value).toBe('');
+    expect((screen.getByTestId('field-sale-price') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('field-published-stock') as HTMLInputElement).value).toBe('');
+    /* 🔴 No PUT or POST left the page merely by opening it. */
+    expect(sent).toHaveLength(0);
+  });
+
+  /**
+   * ⚠ THE CONTEXT IS FOR UNAUTHORED FIELDS ONLY. Once a person types, `FRAME 07` owns the
+   * intended-versus-reported question and this form stops answering it too.
+   */
+  it('withdraws the reported context once the operator authors the field', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-intended-title'), { target: { value: 'Desktop PC' } });
+    await waitFor(() => expect(screen.queryByTestId('reported-intendedTitle')).toBeNull());
+    /* ✅ The untouched fields keep theirs. */
+    expect(screen.getByTestId('reported-salePrice')).toBeTruthy();
+  });
+
+  /** ✅ An ordinary authored listing is unaffected — no notice, no duplicated context. */
+  it('says nothing of the sort for a Listing that already has content', async () => {
+    listingResponse = LISTING;
+    stubApi();
+    await loaded();
+    expect(screen.queryByTestId('edit-unauthored-notice')).toBeNull();
+    expect(screen.queryByTestId('reported-intendedTitle')).toBeNull();
+  });
+});

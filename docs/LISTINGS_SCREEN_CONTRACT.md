@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.6.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.7.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -328,6 +328,36 @@ this document follows.
 > successfully read, still-`UNMAPPED` Listing carries (`GAP-134`, `PRD-186`/`INV-107`). ⚠ **Until it is
 > settled, a discovered Listing reads `PENDING`, and no screen may present that as agreement or as failure.**
 
+> **`LSC-055` — ✅ ADDED 2026-08-18. `FRAME 10` EXPLAINS AN UNAUTHORED LISTING INSTEAD OF SHOWING A
+> SILENT BLANK FORM.**
+>
+> **A Listing that arrived through discovery has NO intended content** — `PRD-181.a` writes the REPORTED
+> side only — **so the edit form is legitimately empty.** ⚠ **In production on 2026-08-18 that empty form
+> was reported as broken, because nothing on screen said why it was empty.**
+>
+> **a.** ✅ **THE EMPTY STATE IS STATED, NOT IMPLIED.** **Where no intended content exists and the channel
+> reported something, `FRAME 10` says so and links to the intended-versus-reported comparison**, which is
+> where `PRD-184.b` *Accept Marketplace* is offered per field.
+>
+> **b.** 🔴 **REPORTED VALUES ARE SHOWN AS CONTEXT BENEATH THE FIELD AND ARE NEVER PLACED IN THE INPUT.**
+> **Pre-filling would author intent by page load, and `PRD-184.a` requires a DELIBERATE operator act.**
+> ✅ **Opening the page writes nothing.** ⚠ **The context is withdrawn as soon as the operator authors that
+> field — from then on `FRAME 07` owns the comparison.**
+>
+> **c.** 🔴 **THE REPORTED VALUE IS SHOWN AS RECEIVED AND IS NEVER TRUNCATED.** **A long marketplace
+> description is clamped VISUALLY and scrolls; a shortened copy would misstate what the channel said**
+> (`DZC-031.h` applies the same principle to persistence).
+>
+> **d.** 🔴 **NO TITLE RULE IS CREATED OR CHANGED.** **Display remains `intendedTitle` → `channelReportedTitle`
+> → *Untitled listing*, and the provider's title is rendered as received in whatever language it was
+> written.** ⚠ **`name_en` stays an ORDINARY reported attribute and is NEVER promoted to the title** — that
+> would be a `DZC-026` / `PRD-202` decision, and **none has been taken** (§6).
+>
+> **e.** 🔴 **NOTHING HERE TOUCHES THE WORKSPACE SUMMARY.** **The "Diverged" count still reads the stored
+> `sync_state`, and the divergence a discovered Listing shows on its detail page is computed LIVE.** ⚠ **That
+> inconsistency is REAL and is deliberately NOT papered over here: it resolves only when the open
+> `GAP-134` question — what sync state a successfully read, still-`UNMAPPED` Listing carries — is decided.**
+
 ---
 
 # 6. State of the world
@@ -348,6 +378,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.7.0** | **2026-08-18** | ✅ **`LSC-055` ADDED — `FRAME 10` EXPLAINS AN UNAUTHORED LISTING INSTEAD OF A SILENT BLANK FORM.** **A discovered Listing has no intended content (`PRD-181.a`), so the edit form is legitimately empty; in production that read as a broken page.** ✅ **The page now states the condition and links to the intended-versus-reported comparison where `PRD-184.b` Accept Marketplace is offered per field.** 🔴 **Reported values appear as READ-ONLY CONTEXT BENEATH each field and NEVER in the input — pre-filling would author intent by page load, and opening the page writes nothing.** ⚠ **The context is withdrawn once the operator authors that field.** 🔴 **The reported value is shown AS RECEIVED and clamped visually rather than truncated.** 🔴 **NO TITLE RULE CHANGED — display stays `intendedTitle` → `channelReportedTitle` → *Untitled listing*, and `name_en` is NOT promoted to the title.** 🔴 **The workspace summary is untouched and `GAP-134` remains open and undecided.** ✅ **Frontend only — no backend, endpoint or migration change. `src/product` + `src/design` 582/582, build clean; backend 610/610.** |
 | **1.6.0** | **2026-08-18** | ⚠ **`LSC-054` ADDED — `FRAME 20`’S PER-LISTING DATA SOURCE NOW EXISTS, AND THE FRAME IS STILL NOT BUILT.** **The first production Daraz discovery ran on 2026-08-18 and recorded 9 Listings with ZERO per-listing operation records** — a defect against `PRD-186.a`, which requires one record per Listing per requested remote act and names `discover` among its five kinds. ✅ **Registered and fixed as `GAP-134`: a discover run now opens one `DISCOVER`/`INBOUND` operation per Listing, settles it with the requesting actor and time, and links it to the batch; the channel event the read produces now names both.** 🔴 **`FRAME 20` REMAINS BLOCKED AND IS NOT ACCEPTED AS IMPLEMENTED** — `ChannelListingSyncPage.tsx` is still a draft PAGE rather than the pack’s modal-plus-result composition, and carries 0 tests. 🔴 **Four result figures still have NO source and must not be derived** — reported changes found, new divergences, manual required and errors (`LSC-034`). ⚠ **The pack’s “last read” line resolves from `last_seen_in_discovery_at`, not `last_sync_at`, which discovery deliberately does not write** (`INV-107.4`). 🔴 **NO migration, NO frontend change, and the unmapped-Listing sync-state question remains OPEN and undecided.** |
 | **1.5.0** | **2026-08-18** | ⚠ **`LSC-052` AMENDED — `ChannelAdapterPort` NO LONGER HAS ZERO `src/main` IMPLEMENTATIONS.** **`DarazChannelAdapter` implements the READ half — `channelType`, `declareCapability` and `discoverActive` over `/products/get` — and registers ONLY where Daraz credentials are configured, so an unconfigured deployment still gets the honest "no marketplace adapter is configured" refusal.** 🔴 **`readListing` refuses because the content type is NOT PUBLISHED; `pushUpdate`, `publishCreate` and `withdraw` refuse and contact nothing; no field is declared writable.** 🔴 **`FRAME 18`–`20` REMAIN BLOCKED — they need the outbound half and their own surfaces, and neither exists.** ⚠ **No listing has been read from Daraz: the adapter is proven against a controlled double and production has not run it.** |
 | **1.4.1** | **2026-08-18** | ✅ **`LSC-040` CORRECTED — A STALE COVERAGE RANGE, FOUND BY THE LOCAL-FRAMES CLOSURE AUDIT.** **It read "zero tests cover `FRAME 18`–`FRAME 22`", which stopped being true the moment `FRAME 22` shipped with 19 tests in v1.4.0.** ✅ **Now `FRAME 18`–`FRAME 20`, matching the two draft pages the rule already named.** 🔴 **Wording only — no rule, status, frame or decision changed, and `FRAME 18`–`20` remain BLOCKED on a production `ChannelAdapterPort`** (`LSC-051`). |

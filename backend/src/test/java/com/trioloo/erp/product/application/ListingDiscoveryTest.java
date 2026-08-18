@@ -107,6 +107,7 @@ class ListingDiscoveryTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ChannelListingOperationService operations;
+    @Autowired private ChannelListingQueryService queries;
 
     private AccessFixtures fixtures;
     private UUID actorId;
@@ -637,6 +638,65 @@ class ListingDiscoveryTest {
                 .filter(e -> e.entryKind() == ActivityKind.CHANNEL_EVENT).findFirst().orElseThrow();
         assertThat(operation.actorName()).isEqualTo("discovery-tester (test)");
         assertThat(event.actorName()).isNull();
+    }
+
+    // =================================================================================
+    // PRD-181 / PRD-184 - an unauthored Listing is still resolvable
+    // =================================================================================
+
+    /**
+     * ✅ THE CLAIM BEHIND THE EDIT SCREEN'S NEW EXPLANATION. A discovered Listing has NO
+     * intent, and {@code PRD-181} compares intent against reported — so every READABLE
+     * reported fact differs from its null counterpart and is {@code DIVERGED}.
+     *
+     * <p>🔴 {@code resolvable = true} IS WHAT KEEPS {@code PRD-184.b} ACCEPT MARKETPLACE REACHABLE.
+     * Without it an operator would face an empty record with no ratified way to fill it, which
+     * is exactly how the first nine live Daraz Listings were reported.
+     *
+     * <p>⚠ The stored {@code sync_state} is still {@code PENDING} — discovery does not decide it
+     * ({@code INV-107.4}) — so this proves divergence is judged from the LIVE comparison rather
+     * than from the column.
+     */
+    @Test
+    @DisplayName("PRD-184.b a null intent beside a readable reported value stays resolvable")
+    void unauthoredListingIsStillResolvable() {
+        actingAll();
+        page = catalogue(1);
+        operations.discover(channelId);
+        UUID listingId = jdbc.queryForObject("SELECT id FROM channel_listing", UUID.class);
+
+        List<ListingViews.ComparisonRow> rows = queries.comparison(listingId);
+
+        ListingViews.ComparisonRow title = rows.stream()
+                .filter(r -> "title".equals(r.fieldKey())).findFirst().orElseThrow();
+        assertThat(title.intendedValue()).isNull();
+        assertThat(title.reportedReadable()).isTrue();
+        assertThat(title.state()).isEqualTo(ListingViews.ComparisonRow.DIVERGED);
+        assertThat(title.resolvable()).isTrue();
+
+        /* ✅ And the stored column has NOT been moved to say so. */
+        assertThat(distinctOf("channel_listing", "sync_state")).containsExactly("PENDING");
+    }
+
+    /**
+     * 🔴 A fact the channel could not read is NEVER presented as a difference
+     * ({@code API-063.c}). It is {@code NOT_READABLE} and is not resolvable, so Accept
+     * Marketplace is not offered for a value nobody has.
+     */
+    @Test
+    @DisplayName("API-063.c an unreadable reported fact is NOT_READABLE, never DIVERGED")
+    void unreadableFactIsNotOfferedForResolution() {
+        actingAll();
+        page = catalogue(1);
+        operations.discover(channelId);
+        UUID listingId = jdbc.queryForObject("SELECT id FROM channel_listing", UUID.class);
+
+        List<ListingViews.ComparisonRow> rows = queries.comparison(listingId);
+
+        rows.stream().filter(r -> !r.reportedReadable()).forEach(r -> {
+            assertThat(r.state()).isEqualTo(ListingViews.ComparisonRow.NOT_READABLE);
+            assertThat(r.resolvable()).isFalse();
+        });
     }
 
     // =================================================================================

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { ACTION_ICON, ACTION_ICON_SIZE, ACTION_ICON_STROKE } from '../shell/icons';
-import { buttonStyle } from '../ui/primitives';
+import { Notice, buttonStyle } from '../ui/primitives';
 import { useAuth } from '../auth/AuthContext';
 import { fetchChannels } from './channelListingApi';
 import { listSellableProducts } from './sellableProductApi';
@@ -232,6 +232,45 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
    * that is still a listing the channel has never accepted.
    */
   const published = editing && (mode.existing?.externalListingId ?? null) !== null;
+
+  /**
+   * A listing the channel has content for and Trioloo has NO opinion about yet.
+   *
+   * <p>🔴 THIS IS THE ORDINARY SHAPE OF A DISCOVERED LISTING, NOT A FAULT. `PRD-181.a` — a
+   * pull writes the REPORTED side only and never authors intent — so a listing that arrived
+   * through discovery has every intended field empty until a person fills it in or explicitly
+   * accepts the marketplace's values (`PRD-184.b`).
+   *
+   * <p>⚠ IT IS WHY THIS FORM LOOKS BLANK, and saying so is the whole point: an empty form with
+   * no explanation reads as a loading failure, which is exactly how the first nine discovered
+   * Daraz listings were reported.
+   */
+  const unauthored = editing && mode.existing !== null
+    && !mode.existing.intendedTitle
+    && !mode.existing.intendedDescription
+    && !mode.existing.salePrice
+    && !mode.existing.promotionPrice
+    && !mode.existing.listingStock
+    && !mode.existing.intendedChannelCategory;
+
+  /** Whether the channel actually reported anything worth showing beside the empty fields. */
+  const hasReported = mode.existing !== null
+    && (mode.existing.reportedTitleReadable
+      || mode.existing.reportedDescriptionReadable
+      || mode.existing.reportedSalePriceReadable
+      || mode.existing.reportedStockReadable);
+
+  /**
+   * ⚠ Reported context is offered ONLY while the field is unauthored. Once a person has
+   * written intent, the comparison surface (`FRAME 07`) owns the intended-versus-reported
+   * question, and repeating it under every input would duplicate that screen inside this one.
+   */
+  const reportedFor = (value: string | null, readable: boolean, authored: string): string | undefined => {
+    if (!editing || !readable || value === null || authored.trim() !== '') {
+      return undefined;
+    }
+    return value;
+  };
 
   /**
    * 🔴 RATIFIED RULE — the Seller / Channel SKU may be edited freely while the orderable unit
@@ -517,6 +556,39 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
 
+          {/*
+            🔴 THE BLANK FORM EXPLAINS ITSELF. A discovered listing legitimately has no
+            intended content (`PRD-181.a`), so this form is empty by design — but an empty form
+            with no explanation reads as a failure to load, which is exactly how the first live
+            Daraz pull was reported.
+
+            🔴 IT OFFERS THE RATIFIED ROUTE AND NOTHING ELSE. `PRD-184.b` Accept Marketplace is
+            the only path from reported to intended, it is per field, and it is a DELIBERATE
+            operator act (`PRD-184.a`). This links to it; it never performs it, and no value is
+            copied into an input by arriving here.
+          */}
+          {unauthored && hasReported && mode.existing && (
+            <Notice
+              tone="info"
+              title="No local content has been authored for this Listing yet"
+              testId="edit-unauthored-notice"
+            >
+              The fields below are empty because Trioloo holds no intended values for this
+              Listing — reading a channel records what it reports and never writes intent on
+              your behalf. What the channel currently reports is shown beneath each field.
+              {' '}
+              <Link
+                data-testid="edit-unauthored-resolve"
+                to={`/inventory/products/listings/${mode.existing.id}`}
+                style={{ color: 'var(--color-link)', fontWeight: 600 }}
+              >
+                Compare intended vs reported
+              </Link>
+              {' '}to adopt the channel's values field by field, or simply type the content you
+              want Trioloo to publish.
+            </Notice>
+          )}
+
           {/* ================================================================ A */}
           <Section id="basic" title="Basic information">
             <Row>
@@ -655,7 +727,24 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
               </button>
             </div>
 
-            <Field label="Listing title" error={errors.intendedTitle} htmlFor="create-title" refs={fieldRefs} name="intendedTitle" hint="What shoppers see on the channel">
+            <Field
+              label="Listing title"
+              error={errors.intendedTitle}
+              htmlFor="create-title"
+              refs={fieldRefs}
+              name="intendedTitle"
+              hint="What shoppers see on the channel"
+              /*
+                ⚠ MIRRORED AS RECEIVED. The channel's title is shown exactly as the channel
+                reports it, in whatever language it was written — no translation, and no
+                substitution from another attribute (`DZC-026`).
+              */
+              reported={reportedFor(
+                mode.existing?.channelReportedTitle ?? null,
+                mode.existing?.reportedTitleReadable ?? false,
+                draft.intendedTitle,
+              )}
+            >
               <input
                 id="create-title"
                 data-testid="field-intended-title"
@@ -822,7 +911,8 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
               the two prices and is never stored as a competing third figure.
             */}
             <Row three>
-              <Field label="Sale Price" error={errors.salePrice} htmlFor="create-sale-price" refs={fieldRefs} name="salePrice" hint="The normal price">
+              <Field label="Sale Price" error={errors.salePrice} htmlFor="create-sale-price" refs={fieldRefs} name="salePrice" hint="The normal price"
+                reported={reportedFor(mode.existing?.reportedSalePrice ?? null, mode.existing?.reportedSalePriceReadable ?? false, draft.salePrice)}>
                 <input
                   id="create-sale-price"
                   data-testid="field-sale-price"
@@ -833,7 +923,8 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
                   style={control(Boolean(errors.salePrice), perSkuOnly)}
                 />
               </Field>
-              <Field label="Listing stock" error={errors.publishedMarketplaceStock} htmlFor="create-stock" refs={fieldRefs} name="publishedMarketplaceStock" hint="Offered on this channel">
+              <Field label="Listing stock" error={errors.publishedMarketplaceStock} htmlFor="create-stock" refs={fieldRefs} name="publishedMarketplaceStock" hint="Offered on this channel"
+                reported={reportedFor(mode.existing?.reportedStock ?? null, mode.existing?.reportedStockReadable ?? false, draft.publishedMarketplaceStock)}>
                 <input
                   id="create-stock"
                   data-testid="field-published-stock"
@@ -919,7 +1010,8 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
                   </button>
                 </div>
                 <Row three>
-                  <Field label="Promotion Price" error={errors.promotionPrice} htmlFor="create-promotion-price" refs={fieldRefs} name="promotionPrice" hint="Not above Sale Price">
+                  <Field label="Promotion Price" error={errors.promotionPrice} htmlFor="create-promotion-price" refs={fieldRefs} name="promotionPrice" hint="Not above Sale Price"
+                    reported={reportedFor(mode.existing?.reportedPromotionPrice ?? null, mode.existing?.reportedPromotionPriceReadable ?? false, draft.promotionPrice)}>
                     <input
                       id="create-promotion-price"
                       data-testid="field-promotion-price"
@@ -1052,6 +1144,36 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
               />
               {language === 'BN' && (
                 <FallbackNote testId="description-bn-fallback" blank={!draft.intendedDescriptionBn.trim()} />
+              )}
+              {/*
+                ⚠ READ-ONLY CONTEXT, ENGLISH SIDE ONLY. The channel reports ONE description
+                (`PRD-181`), so it is shown against the English field the pull's value
+                corresponds to and never against the Bangla override (`PRD-202.b`).
+
+                🔴 THE VALUE IS NOT TRUNCATED. A marketplace description is often long HTML;
+                it is CLAMPED VISUALLY and scrolls, so what is shown is always the whole thing
+                rather than a shortened version that would misstate what the channel said.
+              */}
+              {language === 'EN' && reportedFor(
+                mode.existing?.reportedDescription ?? null,
+                mode.existing?.reportedDescriptionReadable ?? false,
+                draft.intendedDescription,
+              ) && (
+                <div
+                  data-testid="reported-intendedDescription"
+                  style={{
+                    fontSize: '10.5px',
+                    color: 'var(--color-text-secondary)',
+                    marginTop: '4px',
+                    maxHeight: '72px',
+                    overflowY: 'auto',
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  <span style={{ color: 'var(--color-placeholder)' }}>Channel reports: </span>
+                  {mode.existing?.reportedDescription}
+                </div>
               )}
             </div>
 
@@ -1827,6 +1949,7 @@ function Divider(): React.JSX.Element {
 function Field({
   label: text,
   hint,
+  reported,
   error,
   htmlFor,
   name,
@@ -1835,6 +1958,16 @@ function Field({
 }: {
   readonly label: string;
   readonly hint?: string;
+  /**
+   * 🔴 READ-ONLY CONTEXT, NEVER A VALUE THIS FIELD WILL SUBMIT. What the channel currently
+   * reports for this same fact, shown so an operator authoring intent can see what they are
+   * authoring against.
+   *
+   * ⚠ It is deliberately NOT placed in the input. `PRD-181.a` keeps intended and reported
+   * separate, and `PRD-184.b` makes adopting a reported value an EXPLICIT operator act —
+   * pre-filling the box would author intent by page load.
+   */
+  readonly reported?: string;
   readonly error?: string;
   readonly htmlFor: string;
   readonly name: string;
@@ -1845,6 +1978,20 @@ function Field({
     <div ref={(node) => { refs.current[name] = node; }} style={{ minWidth: 0 }}>
       <label htmlFor={htmlFor} style={label}>{text}</label>
       {children}
+      {reported && (
+        <div
+          data-testid={`reported-${name}`}
+          style={{
+            fontSize: '10.5px',
+            color: 'var(--color-text-secondary)',
+            marginTop: '4px',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          <span style={{ color: 'var(--color-placeholder)' }}>Channel reports: </span>
+          {reported}
+        </div>
+      )}
       {hint && !error && (
         <div style={{ fontSize: '10.5px', color: 'var(--color-placeholder)', marginTop: '4px' }}>{hint}</div>
       )}
