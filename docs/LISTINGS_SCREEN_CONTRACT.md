@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.7.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.8.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -109,12 +109,13 @@ this document follows.
 | **17** | Batch edit — local intent only, capability-aware | `ChannelListingBatchEditPage.tsx` | ✅ Complete — 23 tests; unratified operators inert, see `LSC-030.a` |
 | **18** | **Batch review** before Push Selected | *none* | ⬜ **Remains — blocked** |
 | **19** | **Batch result and retry** — per-listing outcomes | `ChannelListingBatchPage.tsx` — **draft** | ⬜ **Remains — blocked** |
-| **20** | **Sync Now** modal + shared operation result | `ChannelListingSyncPage.tsx` — **draft** | ⬜ **Remains — blocked**; its per-listing data source now exists (`LSC-054`) |
+| **20** | **Sync Now** modal + shared operation result | `ChannelListingSyncPage.tsx` | ✅ Complete — 19 tests; four result figures unavailable, see `LSC-056` |
 | **21** | Activity history — activity and operation history | `ListingActivityPage.tsx` | ✅ Complete — 21 tests; channel-event outcome unavailable, see `LSC-011.c` |
 | **22** | CSV import — upload, validate, review, apply locally | `ChannelListingImportPage.tsx` | ✅ Complete — 19 tests; three cells unavailable, see `LSC-011.d` |
 
-> **`LSC-011` — 🔴 ONLY `FRAME 18`–`FRAME 20` REMAIN, AND ALL THREE ARE BLOCKED** on a production
-> `ChannelAdapterPort` (`LSC-051`). ⚠ **Two of the three have a routed draft page already** (`LSC-040`).
+> **`LSC-011` — 🔴 ONLY `FRAME 18` AND `FRAME 19` REMAIN, AND BOTH ARE BLOCKED** on the OUTBOUND half of a
+> production `ChannelAdapterPort` (`LSC-051`). ⚠ **`FRAME 20` WAS THE THIRD AND IS NOW BUILT** — it is
+> inbound-only, and the read half it needed was discharged on 2026-08-18 (`LSC-056`).
 > **Every one of them is built to the approved pack or not at all.**
 >
 > **a.** 🔴 **THEY ARE BLOCKED, NOT MERELY UNBUILT.** **Batch review, batch result/retry and Sync Now all
@@ -289,10 +290,14 @@ this document follows.
 > 🔴 **Admitting unmapped Listings for Listing-level fields would WIDEN what a batch writes, which is a
 > business decision `PRD-187` owns — not this contract** (`DOC-006`).
 
-> **`LSC-051` — 🔴 `FRAME 18`, `FRAME 19` AND `FRAME 20` ARE BLOCKED until a production `ChannelAdapterPort`
-> implementation exists.** **Batch review, batch result/retry and Sync Now all describe what happens when
-> Trioloo talks to a marketplace.** ⚠ **Building their screens first would produce three more surfaces that can
-> only ever render a refusal.**
+> **`LSC-051` — ⚠ AMENDED 2026-08-18. `FRAME 18` AND `FRAME 19` ARE BLOCKED until the OUTBOUND half of a
+> production `ChannelAdapterPort` exists.** **Batch review and batch result/retry describe what happens when
+> Trioloo SENDS to a marketplace, and nothing outbound exists.** ⚠ **Building their screens first would
+> produce two more surfaces that can only ever render a refusal.**
+>
+> 🔴 **`FRAME 20` IS NO LONGER AMONG THEM.** **Sync Now is INBOUND ONLY; the read half shipped and ran
+> against a real seller on 2026-08-18, so the frame was built against verified behaviour** (`LSC-056`).
+> *Superseded wording retained under `DOC-009`.*
 >
 > **a.** 🔴 **`INV-108.1` — A BATCH IS NOT ATOMIC ACROSS AN EXTERNAL PARTY.** **Partial success is the NORMAL
 > outcome. Per-listing outcomes are retained individually; one refusal never rolls back a sibling, and no
@@ -358,6 +363,48 @@ this document follows.
 > inconsistency is REAL and is deliberately NOT papered over here: it resolves only when the open
 > `GAP-134` question — what sync state a successfully read, still-`UNMAPPED` Listing carries — is decided.**
 
+> **`LSC-056` — ✅ ADDED 2026-08-18. `FRAME 20` IS IMPLEMENTED, AND EVERY FIGURE ON IT IS ONE THE SERVER
+> RECORDED.**
+>
+> **`ChannelListingSyncPage.tsx` was reconciled IN PLACE at its existing route** — the request surface and the
+> shared operation result, built to the approved pack. **19 tests.** ⚠ **No new route, no duplicate page, and
+> the workspace entry point is unchanged.**
+>
+> **a.** ✅ **THE REQUEST SURFACE CARRIES EVERY COMPONENT THE PACK DRAWS:** the channel selection with
+> known-listing counts, the *"One channel per manual sync"* scope, the disabled state for an adapter that
+> reports nothing readable, the three-line *"What sync does"* block with **"Sync never pushes ERP changes to a
+> marketplace"**, the absence-is-not-deletion footnote, and Cancel / Start sync.
+> 🔴 **`PRD-189.b` IS ENFORCED, NOT ONLY STATED** — the selection is a RADIO GROUP, and one run cannot span
+> two channel instances.
+>
+> **b.** ✅ **THE RESULT IS READ BACK FROM THE SERVER, NEVER ASSEMBLED FROM THE REQUEST.** **Active listings
+> discovered, existing refreshed and new unmapped imported come from the discovery outcome; Manual required
+> and Errors come from the batch's own tally, DERIVED from its members at read time** (`INV-108.2`).
+> ✅ **The *Channel read* table is one row per `E-107` operation** (`PRD-186.a`, `PRD-186.b`).
+>
+> **c.** 🔴 **FOUR FIGURES THE PACK DRAWS ARE NOT TRACKED, AND ARE RENDERED UNAVAILABLE RATHER THAN INVENTED**
+> (`LSC-034`).
+>
+> | Pack figure | Why it has no source |
+> |---|---|
+> | **Reported changes found** | a discovery run performs no field-by-field comparison |
+> | **of which N are new divergences** | nothing records which differences are NEW |
+> | **Not returned this run** | `PRD-177` — a run reports what it RETURNED; absence alone means nothing |
+> | **Retry incomplete channel** | `PRD-186.d` retries FAILED members, and a discovery run records none |
+>
+> **d.** 🔴 **THE MONTHLY-AUTOMATIC LAST-RUN TIME IS NOT FABRICATED.** **`PRD-189.a` ratifies the cadence but
+> NO SCHEDULER EXISTS**, so the surface says no automatic run has been recorded rather than printing the
+> pack's sample date.
+>
+> **e.** ⚠ **THE CHANNEL'S *last read* COMES FROM WHAT THE SERVER RECORDS, AND IT IS OFTEN ABSENT.**
+> **Discovery deliberately does not write a Listing's sync time** (`INV-107.4`), **so a channel that has only
+> ever been discovered shows *no read time recorded*.** 🔴 **This is a CONSEQUENCE of the open `GAP-134`
+> question and is not worked around here.**
+>
+> **f.** 🔴 **NOTHING ON THIS SURFACE DECIDES A BUSINESS QUESTION.** **The workspace summary is untouched, no
+> stored `sync_state` is written or overridden, the live comparison is not used to contradict the stored
+> column, `name_en` is not mapped to a title, and the price mapping is unchanged.**
+
 ---
 
 # 6. State of the world
@@ -367,8 +414,8 @@ this document follows.
 | Daraz **connection** half | ✅ **Verified closed 2026-08-17** — one seller bound, credential encrypted at rest, shop `CONNECTED` |
 | Daraz **listing/product pull** | ✅ **FIRST PULL RAN 2026-08-18** — 9 Listings, 9 SKUs, 85 attributes, read-only; per-listing operations fixed by `GAP-134` (`LSC-054`) |
 | Production `ChannelAdapterPort` | ⚠ **Daraz READ half only, conditional on configuration** (`LSC-052`) — outbound still refuses |
-| `FRAME 01`–`17` · `FRAME 21`–`22` | ✅ Complete — `src/product` + `src/design` 573/573, build clean |
-| `FRAME 18`–`20` | 🔴 **Blocked** — **0 tests**. `FRAME 18`/`19` await the OUTBOUND half; `FRAME 20` has its data but no built surface (`LSC-054`) |
+| `FRAME 01`–`17` · `FRAME 20`–`22` | ✅ Complete — `src/product` + `src/design` 601/601, build clean |
+| `FRAME 18`–`19` | 🔴 **Blocked** on the OUTBOUND half — **0 tests** (`LSC-051`) |
 | Channel-event outcome | ⚠ **Not persisted** — `FRAME 21` renders it unavailable rather than deriving one (`LSC-011.c`) |
 | Batch transformation operators | 🔴 **UNRATIFIED and inert** — percentage change, nearest-৳ 10 rounding, title suffix, media append (`LSC-030.a`) |
 
@@ -378,6 +425,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.8.0** | **2026-08-18** | ✅ **`FRAME 20` IMPLEMENTED — Sync Now and the shared operation result.** **`ChannelListingSyncPage.tsx` was reconciled IN PLACE at its existing route: the request surface carries the channel selection, the one-channel-per-sync scope enforced as a RADIO GROUP (`PRD-189.b`), the disabled state for an adapter reporting nothing readable, the "What sync does" block with "Sync never pushes", the absence-is-not-deletion footnote and Cancel / Start sync; the result surface carries the completion banner, the three real tallies, the batch-derived Manual required and Errors, and a per-`E-107` "Channel read" table.** 🔴 **FOUR FIGURES THE PACK DRAWS ARE RENDERED UNAVAILABLE RATHER THAN INVENTED — reported changes found, new divergences, not-returned-this-run and retry — because a discovery run tracks none of them** (`LSC-034`, `LSC-056.c`). 🔴 **The monthly-automatic last-run time is NOT fabricated: the cadence is ratified but no scheduler exists.** ⚠ **A channel’s "last read" is often absent because discovery does not write a sync time — a consequence of the OPEN `GAP-134` question, not worked around here.** 🔴 **`FRAME 18` and `FRAME 19` are UNCHANGED and remain blocked on the OUTBOUND half; `LSC-011` and `LSC-051` narrowed to those two.** 🔴 **No business question decided: workspace summary untouched, no stored `sync_state` written or overridden, `name_en` not mapped to a title, price mapping unchanged.** ✅ **Frontend only — no backend, endpoint or migration change. 19 tests; `src/product` + `src/design` 601/601; build clean.** |
 | **1.7.0** | **2026-08-18** | ✅ **`LSC-055` ADDED — `FRAME 10` EXPLAINS AN UNAUTHORED LISTING INSTEAD OF A SILENT BLANK FORM.** **A discovered Listing has no intended content (`PRD-181.a`), so the edit form is legitimately empty; in production that read as a broken page.** ✅ **The page now states the condition and links to the intended-versus-reported comparison where `PRD-184.b` Accept Marketplace is offered per field.** 🔴 **Reported values appear as READ-ONLY CONTEXT BENEATH each field and NEVER in the input — pre-filling would author intent by page load, and opening the page writes nothing.** ⚠ **The context is withdrawn once the operator authors that field.** 🔴 **The reported value is shown AS RECEIVED and clamped visually rather than truncated.** 🔴 **NO TITLE RULE CHANGED — display stays `intendedTitle` → `channelReportedTitle` → *Untitled listing*, and `name_en` is NOT promoted to the title.** 🔴 **The workspace summary is untouched and `GAP-134` remains open and undecided.** ✅ **Frontend only — no backend, endpoint or migration change. `src/product` + `src/design` 582/582, build clean; backend 610/610.** |
 | **1.6.0** | **2026-08-18** | ⚠ **`LSC-054` ADDED — `FRAME 20`’S PER-LISTING DATA SOURCE NOW EXISTS, AND THE FRAME IS STILL NOT BUILT.** **The first production Daraz discovery ran on 2026-08-18 and recorded 9 Listings with ZERO per-listing operation records** — a defect against `PRD-186.a`, which requires one record per Listing per requested remote act and names `discover` among its five kinds. ✅ **Registered and fixed as `GAP-134`: a discover run now opens one `DISCOVER`/`INBOUND` operation per Listing, settles it with the requesting actor and time, and links it to the batch; the channel event the read produces now names both.** 🔴 **`FRAME 20` REMAINS BLOCKED AND IS NOT ACCEPTED AS IMPLEMENTED** — `ChannelListingSyncPage.tsx` is still a draft PAGE rather than the pack’s modal-plus-result composition, and carries 0 tests. 🔴 **Four result figures still have NO source and must not be derived** — reported changes found, new divergences, manual required and errors (`LSC-034`). ⚠ **The pack’s “last read” line resolves from `last_seen_in_discovery_at`, not `last_sync_at`, which discovery deliberately does not write** (`INV-107.4`). 🔴 **NO migration, NO frontend change, and the unmapped-Listing sync-state question remains OPEN and undecided.** |
 | **1.5.0** | **2026-08-18** | ⚠ **`LSC-052` AMENDED — `ChannelAdapterPort` NO LONGER HAS ZERO `src/main` IMPLEMENTATIONS.** **`DarazChannelAdapter` implements the READ half — `channelType`, `declareCapability` and `discoverActive` over `/products/get` — and registers ONLY where Daraz credentials are configured, so an unconfigured deployment still gets the honest "no marketplace adapter is configured" refusal.** 🔴 **`readListing` refuses because the content type is NOT PUBLISHED; `pushUpdate`, `publishCreate` and `withdraw` refuse and contact nothing; no field is declared writable.** 🔴 **`FRAME 18`–`20` REMAIN BLOCKED — they need the outbound half and their own surfaces, and neither exists.** ⚠ **No listing has been read from Daraz: the adapter is proven against a controlled double and production has not run it.** |
