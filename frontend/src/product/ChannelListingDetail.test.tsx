@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../auth/AuthContext';
 import { PageActionsProvider } from '../shell/PageActions';
@@ -1020,5 +1020,127 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
     expect(screen.getByTestId('attribute-reported-attribute:name_en').textContent).toContain('English Name');
     /* 🔴 And the page heading is not it. */
     expect(document.querySelector('h1')?.textContent ?? '').not.toContain('English Name');
+  });
+});
+
+/**
+ * ACCEPT ALL — one click, N ratified acts.
+ *
+ * 🔴 `PRD-184.b` — each field is still adopted by its OWN Accept Marketplace call, recorded
+ * individually. This button spares the operator clicking down a list; it is not a new kind of
+ * act, and it is not a push.
+ *
+ * 🔴 `PRD-184.a` — it confirms first, because neither resolution ever happens automatically.
+ */
+describe('Frame 06 — Accept All', () => {
+  const ROWS: readonly ComparisonRow[] = [
+    { fieldKey: 'title', label: 'Title', intendedValue: null, reportedValue: 'Daraz title', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+    { fieldKey: 'sale_price', label: 'Sale Price', intendedValue: null, reportedValue: '49800.00', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+    { fieldKey: 'attribute:short_description', label: 'short_description', intendedValue: null, reportedValue: '<ul><li>RAM 8GB</li></ul>', reportedReadable: true, state: 'DIVERGED', resolvable: true },
+    /* 🔴 Unreadable — nothing trustworthy to adopt, so it must be excluded. */
+    { fieldKey: 'promotion_price', label: 'Promotion Price', intendedValue: null, reportedValue: null, reportedReadable: false, state: 'NOT_READABLE', resolvable: false },
+    /* 🔴 UNSENT — an unsent local edit is not a divergence and must never be overwritten. */
+    { fieldKey: 'listing_stock', label: 'Listing stock', intendedValue: '5', reportedValue: '100', reportedReadable: true, state: 'UNSENT', resolvable: false },
+  ];
+
+  let sent: { url: string; method: string }[] = [];
+
+  function stubAccept(failOnSecond = false): void {
+    sent = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method ?? 'GET');
+      const json = (body: unknown, status = 200): Response =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (method === 'POST') {
+        sent.push({ url, method });
+        if (failOnSecond && sent.length === 2) {
+          return json({ message: 'The channel value could not be adopted.' }, 409);
+        }
+        return new Response(null, { status: 204 });
+      }
+      if (url.includes('/api/auth/me')) {
+        return json({ id: 'dev', username: 'devuser', fullName: 'Dev User', roles: [], permissions: ['product.channel-listing.view', 'product.channel-listing.manage'] });
+      }
+      if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
+      if (url.includes('/comparison')) return json(ROWS);
+      if (url.includes('/media')) return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });
+      if (url.includes('/activity')) return json({ content: [], page: 0, size: 3, totalElements: 0, totalPages: 0 });
+      return json(LISTING);
+    }));
+  }
+
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  /** ✅ Offered with the count of fields that actually have something to adopt. */
+  it('offers Accept All counting only resolvable fields', async () => {
+    stubAccept();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
+    /* 3 resolvable of 5 rows — NOT_READABLE and UNSENT are excluded. */
+    expect(screen.getByTestId('detail-accept-all').textContent).toContain('Accept All (3)');
+  });
+
+  /** 🔴 `PRD-184.a` — it confirms, and names the fields rather than only counting them. */
+  it('states the consequence and names the fields before acting', async () => {
+    stubAccept();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('detail-accept-all'));
+
+    const dialog = screen.getByTestId('accept-all-dialog');
+    expect(dialog.textContent).toContain('becomes what Trioloo intends');
+    expect(dialog.textContent).toContain('Nothing is sent to the marketplace');
+    const fields = screen.getByTestId('accept-all-fields').textContent ?? '';
+    expect(fields).toContain('Title');
+    expect(fields).toContain('Sale Price');
+    /* ⚠ The attribute is named the way the seller reads it. */
+    expect(fields).toContain('Highlight Bn');
+    /* 🔴 Nothing has been sent merely by opening the dialog. */
+    expect(sent).toHaveLength(0);
+  });
+
+  /** 🔴 One ratified per-field call each, and no push. */
+  it('adopts each field with its own Accept Marketplace call', async () => {
+    stubAccept();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('detail-accept-all'));
+    fireEvent.click(within(screen.getByTestId('accept-all-dialog')).getByText('Accept all'));
+
+    await waitFor(() => expect(sent.length).toBe(3));
+    expect(sent.every((c) => c.url.includes('/accept-marketplace'))).toBe(true);
+    /* 🔴 No push, publish or withdraw was requested. */
+    expect(sent.some((c) => /operations|push|publish|withdraw/.test(c.url))).toBe(false);
+  });
+
+  /** ⚠ A refusal partway through is reported honestly, not presented as a completed run. */
+  it('reports how far it got when a field is refused', async () => {
+    stubAccept(true);
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('detail-accept-all'));
+    fireEvent.click(within(screen.getByTestId('accept-all-dialog')).getByText('Accept all'));
+
+    await waitFor(() => expect(screen.getByTestId('accept-all-dialog').textContent)
+      .toContain('1 of 3 fields were adopted'));
+  });
+
+  /** 🔴 No manage authority, no control. */
+  it('offers no Accept All without manage authority', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const json = (body: unknown): Response =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.includes('/api/auth/me')) return json({ id: 'dev', username: 'd', fullName: 'D', roles: [], permissions: ['product.channel-listing.view'] });
+      if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
+      if (url.includes('/comparison')) return json(ROWS);
+      if (url.includes('/media')) return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });
+      if (url.includes('/activity')) return json({ content: [], page: 0, size: 3, totalElements: 0, totalPages: 0 });
+      return json(LISTING);
+    }));
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-mapping-summary')).toBeTruthy());
+    expect(screen.queryByTestId('detail-accept-all')).toBeNull();
   });
 });

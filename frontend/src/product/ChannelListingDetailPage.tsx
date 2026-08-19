@@ -7,6 +7,7 @@ import { Card, EmptyState, Notice, buttonStyle } from '../ui/primitives';
 import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import { formatMoment, formatShortMoment } from '../platform/datetime';
 import { ChannelListingComparison, displayComparisonValue } from './ChannelListingComparison';
+import { ConfirmDialog } from '../ui/Overlay';
 import { isLongProviderText, readableProviderText } from './providerText';
 import { attributeDisplayLabel, attributeKeyOf, hasDisplayName, orderAttributes } from './listingAttributes';
 import { MappingModal } from './MappingModal';
@@ -14,6 +15,7 @@ import { PushReviewModal } from './PushReviewModal';
 import { ListingRefreshState, useListingRefresh } from './ListingRefreshState';
 import { ListingSkuSection } from './ListingSkuSection';
 import {
+  acceptMarketplaceValue,
   fetchActivity,
   fetchChannelListing,
   fetchChannels,
@@ -77,6 +79,10 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     cannot tell "readable" from "pushable" and would offer a push the channel never promised.
   */
   const [capabilities, setCapabilities] = useState<readonly CapabilityView[]>([]);
+  /** `PRD-184.b` — Accept Marketplace across every field that has something to adopt. */
+  const [acceptAllOpen, setAcceptAllOpen] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 🔴 Frame 15 — exactly ONE listing, this listing's own channel and shop. */
   const [pushReviewOpen, setPushReviewOpen] = useState(false);
@@ -212,6 +218,43 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     every one of them matches.
   */
   const divergedRows = comparison.filter((row) => row.state === 'DIVERGED');
+  /*
+    🔴 ONLY WHAT CAN HONESTLY BE ADOPTED. `resolvable` is the server's own judgement: the
+    reported value is readable and genuinely differs from intent, and the difference is not
+    merely an unsent local edit (`PRD-185.d`), which Accept Marketplace must never overwrite.
+  */
+  const acceptableRows = comparison.filter((row) => row.resolvable);
+
+  /**
+   * Adopts the reported value on every acceptable field, one ratified act at a time.
+   *
+   * <p>🔴 SEQUENTIAL, NOT PARALLEL. Each call is a separate recorded decision on one field
+   * (`PRD-184.b`), and firing them at once would race the same listing's version.
+   *
+   * <p>⚠ IT STOPS AT THE FIRST REFUSAL and says how far it got. A partial result is reported
+   * honestly rather than presented as a completed run.
+   */
+  const acceptAll = async (): Promise<void> => {
+    if (!id) return;
+    setAccepting(true);
+    setAcceptError(null);
+    let done = 0;
+    try {
+      for (const row of acceptableRows) {
+        await acceptMarketplaceValue(id, row.fieldKey);
+        done += 1;
+      }
+      setAcceptAllOpen(false);
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : 'The values could not be adopted.';
+      setAcceptError(done === 0
+        ? reason
+        : `${done} of ${acceptableRows.length} fields were adopted, then: ${reason}`);
+    } finally {
+      setAccepting(false);
+      await load();
+    }
+  };
   const manualRows = comparison.filter((row) => row.state === 'MANUAL_REQUIRED');
   // 🔴 COMPARED, not merely readable. A MANUAL_REQUIRED fact came back from the channel but
   // has no trustworthy deterministic basis (`PRD-183.d`), so counting it as agreement would
@@ -275,6 +318,28 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
               >
                 <RefreshIcon size={ACTION_ICON_SIZE} strokeWidth={ACTION_ICON_STROKE} aria-hidden="true" />
                 Refresh
+              </button>
+            )}
+            {/*
+              🔴 ONE CLICK, N RATIFIED ACTS — NOT A NEW KIND OF ACT. Each field is still adopted
+              by its own `PRD-184.b` Accept Marketplace call, recorded individually; this only
+              spares the operator clicking the same button down a list of fields.
+
+              ⚠ `PRD-184.a` — NEITHER RESOLUTION HAPPENS AUTOMATICALLY, so this confirms first.
+              It is offered only where a readable reported value actually differs from intent,
+              because those are the only fields there is anything to adopt on.
+            */}
+            {mayManage && acceptableRows.length > 0 && (
+              <button
+                type="button"
+                data-testid="detail-accept-all"
+                disabled={accepting}
+                onClick={() => setAcceptAllOpen(true)}
+                style={headerSecondary}
+              >
+                {accepting
+                  ? 'Accepting…'
+                  : `Accept All (${acceptableRows.length})`}
               </button>
             )}
             {mayManage && (
@@ -872,6 +937,38 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
           and refetching would imply it did.
         */
         <PushReviewModal listingId={item.id} onClose={() => setPushReviewOpen(false)} />
+      )}
+
+      {/*
+        🔴 `PRD-184.a` — NEITHER RESOLUTION HAPPENS AUTOMATICALLY. Adopting several fields at
+        once is still a DELIBERATE act, so the consequence is stated before it is reachable and
+        the fields are named rather than counted at the operator.
+
+        ⚠ IT CHANGES ERP INTENT AND CONTACTS NOTHING (`PRD-184.b`, `PRD-185`). No marketplace
+        is called, and this is not a push.
+      */}
+      {acceptAllOpen && (
+        <ConfirmDialog
+          testId="accept-all-dialog"
+          title={`Accept the marketplace values for ${acceptableRows.length} field${acceptableRows.length === 1 ? '' : 's'}?`}
+          consequence={
+            'What the channel reports becomes what Trioloo intends for these fields. '
+            + 'Nothing is sent to the marketplace, and fields the channel could not read are untouched.'
+          }
+          confirmLabel={accepting ? 'Accepting…' : 'Accept all'}
+          busy={accepting}
+          error={acceptError}
+          onConfirm={() => void acceptAll()}
+          onCancel={() => { setAcceptAllOpen(false); setAcceptError(null); }}
+        >
+          <ul data-testid="accept-all-fields" style={{ margin: '4px 0 0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {acceptableRows.map((row) => (
+              <li key={row.fieldKey} style={{ fontSize: '12.5px', color: 'var(--color-text-primary)' }}>
+                {attributeDisplayLabel(row.fieldKey, row.label)}
+              </li>
+            ))}
+          </ul>
+        </ConfirmDialog>
       )}
 
       {mappingOpen && item && (
