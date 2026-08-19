@@ -114,6 +114,12 @@ class ApplicationFoundationSmokeTest {
                 "channel_listing_operation",      // E-107 one act against one listing
                 "channel_listing_operation_batch",// E-108 the grouping of those acts
                 "channel_listing_activity",       // PRD-129 activity, NOT an audit log
+                // ⚠ V15 — mirrored buyer reviews (DZC-032). They have NO intended twin: a
+                //   seller does not decide what a buyer wrote. The table stores REVIEWS
+                //   rather than a count because Daraz serves only 90 days, 7 at a time, so
+                //   a lifetime total cannot be read and must be accumulated instead.
+                "channel_listing_review",
+                "channel_listing_review_window",  // how far collection has actually reached
                 "channel_adapter_capability",     // per-INSTANCE field capability (PRD-125)
                 "media_asset",                    // E-105
                 "sellable_product_media",           // the master media set media falls back to
