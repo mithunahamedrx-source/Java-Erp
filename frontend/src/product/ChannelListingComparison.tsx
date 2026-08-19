@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from '../ui/Overlay';
 import { isLongProviderText, readableProviderText } from './providerText';
+import { attributeDisplayLabel } from './listingAttributes';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
 import { acceptMarketplaceValue, requestOperation } from './channelListingApi';
@@ -263,7 +264,7 @@ export function ChannelListingComparison({
             >
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '12.5px', fontWeight: diverged ? 700 : 600, color: 'var(--color-text-primary)' }}>
-                  {row.label}
+                  {attributeDisplayLabel(row.fieldKey, row.label)}
                 </div>
                 {unsent ? (
                   // 🔴 `PRD-185.d` — a grey filled chip, deliberately NOT the ink rule.

@@ -8,6 +8,7 @@ import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import { formatMoment, formatShortMoment } from '../platform/datetime';
 import { ChannelListingComparison, displayComparisonValue } from './ChannelListingComparison';
 import { isLongProviderText, readableProviderText } from './providerText';
+import { attributeDisplayLabel, attributeKeyOf, hasDisplayName, orderAttributes } from './listingAttributes';
 import { MappingModal } from './MappingModal';
 import { PushReviewModal } from './PushReviewModal';
 import { ListingRefreshState, useListingRefresh } from './ListingRefreshState';
@@ -219,7 +220,13 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     (row) => row.reportedReadable && row.state !== 'MANUAL_REQUIRED',
   );
   const unreadableCount = comparison.filter((row) => !row.reportedReadable).length;
-  const attributeRows = comparison.filter((row) => row.fieldKey.startsWith('attribute:'));
+  /*
+    ⚠ NAMED AND ORDERED FOR THE OPERATOR — see `listingAttributes.ts`. The marketplace's own
+    key is still what is stored and is shown beside the name; nothing is remapped.
+  */
+  const attributeRows = orderAttributes(
+    comparison.filter((row) => row.fieldKey.startsWith('attribute:')),
+  );
 
   /*
     🔴 The contextual page header for ONE Listing — not a second copy of the workspace
@@ -660,7 +667,15 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                   </div>
                   {attributeRows.map((row) => (
                     <div key={row.fieldKey} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '12px', padding: '9px 0', borderBottom: '1px solid var(--color-divider-light)', fontSize: '12.5px', minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, ...clip }}>{row.label}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, ...clip }}>{attributeDisplayLabel(row.fieldKey, row.label)}</div>
+                        {/* ⚠ The marketplace's own field name, so the row stays traceable. */}
+                        {hasDisplayName(row.fieldKey) && (
+                          <div style={{ fontSize: '10.5px', color: 'var(--color-placeholder)', fontFamily: 'var(--font-family-mono)', ...clip }}>
+                            {attributeKeyOf(row.fieldKey)}
+                          </div>
+                        )}
+                      </div>
                       <div style={attributeCell(row.intendedValue)} data-testid={`attribute-intended-${row.fieldKey}`}>
                         {readableProviderText(row.intendedValue) ?? '—'}
                       </div>
