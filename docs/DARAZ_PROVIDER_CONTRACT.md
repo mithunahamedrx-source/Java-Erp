@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.6.1 · **Established:** 2026-08-17 · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.7.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -580,6 +580,98 @@ indicates success.
 > rather than only on demand.** 🔴 **On-demand with a margin is safe and is what `b` proposes; a scheduler is
 > a new operational behaviour and is NOT assumed.**
 
+---
+
+# §10 The product review protocol — `DZC-032`
+
+> 🔴 **RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY ADAPTER CODE EXISTS**, exactly as §9 was.
+> **Read from Daraz's own API Reference on 2026-08-19** — the *Product Review API* category, whose
+> three endpoints and full parameter and response tables are reproduced below. 🔴 **No endpoint,
+> parameter or field here is inferred; nothing was called against a live seller.**
+
+> **`DZC-032` — ✅ DARAZ PUBLISHES A SELLER-SIDE REVIEW API, AND IT IS A TWO-STEP READ.**
+>
+> **a.** ✅ **THE CATEGORY EXISTS AND HAS EXACTLY THREE ENDPOINTS.**
+>
+> | API name | Path | Method |
+> |---|---|---|
+> | `GetHistoryReviewIdList` | `/review/seller/history/list` | `GET/POST` |
+> | `GetReviewListByIdList` | `/review/seller/list/v2` | `GET` |
+> | `SubmitSellerReply` | `/review/seller/reply/add` | `GET` |
+>
+> ⚠ **The Bangladesh base is the SAME as every other call** — `https://api.daraz.com.bd/rest` — and
+> the common parameters are identical to §9: `app_key`, `timestamp`, `access_token`, `sign_method`,
+> `sign`. ✅ **The signing already implemented for the read half applies unchanged.**
+>
+> **b.** 🔴 **IDS FIRST, DETAILS SECOND. THERE IS NO ONE-CALL READ.** The reference states it
+> plainly: *"get review list by id list, need get id list first."*
+>
+> **c.** ✅ **`/review/seller/history/list` — REQUEST.**
+>
+> | Parameter | Type | Required | Meaning |
+> |---|---|---|---|
+> | `item_id` | String | **Yes** | Product Item ID |
+> | `order_id` | Number | No | Order ID |
+> | `start_time` | Number | **Yes** | ms timestamp; matches `create_time` in the detail response |
+> | `end_time` | Number | **Yes** | ms timestamp |
+> | `current` | Number | **Yes** | page number, default `1`, **max `50`** |
+>
+> 🔴 **`item_id` IS REQUIRED, SO EVERY READ IS PER LISTING.** ✅ **That is also the join: it is the
+> same identifier `DZC-026` already maps to `external_listing_id`.**
+>
+> **d.** 🔴 **TWO HARD WINDOWS, BOTH DOCUMENTED AS ERRORS.**
+>
+> | Limit | Evidence |
+> |---|---|
+> | **Only 90 days of history exists at all** | *"reviews within 3 months can be get"*; `STARTTIME_OVER_LIMIT` — *"Only support checking 90 days of history data"* |
+> | **Only 7 days may be asked for at once** | `TIMESPAN_ABOVE_LIMIT` — *"Only support checking 7days data at one time"* |
+>
+> 🔴 **THESE ARE THE DEFINING CONSTRAINT OF THE FEATURE, NOT A DETAIL.** ⚠ **A complete 90-day
+> picture for ONE listing costs THIRTEEN windowed calls plus paging**, and a lifetime review total
+> **cannot be obtained from this API at all**.
+>
+> **e.** ✅ **`/review/seller/list/v2` — REQUEST.** `id_list`, `Number[]`, required, **maxLength = 10**.
+> ⚠ **Details are fetched ten at a time.**
+>
+> **f.** ✅ **`/review/seller/list/v2` — RESPONSE**, per the reference's own sample:
+>
+> `data.review_list[]` carries `id`, **`product_id`**, `review_content`, `create_time`,
+> `submit_time`, `order_id`, `review_type`, `seller_reply`, `can_reply`, `review_images[]`,
+> `review_videos[]`, and **`ratings`** — an object of `overall_rating`, `product_rating`,
+> `seller_rating`, `logistics_rating`. **`data.outdated_reviews[]`** lists ids that returned nothing.
+>
+> 🔴 **`product_id` IS THE JOIN TO `channel_listing`**, and **`ratings.product_rating` is the star
+> value for the product**. ⚠ **Every rating arrives as a STRING in the sample and is read as one**
+> (`TEC-015`, `DB-079`) — no rating is parsed into a float on the way in.
+>
+> **g.** ✅ **DOCUMENTED ERRORS.** `PARAMS_VALIDATE_ERROR` with `NULL_SELLERID`, `NULL_ITEMID`,
+> `NULL_CURRENT`, `NULL_STARTTIME_OR_ENDTIME`, `STARTTIME_OVER_LIMIT`, `TIMESPAN_ABOVE_LIMIT`,
+> `CURRENT_ABOVE_LIMIT`, `NULL_ID`; and **`TRAFFIC_CONTROL`**. 🔴 **`TRAFFIC_CONTROL` is a REFUSAL,
+> not a failure of the listing** — it is retried later, never recorded as "no reviews".
+>
+> **h.** 🔴 **WHAT THIS API CANNOT ANSWER, AND MUST NEVER BE MADE TO APPEAR TO ANSWER.**
+>
+> | Seller Centre row metric | Available? |
+> |---|---|
+> | ☆ **reviews / rating** | ✅ **Yes — within 90 days**, via the two-step read above |
+> | 👁 **product views** | 🔴 **NO ENDPOINT EXISTS.** No Data, Analytics, Traffic, Report or Dashboard category exists anywhere in the reference |
+> | ♡ **wishlist / favourite** | 🔴 **NO ENDPOINT EXISTS** |
+> | 🛒 **cart** | 🔴 **NO ENDPOINT EXISTS**; order counts are derivable from the Order API only, and that is a different fact |
+> | **daily breakdown of any of them** | 🔴 **NOT AVAILABLE** |
+>
+> ⚠ **`Seller API` DOES publish `GetSellerMetricsById` (`/seller/metrics/get`), and it is SELLER-LEVEL**,
+> not per listing. 🔴 **It is not a substitute for a per-product metric and must not be displayed as one.**
+>
+> **i.** 🔴 **A REVIEW COUNT SHOWN IN TRIOLOO IS A 90-DAY COUNT, AND MUST SAY SO.** ⚠ **Daraz Seller
+> Centre shows a LIFETIME total; this API cannot reproduce it.** **Labelling a 90-day figure as "reviews"
+> beside a marketplace that means "all reviews" would state a number Trioloo cannot support** — the same
+> refusal `SYS-034` makes for unreadable fields and `DZC-031.h` makes for unstorable values.
+>
+> **j.** 🔴 **NOTHING HERE IS IMPLEMENTED YET.** **This section records the protocol only.** ⚠ **No
+> adapter method, no persistence, no schedule and no screen exists**, and the storage of reported review
+> data is a `PRD-`/`DB-` decision that this contract does not take.
+
+
 ## 8. What remains unpublished — and why none of it blocks
 
 | Fact | Status |
@@ -625,6 +717,7 @@ reference links directly for signing details** — the two ventures share one pl
 
 | Version | Date | Change |
 |---|---|---|
+| **1.7.0** | **2026-08-19** | ✅ **§10 ADDED — `DZC-032`, THE PRODUCT REVIEW PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY ADAPTER CODE EXISTS.** **Daraz publishes a seller-side Product Review API of exactly three endpoints — `/review/seller/history/list`, `/review/seller/list/v2` and `/review/seller/reply/add` — on the same Bangladesh base and the same signing as the read half.** 🔴 **It is a TWO-STEP read: ids first, details second, ten ids per call.** 🔴 **`item_id` is REQUIRED, so every read is per listing — and it is the same identifier `DZC-026` maps to `external_listing_id`; the detail response carries `product_id` and a `ratings` object as the join and the star value.** 🔴 **TWO HARD WINDOWS DEFINE THE FEATURE: only 90 days of review history exists, and only 7 days may be requested at once — so a full 90-day picture for ONE listing costs thirteen windowed calls, and a LIFETIME review total cannot be obtained from this API at all.** 🔴 **A review count shown in Trioloo is therefore a 90-DAY count and must say so, because Seller Centre shows a lifetime total.** 🔴 **PROVEN ABSENT: product views, wishlist/favourites and cart have NO endpoint anywhere in the reference — there is no Data, Analytics, Traffic, Report or Dashboard category — and no daily breakdown of any metric exists.** ⚠ **`GetSellerMetricsById` (`/seller/metrics/get`) is SELLER-level and is not a per-product substitute.** ✅ **Documentation only — nothing implemented, no adapter method, no persistence, no screen. No live seller API was called.** |
 | **1.6.1** | **2026-08-18** | ⚠ **`DZC-031.h` ADDED — GENERIC ATTRIBUTE VALUES ARE BOUNDED BY TRIOLOO'S OWN PERSISTENCE, LEARNED FROM THE FIRST LIVE PULL.** **`channel_listing_attribute` stores `attribute_key varchar(160)` and `reported_value varchar(1024)`; the first discovery against a real seller failed with *value too long for type character varying(1024)* and rolled the whole catalogue back.** 🔴 **`name` and `description` are no longer duplicated into the generic attributes — they already own dedicated columns, and `reported_description` is unbounded `text`.** 🔴 **An over-long value keeps its key and is recorded `reported_readable = false` with NO value rather than truncated, because a truncated reported value would read as permanently DIVERGED under `PRD-181`.** ⚠ **An attribute whose KEY will not fit is dropped, since the key is its identity.** ✅ **No column widened, no migration taken — that is a `DB-`/`PRD-` decision, not a mapping one.** ✅ **Mapper-side fix only; no endpoint, parameter or response field changed.** |
 | **1.6.0** | **2026-08-18** | ✅ **`DZC-031` ADDED — REPORTED STOCK IS SKU `quantity`, SETTLED FROM THE FIRST LIVE PROBE.** **The live response carried `quantity`, `Available`, `channelInventories`, `multiWarehouseInventories` and `fblWarehouseInventories` at SKU level; the last three appear ZERO times in the `/products/get` reference.** ✅ **`quantity` is confirmed by symmetry with the documented write API `/product/price_quantity/update`, which sets *price and quantity* — the same pair the read returns.** 🔴 **The three containers are NOT MAPPED, no warehouse aggregation is inferred, `Available` is not mapped, and the `options=1` extras are not requested.** ⚠ **Records that `quantity`'s meaning for a Global Plus or FBL listing is NOT PUBLISHED — which does not block reporting it, because `API-062.c` makes the adapter an observer and `PRD-112`/`PRD-126` keep Published Marketplace Stock a manually controlled ERP figure.** 🔴 **No provider value, token or secret is recorded — field names and node presence only.** ✅ **No code change: the mapper already reads `quantity` and already ignores the containers.** |
 | **1.5.0** | **2026-08-18** | ✅ **§9 CLARIFIED BY THE FIRST IMPLEMENTATION — THREE POINTS THE PROTOCOL READING COULD NOT HAVE SETTLED ON PAPER.** 🔴 **`DZC-028.e` — the scroll value is written with `Z` rather than a numeric offset, because a literal `+` in a query value is decoded as a SPACE by many servers while the signature spans the raw value, producing a signature error that is not a signing defect.** ✅ **`DZC-028.f` — a full page that shares one update time, or carries none, cannot scroll and reports `complete=false` rather than looping or presenting a partial catalogue as complete.** ⚠ **`DZC-029.d`/`.e` — POST is no longer the obstacle for `readListing`; the unpublished CONTENT TYPE is, so it refuses rather than guessing a header, and refuses rather than returning empty, which would falsely tell the operator the channel did not return the listing.** 🔴 **No endpoint, parameter or response field was invented.** |
