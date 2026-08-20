@@ -7,7 +7,6 @@ import { Card, EmptyState, Notice, buttonStyle } from '../ui/primitives';
 import { formatMoneyForDisplay, hasDiscount } from '../platform/money';
 import { formatMoment, formatShortMoment } from '../platform/datetime';
 import { ChannelListingComparison, displayComparisonValue } from './ChannelListingComparison';
-import { ConfirmDialog } from '../ui/Overlay';
 import { isLongProviderText, readableProviderText } from './providerText';
 import { attributeDisplayLabel, attributeKeyOf, hasDisplayName, orderAttributes } from './listingAttributes';
 import { MappingModal } from './MappingModal';
@@ -15,7 +14,6 @@ import { PushReviewModal } from './PushReviewModal';
 import { ListingRefreshState, useListingRefresh } from './ListingRefreshState';
 import { ListingSkuSection } from './ListingSkuSection';
 import {
-  acceptMarketplaceValue,
   fetchActivity,
   fetchChannelListing,
   fetchChannels,
@@ -88,10 +86,6 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     cannot tell "readable" from "pushable" and would offer a push the channel never promised.
   */
   const [capabilities, setCapabilities] = useState<readonly CapabilityView[]>([]);
-  /** `PRD-184.b` — Accept Marketplace across every field that has something to adopt. */
-  const [acceptAllOpen, setAcceptAllOpen] = useState(false);
-  const [accepting, setAccepting] = useState(false);
-  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 🔴 Frame 15 — exactly ONE listing, this listing's own channel and shop. */
   const [pushReviewOpen, setPushReviewOpen] = useState(false);
@@ -230,43 +224,6 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     every one of them matches.
   */
   const divergedRows = comparison.filter((row) => row.state === 'DIVERGED');
-  /*
-    🔴 ONLY WHAT CAN HONESTLY BE ADOPTED. `resolvable` is the server's own judgement: the
-    reported value is readable and genuinely differs from intent, and the difference is not
-    merely an unsent local edit (`PRD-185.d`), which Accept Marketplace must never overwrite.
-  */
-  const acceptableRows = comparison.filter((row) => row.resolvable);
-
-  /**
-   * Adopts the reported value on every acceptable field, one ratified act at a time.
-   *
-   * <p>🔴 SEQUENTIAL, NOT PARALLEL. Each call is a separate recorded decision on one field
-   * (`PRD-184.b`), and firing them at once would race the same listing's version.
-   *
-   * <p>⚠ IT STOPS AT THE FIRST REFUSAL and says how far it got. A partial result is reported
-   * honestly rather than presented as a completed run.
-   */
-  const acceptAll = async (): Promise<void> => {
-    if (!id) return;
-    setAccepting(true);
-    setAcceptError(null);
-    let done = 0;
-    try {
-      for (const row of acceptableRows) {
-        await acceptMarketplaceValue(id, row.fieldKey);
-        done += 1;
-      }
-      setAcceptAllOpen(false);
-    } catch (cause) {
-      const reason = cause instanceof Error ? cause.message : 'The values could not be adopted.';
-      setAcceptError(done === 0
-        ? reason
-        : `${done} of ${acceptableRows.length} fields were adopted, then: ${reason}`);
-    } finally {
-      setAccepting(false);
-      await load();
-    }
-  };
   const manualRows = comparison.filter((row) => row.state === 'MANUAL_REQUIRED');
   // 🔴 COMPARED, not merely readable. A MANUAL_REQUIRED fact came back from the channel but
   // has no trustworthy deterministic basis (`PRD-183.d`), so counting it as agreement would
@@ -333,27 +290,14 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
               </button>
             )}
             {/*
-              🔴 ONE CLICK, N RATIFIED ACTS — NOT A NEW KIND OF ACT. Each field is still adopted
-              by its own `PRD-184.b` Accept Marketplace call, recorded individually; this only
-              spares the operator clicking the same button down a list of fields.
-
-              ⚠ `PRD-184.a` — NEITHER RESOLUTION HAPPENS AUTOMATICALLY, so this confirms first.
-              It is offered only where a readable reported value actually differs from intent,
-              because those are the only fields there is anything to adopt on.
+              🔴 `PRD-204.d` — *ACCEPT MARKETPLACE* IS NOT ON THE ORDINARY PATH, so it is not a control
+              here. It existed because the edit form opened EMPTY and this was the only way to fill it;
+              the form now opens on the marketplace's own values, so adopting them is not a step an
+              operator has to take.
+            
+              ✅ `PRD-184.b` IS NOT DELETED — it remains what it was written for, resolving a REAL
+              divergence after a push, and lives on the comparison surface (`FRAME 07`).
             */}
-            {mayManage && acceptableRows.length > 0 && (
-              <button
-                type="button"
-                data-testid="detail-accept-all"
-                disabled={accepting}
-                onClick={() => setAcceptAllOpen(true)}
-                style={headerSecondary}
-              >
-                {accepting
-                  ? 'Accepting…'
-                  : `Accept All (${acceptableRows.length})`}
-              </button>
-            )}
             {mayManage && (
               <Link data-testid="edit-channel-listing" to={`/inventory/products/listings/${item.id}/edit`} style={headerSecondary}>
                 <EditIcon size={ACTION_ICON_SIZE} strokeWidth={ACTION_ICON_STROKE} aria-hidden="true" />
@@ -508,19 +452,18 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             {/* ------------------------------------------------------------------ A */}
             <Section id="overview" tabs={['overview']} active={active} label="Overview" refs={sectionRefs}>
               <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px 24px', margin: 0 }}>
-                <Fact label="Intended title" value={item.intendedTitle} missing="Not set locally" />
                 {/*
-                  ⚠ THE CHANNEL'S OWN TITLE, SHOWN AS RECEIVED. It is the page heading's
-                  fallback, but an operator comparing the two needs to see it named as the
-                  CHANNEL'S rather than inferred from the heading.
-                  🔴 `DZC-026` — `attributes.name` and nothing else. No attribute is
-                  substituted for it, in any language.
+                  🔴 `PRD-204.a`/`.b` — THE MARKETPLACE VALUE LEADS, because that IS the listing. The local
+                  draft follows it and is named a draft rather than "intent".
+                  🔴 `DZC-026` — `attributes.name` and nothing else. No attribute is substituted for the
+                  title, in any language.
                 */}
                 <Fact
-                  label="Channel reported title"
+                  label="Marketplace title"
                   value={item.reportedTitleReadable ? readableProviderText(item.channelReportedTitle) : null}
                   missing="Not readable from this channel"
                 />
+                <Fact label="Local draft title" value={item.intendedTitle} missing="No local change" />
                 <Fact label="Channel / Shop" value={item.channelName ?? item.channelInstance} />
                 <Fact label="Listing status" value={item.listingStatus} missing="No status reported" strong />
                 {/* 🔴 `PRD-188.b` — absence is stated, never blank and never faked. */}
@@ -534,6 +477,14 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                 <Fact label="Last successful push" value={formatMoment(item.lastSuccessfulPushAt)} missing="Never pushed" />
                 <Fact label="Last seen in discovery" value={formatMoment(item.lastSeenInDiscoveryAt)} missing="Not seen in a run" />
               </dl>
+            </Section>
+
+            {/*
+              🔴 `PRD-204` — DESCRIPTION IS A BOX OF ITS OWN. It is a paragraph, not a fact, and the
+              approved Product Listing view gives it a panel rather than a cell in a fact grid.
+              ⚠ Provider markup is normalised for DISPLAY only (`LSC-058`); the stored value stays raw.
+            */}
+            <Section id="description" tabs={['overview']} active={active} label="Description" refs={sectionRefs}>
 
               {/*
                 ⚠ DESCRIPTION IS THE ONE FACT THE FACT-GRID CANNOT HOLD. It is a paragraph, not
@@ -545,13 +496,13 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
               */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px', marginTop: '18px' }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={columnLabel}>Intended description</div>
+                  <div style={columnLabel}>Local draft description</div>
                   <div data-testid="detail-intended-description" style={descriptionBlock(item.intendedDescription)}>
-                    {item.intendedDescription ?? 'Not set locally'}
+                    {item.intendedDescription ?? 'No local change'}
                   </div>
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={columnLabel}>Channel reported description</div>
+                  <div style={columnLabel}>Marketplace description</div>
                   <div
                     data-testid="detail-reported-description"
                     style={{
@@ -569,40 +520,24 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             </Section>
 
             {/* ------------------------------------------------------------------ B */}
-            <Section id="price" tabs={['overview']} active={active} label="Price and listing stock" refs={sectionRefs}>
+            <Section id="price" tabs={['overview']} active={active} label="Price and stock" refs={sectionRefs}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
                 {/* 🔴 `PRD-199.a` — the NORMAL price, paid whenever no promotion is running. */}
                 <Figure
                   testId="detail-sale-price"
-                  label="Sale Price — intended"
+                  label="Sale Price — local draft"
                   value={formatMoneyForDisplay(item.salePrice)}
-                  reportedLabel="Reported"
+                  reportedLabel="Marketplace"
                   reported={item.reportedSalePriceReadable ? formatMoneyForDisplay(item.reportedSalePrice) : null}
                   readable={item.reportedSalePriceReadable}
                   emphasis={comparison.some((r) => r.fieldKey === 'sale_price' && r.state === 'DIVERGED')}
                   suffix={item.priceIsFrom ? 'lowest across orderable SKUs' : undefined}
                 />
-                {/*
-                  🔴 `PRD-199.b` — the promotion is a SECOND SELLING PRICE, not a discount
-                  figure. It is shown beside the base price with the window that governs it,
-                  because a promotion price without its window is meaningless.
-                */}
-                <Figure
-                  testId="detail-promotion-price"
-                  label="Promotion Price — intended"
-                  value={formatMoneyForDisplay(item.promotionPrice)}
-                  reportedLabel="Reported"
-                  reported={item.reportedPromotionPriceReadable
-                    ? formatMoneyForDisplay(item.reportedPromotionPrice) : null}
-                  readable={item.reportedPromotionPriceReadable}
-                  emphasis={comparison.some((r) => r.fieldKey === 'promotion_price' && r.state === 'DIVERGED')}
-                  suffix={promotionSuffix(item)}
-                />
                 <Figure
                   testId="detail-listing-stock"
-                  label="Listing stock — intended"
+                  label="Listing stock — local draft"
                   value={item.listingStock}
-                  reportedLabel="Reported"
+                  reportedLabel="Marketplace"
                   reported={item.reportedStockReadable ? item.reportedStock : null}
                   readable={item.reportedStockReadable}
                   emphasis={comparison.some((r) => r.fieldKey === 'listing_stock' && r.state === 'DIVERGED')}
@@ -613,6 +548,32 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
                 Listing stock is the quantity this channel is told to offer. It is held on the
                 listing and is not derived from warehouse inventory.
               </p>
+            </Section>
+
+            {/*
+              🔴 `PRD-199.b` — THE PROMOTION IS A SECOND SELLING PRICE, not a discount, so it gets its own
+              box rather than a third figure beside price and stock.
+              ⚠ Its window shows only where the channel returned one that parses (`DZC-024.c`).
+            */}
+            <Section id="promotion" tabs={['overview']} active={active} label="Promotion" refs={sectionRefs}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
+                  {/*
+                    🔴 `PRD-199.b` — the promotion is a SECOND SELLING PRICE, not a discount
+                    figure. It is shown beside the base price with the window that governs it,
+                    because a promotion price without its window is meaningless.
+                  */}
+                  <Figure
+                    testId="detail-promotion-price"
+                    label="Promotion Price — local draft"
+                    value={formatMoneyForDisplay(item.promotionPrice)}
+                    reportedLabel="Marketplace"
+                    reported={item.reportedPromotionPriceReadable
+                      ? formatMoneyForDisplay(item.reportedPromotionPrice) : null}
+                    readable={item.reportedPromotionPriceReadable}
+                    emphasis={comparison.some((r) => r.fieldKey === 'promotion_price' && r.state === 'DIVERGED')}
+                    suffix={promotionSuffix(item)}
+                  />
+              </div>
             </Section>
 
             {/* ------------------------------------------------------------------ B2 */}
@@ -972,37 +933,6 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
         <PushReviewModal listingId={item.id} onClose={() => setPushReviewOpen(false)} />
       )}
 
-      {/*
-        🔴 `PRD-184.a` — NEITHER RESOLUTION HAPPENS AUTOMATICALLY. Adopting several fields at
-        once is still a DELIBERATE act, so the consequence is stated before it is reachable and
-        the fields are named rather than counted at the operator.
-
-        ⚠ IT CHANGES ERP INTENT AND CONTACTS NOTHING (`PRD-184.b`, `PRD-185`). No marketplace
-        is called, and this is not a push.
-      */}
-      {acceptAllOpen && (
-        <ConfirmDialog
-          testId="accept-all-dialog"
-          title={`Accept the marketplace values for ${acceptableRows.length} field${acceptableRows.length === 1 ? '' : 's'}?`}
-          consequence={
-            'What the channel reports becomes what Trioloo intends for these fields. '
-            + 'Nothing is sent to the marketplace, and fields the channel could not read are untouched.'
-          }
-          confirmLabel={accepting ? 'Accepting…' : 'Accept all'}
-          busy={accepting}
-          error={acceptError}
-          onConfirm={() => void acceptAll()}
-          onCancel={() => { setAcceptAllOpen(false); setAcceptError(null); }}
-        >
-          <ul data-testid="accept-all-fields" style={{ margin: '4px 0 0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            {acceptableRows.map((row) => (
-              <li key={row.fieldKey} style={{ fontSize: '12.5px', color: 'var(--color-text-primary)' }}>
-                {attributeDisplayLabel(row.fieldKey, row.label)}
-              </li>
-            ))}
-          </ul>
-        </ConfirmDialog>
-      )}
 
       {mappingOpen && item && (
         <MappingModal

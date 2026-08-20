@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../auth/AuthContext';
 import { PageActionsProvider } from '../shell/PageActions';
@@ -966,11 +966,13 @@ describe('Frame 06 — a discovered Listing with nothing authored yet', () => {
   });
 
   /** ✅ The ERP side says plainly that nothing is authored, rather than showing a blank. */
-  it('states that the intended title is not set locally', async () => {
+  it('names an unchanged field as having no local change', async () => {
     stubApiWithComparison(NULL_INTENT_ROWS, DISCOVERED);
     renderDetail();
     await waitFor(() => expect(screen.getByTestId('detail-resolve')).toBeTruthy());
-    expect(document.body.textContent).toContain('Not set locally');
+    /* 🔴 `PRD-204.b` — the operator sees a LOCAL DRAFT, not "intent". */
+    expect(document.body.textContent).toContain('No local change');
+    expect(document.body.textContent).not.toContain('Not set locally');
   });
 });
 
@@ -1066,7 +1068,7 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
     const text = screen.getByTestId('detail-reported-description').textContent ?? '';
     expect(text).toContain('Processor : Intel® Core™ i5-7500');
     expect(text).not.toContain('<ul');
-    expect(screen.getByTestId('detail-intended-description').textContent).toContain('Not set locally');
+    expect(screen.getByTestId('detail-intended-description').textContent).toContain('No local change');
   });
 
   /**
@@ -1094,124 +1096,54 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
 });
 
 /**
- * ACCEPT ALL — one click, N ratified acts.
+ * `PRD-204.d` — ACCEPT MARKETPLACE IS NOT THE ORDINARY PATH.
  *
- * 🔴 `PRD-184.b` — each field is still adopted by its OWN Accept Marketplace call, recorded
- * individually. This button spares the operator clicking down a list; it is not a new kind of
- * act, and it is not a push.
+ * 🔴 It existed on this view because the edit form opened EMPTY and adopting the channel's
+ * values was the only way to fill it. `FRAME 10` now opens on the marketplace current values,
+ * so an operator never has to run a divergence workflow to do ordinary editing.
  *
- * 🔴 `PRD-184.a` — it confirms first, because neither resolution ever happens automatically.
+ * ✅ `PRD-184.b` IS NOT DELETED. It remains what it was written for — resolving a REAL
+ * divergence after a push — and lives on the comparison surface, which stays reachable.
  */
-describe('Frame 06 — Accept All', () => {
-  const ROWS: readonly ComparisonRow[] = [
-    { fieldKey: 'title', label: 'Title', intendedValue: null, reportedValue: 'Daraz title', reportedReadable: true, state: 'DIVERGED', resolvable: true },
-    { fieldKey: 'sale_price', label: 'Sale Price', intendedValue: null, reportedValue: '49800.00', reportedReadable: true, state: 'DIVERGED', resolvable: true },
-    { fieldKey: 'attribute:short_description', label: 'short_description', intendedValue: null, reportedValue: '<ul><li>RAM 8GB</li></ul>', reportedReadable: true, state: 'DIVERGED', resolvable: true },
-    /* 🔴 Unreadable — nothing trustworthy to adopt, so it must be excluded. */
-    { fieldKey: 'promotion_price', label: 'Promotion Price', intendedValue: null, reportedValue: null, reportedReadable: false, state: 'NOT_READABLE', resolvable: false },
-    /* 🔴 UNSENT — an unsent local edit is not a divergence and must never be overwritten. */
-    { fieldKey: 'listing_stock', label: 'Listing stock', intendedValue: '5', reportedValue: '100', reportedReadable: true, state: 'UNSENT', resolvable: false },
-  ];
-
-  let sent: { url: string; method: string }[] = [];
-
-  function stubAccept(failOnSecond = false): void {
-    sent = [];
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const method = String(init?.method ?? 'GET');
-      const json = (body: unknown, status = 200): Response =>
-        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-      if (method === 'POST') {
-        sent.push({ url, method });
-        if (failOnSecond && sent.length === 2) {
-          return json({ message: 'The channel value could not be adopted.' }, 409);
-        }
-        return new Response(null, { status: 204 });
-      }
-      if (url.includes('/api/auth/me')) {
-        return json({ id: 'dev', username: 'devuser', fullName: 'Dev User', roles: [], permissions: ['product.channel-listing.view', 'product.channel-listing.manage'] });
-      }
-      if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
-      if (url.includes('/comparison')) return json(ROWS);
-      if (url.includes('/media')) return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });
-      if (url.includes('/activity')) return json({ content: [], page: 0, size: 3, totalElements: 0, totalPages: 0 });
-      return json(LISTING);
-    }));
-  }
-
+describe('Frame 06 — Accept Marketplace is not the ordinary path', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-  /** ✅ Offered with the count of fields that actually have something to adopt. */
-  it('offers Accept All counting only resolvable fields', async () => {
-    stubAccept();
+  /** 🔴 No Accept All control, and no adopt-everything dialog, on the listing view. */
+  it('offers no Accept All control on the view', async () => {
+    stubApi();
     renderDetail();
-    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
-    /* 3 resolvable of 5 rows — NOT_READABLE and UNSENT are excluded. */
-    expect(screen.getByTestId('detail-accept-all').textContent).toContain('Accept All (3)');
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(screen.queryByTestId('detail-accept-all')).toBeNull();
+    expect(screen.queryByTestId('accept-all-dialog')).toBeNull();
+    expect(document.body.textContent).not.toContain('Accept All');
   });
 
-  /** 🔴 `PRD-184.a` — it confirms, and names the fields rather than only counting them. */
-  it('states the consequence and names the fields before acting', async () => {
-    stubAccept();
-    renderDetail();
-    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('detail-accept-all'));
-
-    const dialog = screen.getByTestId('accept-all-dialog');
-    expect(dialog.textContent).toContain('becomes what Trioloo intends');
-    expect(dialog.textContent).toContain('Nothing is sent to the marketplace');
-    const fields = screen.getByTestId('accept-all-fields').textContent ?? '';
-    expect(fields).toContain('Title');
-    expect(fields).toContain('Sale Price');
-    /* ⚠ The attribute is named the way the seller reads it. */
-    expect(fields).toContain('Highlight Bn');
-    /* 🔴 Nothing has been sent merely by opening the dialog. */
-    expect(sent).toHaveLength(0);
-  });
-
-  /** 🔴 One ratified per-field call each, and no push. */
-  it('adopts each field with its own Accept Marketplace call', async () => {
-    stubAccept();
-    renderDetail();
-    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('detail-accept-all'));
-    fireEvent.click(within(screen.getByTestId('accept-all-dialog')).getByText('Accept all'));
-
-    await waitFor(() => expect(sent.length).toBe(3));
-    expect(sent.every((c) => c.url.includes('/accept-marketplace'))).toBe(true);
-    /* 🔴 No push, publish or withdraw was requested. */
-    expect(sent.some((c) => /operations|push|publish|withdraw/.test(c.url))).toBe(false);
-  });
-
-  /** ⚠ A refusal partway through is reported honestly, not presented as a completed run. */
-  it('reports how far it got when a field is refused', async () => {
-    stubAccept(true);
-    renderDetail();
-    await waitFor(() => expect(screen.getByTestId('detail-accept-all')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('detail-accept-all'));
-    fireEvent.click(within(screen.getByTestId('accept-all-dialog')).getByText('Accept all'));
-
-    await waitFor(() => expect(screen.getByTestId('accept-all-dialog').textContent)
-      .toContain('1 of 3 fields were adopted'));
-  });
-
-  /** 🔴 No manage authority, no control. */
-  it('offers no Accept All without manage authority', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+  /**
+   * 🔴 THE VIEW WRITES NOTHING BY BEING OPENED (`PRD-204.c`). Seeding and displaying are not
+   * writing, and no adopt call is made on render.
+   */
+  it('writes nothing when the view is opened', async () => {
+    const sent: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      const json = (body: unknown): Response =>
-        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      if (url.includes('/api/auth/me')) return json({ id: 'dev', username: 'd', fullName: 'D', roles: [], permissions: ['product.channel-listing.view'] });
+      if (String(init?.method ?? 'GET') !== 'GET') sent.push(url);
+      const json = (b: unknown): Response =>
+        new Response(JSON.stringify(b), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.includes('/api/auth/me')) {
+        return json({ id: 'dev', username: 'd', fullName: 'D', roles: [], permissions: ['product.channel-listing.view', 'product.channel-listing.manage'] });
+      }
       if (url.includes('/channels')) return json(CHANNELS_CAPABILITY);
-      if (url.includes('/comparison')) return json(ROWS);
+      if (url.includes('/comparison')) return json(COMPARISON);
       if (url.includes('/media')) return json({ master: [], intended: [], reported: [], effective: [], effectiveIsFallback: true, reportedOrderReliable: true });
       if (url.includes('/activity')) return json({ content: [], page: 0, size: 3, totalElements: 0, totalPages: 0 });
       return json(LISTING);
     }));
     renderDetail();
-    await waitFor(() => expect(screen.getByTestId('detail-mapping-summary')).toBeTruthy());
-    expect(screen.queryByTestId('detail-accept-all')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(sent).toHaveLength(0);
+    expect(sent.some((u) => u.includes('accept-marketplace'))).toBe(false);
   });
 });
 
@@ -1252,7 +1184,8 @@ describe('Frame 06 — tabbed product view', () => {
 
     expect(screen.getByTestId('detail-refresh').textContent).toContain('Refresh');
     expect(screen.getByTestId('edit-channel-listing').textContent).toContain('Edit');
-    expect(screen.getByTestId('detail-accept-all').textContent).toContain('Accept All');
+    /* 🔴 `PRD-204.d` — Accept Marketplace is not a control on this view. */
+    expect(screen.queryByTestId('detail-accept-all')).toBeNull();
   });
 
   /**
@@ -1291,5 +1224,98 @@ describe('Frame 06 — tabbed product view', () => {
     expect(screen.getByTestId('detail-section-activity')).toBeTruthy();
     showTab('comparison');
     expect(screen.getByTestId('detail-section-comparison')).toBeTruthy();
+  });
+});
+
+/**
+ * THE VIEW UNDER `PRD-204` — the operator meets the marketplace listing.
+ *
+ * 🔴 The intended-versus-reported pair is retained in STORAGE, but it is no longer the
+ * vocabulary or the flow. The page shows the marketplace's current values as the listing, and
+ * a local change is named a draft.
+ */
+describe('Frame 06 — the PRD-204 marketplace view', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  /** ✅ `PRD-204.b` — the four terms the UI is allowed to use. */
+  it('uses marketplace and local-draft language, not intended and reported', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    const overview = screen.getByTestId('detail-section-overview').textContent ?? '';
+    expect(overview).toContain('Marketplace title');
+    expect(overview).toContain('Local draft title');
+    /* 🔴 The old vocabulary is gone from the operator's view. */
+    expect(overview).not.toContain('Intended title');
+    expect(overview).not.toContain('Channel reported title');
+  });
+
+  /**
+   * ✅ The approved Product Listing view separates these. A description is a paragraph and a
+   * promotion is a second selling price; neither belongs in a fact grid or a price row.
+   */
+  it('gives Overview, Description, Price and Promotion their own boxes', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    for (const id of ['overview', 'description', 'price', 'promotion']) {
+      expect(screen.getByTestId(`detail-section-${id}`)).toBeTruthy();
+    }
+    /* 🔴 The description is NOT inside the Overview fact grid any more. */
+    expect(screen.getByTestId('detail-section-overview').textContent)
+      .not.toContain('Marketplace description');
+    expect(screen.getByTestId('detail-section-description').textContent)
+      .toContain('Marketplace description');
+  });
+
+  /** 🔴 `PRD-204.e` — the comparison is not mounted on the main view. */
+  it('does not mount the comparison table by default', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(screen.queryByTestId('detail-section-comparison')).toBeNull();
+    /* ✅ It stays reachable — FRAME 07 is not deleted. */
+    expect(screen.getByTestId('detail-tab-comparison')).toBeTruthy();
+  });
+
+  /** ✅ Mapping and stock remain first-class on the operator's view (`PRD-204.b`). */
+  it('keeps mapping and stock visible', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(screen.getByTestId('detail-section-mapping')).toBeTruthy();
+    expect(screen.getByTestId('detail-listing-stock').textContent).toContain('Listing stock');
+  });
+
+  /** ✅ The marketplace's own price is labelled as the marketplace's. */
+  it('labels the marketplace price as the marketplace value', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-sale-price')).toBeTruthy());
+
+    const price = screen.getByTestId('detail-sale-price').textContent ?? '';
+    expect(price).toContain('Marketplace');
+    expect(price).toContain('local draft');
+    expect(price).not.toContain('— intended');
+  });
+
+  /**
+   * 🔴 `DZC-026` — `name_en` is still not promoted to the title. The heading shows the
+   * provider's own title, as received.
+   */
+  it('never promotes name_en to the title', async () => {
+    stubApiWithComparison(
+      [{ fieldKey: 'attribute:name_en', label: 'name_en', intendedValue: null, reportedValue: 'English Name', reportedReadable: true, state: 'DIVERGED', resolvable: true }],
+      { ...LISTING, intendedTitle: null, channelReportedTitle: 'ইন্টেল কোর i5', reportedTitleReadable: true },
+    );
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(document.querySelector('h1')?.textContent ?? '').not.toContain('English Name');
+    expect(screen.getByTestId('detail-section-overview').textContent).toContain('ইন্টেল কোর i5');
   });
 });
