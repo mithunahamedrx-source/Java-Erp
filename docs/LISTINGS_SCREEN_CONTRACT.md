@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.12.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-060` — `FRAME 06` tabbed product view; refinement authority recorded) · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.13.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-20 (`LSC-061` — operator surfaces drop intended-vs-reported as the mental model, per `PRD-204`) · **Amended:** 2026-08-19 (`LSC-060` — `FRAME 06` tabbed product view; refinement authority recorded) · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -545,6 +545,41 @@ this document follows.
 > unchanged, no reported value is written into intent, `GAP-134` stays open, and push remains
 > unavailable.**
 
+> **`LSC-061` — 🔴 ADDED 2026-08-20. THE OPERATOR SURFACES DROP *INTENDED VS REPORTED* AS THEIR
+> MENTAL MODEL, PER `PRD-204`.**
+>
+> **The operator meets a pulled Daraz listing as THE LISTING.** ⚠ **The two-sided pair is retained
+> in storage — it is what makes a push verifiable — but it is no longer the vocabulary or the flow.**
+>
+> **a.** ✅ **`FRAME 06` SHOWS THE MARKETPLACE CURRENT VALUES**, not an empty intended column.
+> 🔴 **The intended-versus-reported comparison is NOT the primary view**; it stays a reachable
+> surface (`FRAME 07`, `LSC-060.c`) and stops being where ordinary work happens.
+>
+> **b.** 🔴 ***ACCEPT MARKETPLACE* LEAVES THE ORDINARY PATH.** **It was the only route out of an
+> empty form, which forced every operator through a divergence workflow to do ordinary editing**
+> (`LSC-055` recorded the symptom). ✅ **`PRD-184.b` is retained for resolving a REAL divergence and
+> must not be a primary control on a listing surface.**
+>
+> **c.** ✅ **`FRAME 10` OPENS ON THE MARKETPLACE CURRENT VALUES.** 🔴 **SEEDING IS NOT WRITING** —
+> opening a page persists nothing (`PRD-204.c`), and a test pins that. **The operator's Save writes
+> the local draft.**
+>
+> **d.** 🔴 **SAVE AND PUSH ARE NAMED APART** (`PRD-185`, `PRD-204.f`). **A save is local and
+> contacts nothing; a push is separate and separately authorised.**
+>
+> **e.** 🔴 **A FIELD IS OFFERED FOR PUSH ONLY WHERE THE CHANNEL DECLARES IT WRITABLE**
+> (`LSC-059`, `API-063.a`). ⚠ **Daraz declares NO listing field writable today, so every field is
+> LOCAL-ONLY and says so in a short reason.** 🔴 **No fake push, and no per-field push control as the
+> everyday path.**
+>
+> **f.** ⚠ **`LSC-055` IS NARROWED, NOT SUPERSEDED.** **Its unauthored-listing explanation was
+> correct for a form that opened empty; once `FRAME 10` seeds from the marketplace current values
+> the empty case is the exception rather than the rule.**
+>
+> **g.** 🔴 **NO BUSINESS SEMANTICS MOVE.** **`name_en` is still not a title, the `price`/
+> `special_price` reading is unchanged, `GAP-134` stays OPEN, and nothing stored is deleted or
+> reinterpreted.**
+
 ---
 
 # 6. State of the world
@@ -566,6 +601,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.13.0** | **2026-08-20** | 🔴 **`LSC-061` ADDED — THE OPERATOR SURFACES DROP *INTENDED VS REPORTED* AS THEIR MENTAL MODEL, per the `PRD-204` business decision.** **The operator meets a pulled listing as THE LISTING: `FRAME 06` shows marketplace current values, and the comparison stops being the primary view while remaining reachable as `FRAME 07`.** 🔴 ***Accept Marketplace* leaves the ordinary path** — it was the only route out of an empty form, which forced every operator through a divergence workflow to do ordinary editing; **`PRD-184.b` is retained for resolving a REAL divergence.** ✅ **`FRAME 10` opens on the marketplace current values, and seeding is NOT writing — opening a page persists nothing.** 🔴 **Save and push stay named apart, and a field is offered for push only where the channel declares it writable — Daraz declares none today, so every field is LOCAL-ONLY with a short reason and there is no fake push.** ⚠ **`LSC-055` is narrowed, not superseded.** 🔴 **No business semantics move: `name_en` still not a title, price mapping unchanged, `GAP-134` OPEN, nothing stored deleted or reinterpreted.** ✅ **Documentation only in this change — UI follows.** |
 | **1.12.0** | **2026-08-19** | ✅ **`LSC-060` ADDED — `FRAME 06` IS A TABBED PRODUCT VIEW.** **A second Claude Design project, *AI page design refinement* (`Product Listing.dc.html`), is recorded as the COMPOSITION refinement authority for the detail view; the Listings Feature Pack remains the visual authority for every frame and this supersedes nothing.** 🔴 **The page now SELECTS a tab instead of mounting every panel — the strip existed but scrolled, so overview, price, highlights, mapping, category, SKUs and the whole comparison table rendered at once, which is what made a Listing read as a debug dump.** ✅ **Overview carries facts, price, highlights and mapping with media and activity in an aside beside them; SKUs, Media, Category & attributes and Activity each own a tab; the aside exists only on Overview.** 🔴 **Intended vs reported keeps a tab and sits last — it is `FRAME 07`'s surface, kept reachable rather than dominating.** 🔴 **Nothing was dropped, only regrouped, and a test asserts every panel is still reachable.** 🔴 **Trioloo's header, button and icon language is preserved rather than copied from the project; the tab strip is text only and a test pins that no icon enters it.** ✅ **The media panel draws four slots with empty OUTLINES for unfilled positions, never placeholder art.** 🔴 **No business rule moved: `name_en` still an attribute, price mapping unchanged, no intent written, `GAP-134` open, push still unavailable.** ✅ **Frontend only. `src/product` + `src/design` 680/680; build clean.** |
 | **1.11.0** | **2026-08-19** | 🔴 **`LSC-059` ADDED — READABLE, EDITABLE AND PUSHABLE ARE THREE DIFFERENT THINGS.** **The channel view built its per-field capability list from `channel_adapter_capability` alone — a table nothing writes — so every field reported UNDECLARED and the operator saw *"what it can read or write is unknown"* beside a channel whose adapter had just read nine real Listings.** ✅ **`API-063.a` makes the ADAPTER the declaring authority, so it is now asked directly; a stored row still wins where one exists, and absent still means NO support.** 🔴 **`FRAME 07`'s push control is gated on DECLARED WRITABILITY rather than adapter presence — Daraz declares every field readable and NONE writable, because no outbound write protocol is documented and `pushUpdate` refuses.** ✅ **The two unavailabilities keep separate sentences: a missing adapter is not the same as a read-only connection.** ✅ **Local work is untouched — editing intent and Accept Marketplace contact nothing and stay available.** 🔴 **No write protocol invented; no field declared writable.** ✅ **Backend `ChannelListingQueryService` only — no migration, no endpoint or response-shape change. Backend 613/613; `src/product` + `src/design` 663/663; build clean.** |
 | **1.10.0** | **2026-08-19** | ✅ **`LSC-058` ADDED — PROVIDER MARKUP IS NORMALISED FOR DISPLAY, AND ONLY FOR DISPLAY.** **The first live Daraz pull returned `short_description` as an HTML fragment, and rendering it raw turned Listing detail and `FRAME 07` into tag soup — one attribute made a comparison row taller than the rest of the page.** ✅ **Entities a provider actually writes are decoded, block and list tags become line breaks and bullets, inline `style` is dropped, and remaining tags are stripped.** 🔴 **NOTHING STORED CHANGES — the reported side stays a mirrored external fact, and normalised text is never written back, pushed, or used to decide whether two values differ.** 🔴 **Provider markup is NEVER executed: `dangerouslySetInnerHTML` appears nowhere and entities are decoded AFTER tags are stripped, so an escaped tag cannot be reassembled into a live one.** ✅ **Long values are CONTAINED and scroll, never truncated.** ✅ **The missing-adapter reason moved out of the resolution column to one line above the table — it describes the channel, not a row.** 🔴 **No mapping or business rule touched: `name_en` stays an attribute, price mapping unchanged, no intent written, `GAP-134` open.** ✅ **Frontend only. `src/product` + `src/design` 656/656; build clean.** |

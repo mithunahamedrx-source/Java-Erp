@@ -1,7 +1,7 @@
 # Product Architecture
 
 **Owner:** Trioloo Technology · **Module:** Product · **Status:** Canonical
-**Version:** 1.28.0 · **Ratified:** 2026-08-05 · **Amended:** 2026-08-15 (`§39.10` open register — `.k` orderable-SKU remote identity raised; `.g` owed `PRD-203` migration measured against `V10`) · **Amended:** 2026-08-14 (Candidate media and listing media roles §39.16 `PRD-203`; ✅ `GAP-131` discharged, `PRD-169.a` amended; `PRD-200` refined — `.m` partial text acceptance, `.n` provenance does not propagate, `.o`–`.r` candidate flow and provider neutrality) · **Amended:** 2026-08-14 (Listing package publishing facts §39.14 `PRD-201`; English/Bangla listing content §39.15 `PRD-202`) · **Amended:** 2026-08-14 (AI-assisted authoring readiness §39.13; `PRD-200`; ⚠ no capability created; `GAP-131` raised against `PRD-169.a`) · **Amended:** 2026-08-14 (Listing promotion price §39.11; `PRD-199`; 🔴 `PRD-197` SUPERSEDED — `MRP` is no longer a Listing price) · **Amended:** 2026-08-14 (Listing highlights §39.12; `PRD-198`; `PRD-164` extended) · **Amended:** 2026-08-14 (Listing commercial price §39.11; `PRD-197`; `PRD-029`/`PRD-138`/`PRD-190.b` refined) · **Amended:** 2026-08-13 (Connected Listings §39; `PRD-173`-`PRD-196`; `PRD-085`, `PRD-086`, `PRD-151`, `PRD-172.a`, `PRD-172.b` amended or superseded) · **Amended:** 2026-08-13 (Commercial content and media §38; `PRD-163`-`PRD-172`) · **Amended:** 2026-08-12 (Channel Listing capability codes `PRD-162`) · **Amended:** 2026-08-11 (assembled finished-variant identity `PRD-156`-`PRD-161`) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Marketplace §31; Warranty §32; Return & Exchange) · **Rule prefix:** `PRD-`
+**Version:** 1.29.0 · **Ratified:** 2026-08-05 · **Amended:** 2026-08-20 (**§39.17 the operator-facing listing model — `PRD-204`; `PRD-181` retained as persistence, `PRD-184` demoted off the ordinary editing path**) · **Amended:** 2026-08-15 (`§39.10` open register — `.k` orderable-SKU remote identity raised; `.g` owed `PRD-203` migration measured against `V10`) · **Amended:** 2026-08-14 (Candidate media and listing media roles §39.16 `PRD-203`; ✅ `GAP-131` discharged, `PRD-169.a` amended; `PRD-200` refined — `.m` partial text acceptance, `.n` provenance does not propagate, `.o`–`.r` candidate flow and provider neutrality) · **Amended:** 2026-08-14 (Listing package publishing facts §39.14 `PRD-201`; English/Bangla listing content §39.15 `PRD-202`) · **Amended:** 2026-08-14 (AI-assisted authoring readiness §39.13; `PRD-200`; ⚠ no capability created; `GAP-131` raised against `PRD-169.a`) · **Amended:** 2026-08-14 (Listing promotion price §39.11; `PRD-199`; 🔴 `PRD-197` SUPERSEDED — `MRP` is no longer a Listing price) · **Amended:** 2026-08-14 (Listing highlights §39.12; `PRD-198`; `PRD-164` extended) · **Amended:** 2026-08-14 (Listing commercial price §39.11; `PRD-197`; `PRD-029`/`PRD-138`/`PRD-190.b` refined) · **Amended:** 2026-08-13 (Connected Listings §39; `PRD-173`-`PRD-196`; `PRD-085`, `PRD-086`, `PRD-151`, `PRD-172.a`, `PRD-172.b` amended or superseded) · **Amended:** 2026-08-13 (Commercial content and media §38; `PRD-163`-`PRD-172`) · **Amended:** 2026-08-12 (Channel Listing capability codes `PRD-162`) · **Amended:** 2026-08-11 (assembled finished-variant identity `PRD-156`-`PRD-161`) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Marketplace §31; Warranty §32; Return & Exchange) · **Rule prefix:** `PRD-`
 
 ---
 
@@ -2445,6 +2445,65 @@ Source: `BUSINESS_DISCOVERY.md` §18, `BD-293` – `BD-303`. Cost-model conseque
 > **r.** ✅ **AN UNCONFIGURED PROVIDER IS AN HONEST, ORDINARY STATE.** **AI Assist opens and says so.** 🔴 **No content is fabricated locally to stand in for a generation, and manual authoring is unaffected** (`PRD-200.i`).
 >
 > **l.** ⚠ **WHAT THIS RULE DOES NOT DECIDE, and what must not be inferred** (`DOC-024`): **the candidate-media lifecycle itself** — **`PRD-169.a` fixes media lifecycle at exactly `ACTIVE` and `ARCHIVED` and states that no canonical source establishes a draft state.** ✅ **RESOLVED 2026-08-14 by `PRD-203`, which ratifies the candidate lifecycle and the media roles** (`GAP-131` discharged). ✅ **Partial acceptance and later-manual-edit provenance are resolved by `.m` and `.n`.** ⚠ **Still undecided: how long an UNACCEPTED text candidate may be retained, if at all.**
+
+## 39.17 The operator-facing listing model
+
+> **PRD-204 — ✅ THE OPERATOR EDITS THE MARKETPLACE LISTING. *INTENDED VS REPORTED* IS A
+> PERSISTENCE MODEL, NOT THE OPERATOR'S MENTAL MODEL. Ratified 2026-08-20 on confirmed business
+> decision.**
+>
+> ⚠ **THIS CHANGES THE VOCABULARY AND THE FLOW, NOT THE STORAGE.** **`PRD-181`'s two-sided pair
+> is RETAINED IN FULL as a persistence detail** — it is the only thing that can tell a marketplace
+> edit from an unsent local one, and it is what makes a push verifiable at all (`PRD-186`). 🔴 **What
+> is withdrawn is the requirement that an OPERATOR reason in those terms.**
+>
+> **a.** ✅ **A PULLED LISTING IS THE CURRENT MARKETPLACE LISTING.** **`PRD-178`'s `UNMAPPED` state
+> and `PRD-181.a`'s reported-only write are unchanged; what changes is that the operator meets the
+> listing as *the listing*, not as one half of a comparison.**
+>
+> **b.** ✅ **THE FOUR TERMS THE UI USES.**
+>
+> | Term | Meaning | Persistence |
+> |---|---|---|
+> | **Marketplace current value** | what the channel reports it is showing now | the REPORTED side (`PRD-181`) |
+> | **Local draft value** | a change the operator has made and not yet sent | the INTENDED side (`PRD-181`) |
+> | **Push-supported field** | the channel DECLARES it writable (`API-063.a`, `PRD-125`) | capability declaration |
+> | **Local-only field** | editable in Trioloo, not sendable to this channel | the same declaration, negatively |
+>
+> ✅ **Mapping and Stock keep their existing meanings unchanged** (`PRD-178`, `PRD-126`) **and both
+> remain first-class on the operator's surfaces.**
+>
+> **c.** 🔴 **THE EDIT FORM OPENS ON THE MARKETPLACE CURRENT VALUES.** ⚠ **SEEDING A FORM IS NOT A
+> WRITE.** **`PRD-181.a` forbids a PULL from writing intent and is untouched: nothing is persisted by
+> opening a page.** ✅ **The operator's SAVE is what writes a local draft, and it is their act.**
+>
+> **d.** 🔴 ***ACCEPT MARKETPLACE* IS NO LONGER ON THE ORDINARY EDITING PATH.** ⚠ **It was the only
+> way to get content into an empty form, which forced every operator through a divergence workflow
+> to do ordinary work.** ✅ **`PRD-184.b` IS RETAINED for what it was written for — resolving a real
+> divergence, after a push, when the channel and Trioloo genuinely disagree** — 🔴 **but it is not
+> required for editing and must not be the primary control on a listing surface.**
+>
+> **e.** 🔴 **DIVERGENCE IS NOT THE PRIMARY VIEW.** **The intended-versus-reported comparison remains
+> a real surface** (`FRAME 07`) **and remains reachable**, ⚠ **but a listing's main view is the
+> listing, and per-field push controls do not belong in a comparison table as the everyday path.**
+>
+> **f.** 🔴 **SAVE IS STILL NOT PUSH** (`PRD-185`). **The wording must distinguish them plainly: a
+> save is local and contacts nothing; a push is a separate, separately-authorised act**
+> (`PRD-196.a`). ⚠ **An operator must never be able to believe a save reached the marketplace.**
+>
+> **g.** 🔴 **A FIELD IS OFFERED FOR PUSH ONLY WHERE THE CHANNEL DECLARES IT WRITABLE**
+> (`API-063.a`). **Everything else is shown as local-only with a SHORT reason.** ⚠ **Daraz currently
+> declares NO listing field writable** — no outbound write protocol is implemented — **so today every
+> field is local-only, and the surfaces must say so rather than offer a control that cannot act.**
+>
+> **h.** ✅ **NOTHING ABOUT MAPPING, STOCK OR PRICE SEMANTICS IS DECIDED HERE.** 🔴 **`name_en` is
+> still not a title** (`DZC-026`), **the `price`/`special_price` reading is unchanged** (`PRD-199`),
+> **and `GAP-134`'s sync-state question remains OPEN.** ⚠ **This rule changes what the operator is
+> shown and asked to do; it decides no mapping and no marketplace semantics.**
+>
+> **i.** 🔴 **NO STORED FACT IS DELETED OR REINTERPRETED BY THIS RULE.** **Existing reported and
+> intended columns keep their meaning, their history and their divergence computation** — ⚠ **a
+> future decision to change the STORAGE model would be a separate amendment, and this is not it.**
 
 ## 39.10 Open, carried forward
 

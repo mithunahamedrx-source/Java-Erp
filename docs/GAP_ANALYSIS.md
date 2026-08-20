@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.60.1 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.61.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2032,6 +2032,38 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 **Registered alongside, not resolved here.** ⚠ **`GAP-133`'s read-side lines are now STALE** — they still read *"STILL OPEN AND NOT STARTED: the listing/product read · the first live pull"*, *"BUILT IS NOT RUN. No listing has been read from Daraz"* and *"Live marketplace verification remains out of scope and untouched."* **All three were falsified by the 2026-08-18 production pull.** 🔴 **Correcting them is a status reconciliation of `GAP-133`, not a consequence of this fix, and was deliberately not performed here.**
 
 **Verification.** ✅ **`ListingDiscoveryTest` — 17 tests, the first coverage `discover()` has ever had.** ⚠ **The defect shipped because nothing tested the method at all:** the adapter's `discoverActive` was tested, the service method that consumes it was not. **Backend suite 605/605.**
+
+---
+
+## GAP-135 — registered 2026-08-20
+
+**Category:** Connected Listings · **Severity:** 🟡 Medium · **Class:** **B — ratified architecture changed by business decision, implementation follows**
+**Source:** product-owner decision on the operator-facing listing model, recorded as `PRD-204`
+
+**Decision.** 🔴 **THE OPERATOR EDITS THE MARKETPLACE LISTING.** **The intended-versus-reported pair
+is RETAINED AS PERSISTENCE — it is what makes a push verifiable (`PRD-186`) and what tells a
+marketplace edit from an unsent local one — but it is withdrawn as the operator's vocabulary and
+flow.** ⚠ ***Accept Marketplace* was the only way to fill an empty edit form, so ordinary editing
+was routed through a divergence workflow.**
+
+**What this closes.** ✅ **The empty-form problem recorded at `LSC-055`**: `FRAME 10` seeds from the
+marketplace current values, so the blank-form case becomes the exception. 🔴 **Seeding is NOT
+writing — `PRD-181.a` is untouched and opening a page persists nothing.**
+
+**What remains open, and is NOT decided by this.**
+
+| Item | State |
+|---|---|
+| **Outbound write protocol** | 🔴 **Documented for products (`DZC` §9/§10 read + review), NOT implemented.** `pushUpdate` refuses; Daraz declares no listing field writable, so every field is LOCAL-ONLY |
+| **`GAP-134` sync state** | 🔴 **OPEN** — unchanged by this decision |
+| **`name_en` → title** | 🔴 **OPEN** (`DZC-026` / `PRD-202`) |
+| **`price` / `special_price` semantics** | 🔴 **OPEN** (`PRD-199`) |
+| **Storage model** | ⚠ **UNCHANGED.** Changing the STORAGE would be a separate amendment; `PRD-204.i` says so explicitly |
+
+**Implementation state.** ⚠ **Documentation recorded first, deliberately** — `FRAME 06` / `FRAME 10`
+rebuild follows. 🔴 **No stored fact is deleted or reinterpreted, and no live Daraz call, Sync Now or
+deployment is part of this decision.**
+
 
 ---
 
