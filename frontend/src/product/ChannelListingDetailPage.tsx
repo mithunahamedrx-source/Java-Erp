@@ -51,14 +51,23 @@ import type {
  * 15 and 21 and are deliberately not built here.
  */
 
+/**
+ * 🔴 TABS, NOT A SCROLLING STACK. The approved Product Listing view groups one listing into a
+ * few readable panels and shows ONE at a time. Rendering every panel at once is what made this
+ * page read as a debug dump: an operator opening a Listing met overview, price, highlights,
+ * category, SKUs and the whole comparison table before they had found anything.
+ *
+ * ⚠ THE ORDER IS THE DESIGN'S. Overview first, then the product's own facts, and the
+ * intended-versus-reported comparison LAST — it is `FRAME 07`'s surface, kept reachable here
+ * rather than dominating the view.
+ */
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'highlights', label: 'Highlights' },
-  { id: 'comparison', label: 'Intended vs reported' },
   { id: 'skus', label: 'Orderable SKUs' },
   { id: 'media', label: 'Media' },
   { id: 'category', label: 'Category & attributes' },
   { id: 'activity', label: 'Activity' },
+  { id: 'comparison', label: 'Intended vs reported' },
 ] as const;
 
 export default function ChannelListingDetailPage(): React.JSX.Element {
@@ -126,9 +135,12 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
     void load();
   }, [load]);
 
+  /**
+   * 🔴 SELECTS THE PANEL. It used to scroll, which only worked because every panel was
+   * mounted at once — the thing that made the page heavy.
+   */
   const goToSection = (sectionId: string): void => {
     setActive(sectionId);
-    sectionRefs.current[sectionId]?.scrollIntoView({ block: 'start' });
   };
 
   if (error && !loadedItem) {
@@ -486,10 +498,15 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 'var(--space-8)', alignItems: 'start' }}>
+        {/*
+          ⚠ THE ASIDE COLUMN EXISTS ONLY WHERE THE DESIGN PUTS ONE. Overview carries the media
+          and activity summaries beside the facts; every other tab is one full-width panel, so
+          reserving 300px there would leave a visible empty gutter.
+        */}
+        <div style={{ display: 'grid', gridTemplateColumns: active === 'overview' ? 'minmax(0, 1fr) 300px' : 'minmax(0, 1fr)', gap: 'var(--space-8)', alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', minWidth: 0 }}>
             {/* ------------------------------------------------------------------ A */}
-            <Section id="overview" label="Overview" refs={sectionRefs}>
+            <Section id="overview" tabs={['overview']} active={active} label="Overview" refs={sectionRefs}>
               <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px 24px', margin: 0 }}>
                 <Fact label="Intended title" value={item.intendedTitle} missing="Not set locally" />
                 {/*
@@ -552,7 +569,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             </Section>
 
             {/* ------------------------------------------------------------------ B */}
-            <Section id="price" label="Price and listing stock" refs={sectionRefs}>
+            <Section id="price" tabs={['overview']} active={active} label="Price and listing stock" refs={sectionRefs}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
                 {/* 🔴 `PRD-199.a` — the NORMAL price, paid whenever no promotion is running. */}
                 <Figure
@@ -600,7 +617,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
 
             {/* ------------------------------------------------------------------ B2 */}
             <Section
-              id="highlights"
+              id="highlights" tabs={['overview']} active={active}
               label="Highlights"
               refs={sectionRefs}
               meta={
@@ -634,6 +651,8 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             {/* ------------------------------------------------------------------ C */}
             <Section
               id="mapping"
+              tabs={['overview']}
+              active={active}
               label="Mapping"
               refs={sectionRefs}
               action={
@@ -713,7 +732,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             </Section>
 
             {/* ------------------------------------------------------------------ D */}
-            <Section id="category" label="Channel category and attributes" refs={sectionRefs}>
+            <Section id="category" tabs={['category']} active={active} label="Channel category and attributes" refs={sectionRefs}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Fact
                   label="Marketplace channel category"
@@ -772,7 +791,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
 
             {/* ------------------------------------------------------------------ E */}
             <Section
-              id="skus"
+              id="skus" tabs={['skus']} active={active}
               label="Variations / Channel SKUs"
               refs={sectionRefs}
               meta={item.skuCount === 1 ? 'One orderable SKU' : `${item.skuCount} orderable SKUs`}
@@ -789,7 +808,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
               />
             </Section>
             {/* ------------------------------------------------------------ FRAME 07 */}
-            <Section id="comparison" label="Intended vs reported" refs={sectionRefs}>
+            <Section id="comparison" tabs={['comparison']} active={active} label="Intended vs reported" refs={sectionRefs}>
               <ChannelListingComparison
                 item={item}
                 rows={comparison}
@@ -805,12 +824,26 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
           {/* --------------------------------------------------------------- sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* F */}
-            <Aside id="media" label="Media" refs={sectionRefs}>
+            <Aside id="media" tabs={['overview', 'media']} active={active} label="Media" refs={sectionRefs}>
               {media && media.effective.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '7px' }}>
+                <div data-testid="detail-media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '7px' }}>
                   {media.effective.slice(0, 4).map((asset, index) => (
                     // 🔴 `RULE 3.15.a` — the canonical neutral block. No placeholder art.
                     <div key={`${asset.storageReference}-${index}`} aria-hidden="true" style={{ aspectRatio: '1', borderRadius: 'var(--radius-control-small)', background: 'var(--color-divider-light)' }} />
+                  ))}
+                  {/*
+                    ⚠ THE UNFILLED POSITIONS ARE DRAWN AS EMPTY SLOTS, as the approved view does — a
+                    gallery of four reads evenly instead of as a ragged row.
+                    🔴 An empty slot is an OUTLINE, never placeholder art (`RULE 3.15.a`), and it claims
+                    no image: the caption beneath states what is actually on file.
+                  */}
+                  {Array.from({ length: Math.max(0, 4 - Math.min(media.effective.length, 4)) }).map((_, index) => (
+                    <div
+                      key={`empty-${index}`}
+                      aria-hidden="true"
+                      data-testid="detail-media-empty-slot"
+                      style={{ aspectRatio: '1', borderRadius: 'var(--radius-control-small)', border: '1px dashed var(--color-border-control)' }}
+                    />
                   ))}
                 </div>
               ) : (
@@ -831,7 +864,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             </Aside>
 
             {/* G — the comparison SUMMARY and its entry. Frame 07 owns the full surface. */}
-            <Aside id="comparison-summary" label="Intended vs reported" refs={sectionRefs} emphasis={divergedRows.length > 0}>
+            <Aside id="comparison-summary" tabs={['comparison']} active={active} label="Intended vs reported" refs={sectionRefs} emphasis={divergedRows.length > 0}>
               {/*
                 🔴 THE FOUR STATES, KEPT APART.
 
@@ -890,7 +923,7 @@ export default function ChannelListingDetailPage(): React.JSX.Element {
             </Aside>
 
             {/* H — the latest three. Frame 21 owns the full history. */}
-            <Aside id="activity" label="Recent activity" refs={sectionRefs}>
+            <Aside id="activity" tabs={['overview', 'activity']} active={active} label="Recent activity" refs={sectionRefs}>
               {activity.length === 0 ? (
                 <p style={{ ...captionStyle, marginTop: '9px' }}>Nothing has happened to this listing yet.</p>
               ) : (
@@ -994,6 +1027,8 @@ function Section({
   refs,
   action,
   meta,
+  tabs,
+  active,
   children,
 }: {
   readonly id: string;
@@ -1001,8 +1036,18 @@ function Section({
   readonly refs: React.MutableRefObject<Record<string, HTMLElement | null>>;
   readonly action?: React.ReactNode;
   readonly meta?: string;
+  /** Which tab(s) this panel belongs to. Absent means always shown. */
+  readonly tabs?: readonly string[];
+  readonly active?: string;
   readonly children: React.ReactNode;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
+  /*
+    🔴 THE PANEL IS NOT RENDERED WHEN ITS TAB IS NOT SHOWING. Mounting every panel at once is
+    what made the Listing read as a debug dump rather than a product view.
+  */
+  if (tabs && active && !tabs.includes(active)) {
+    return null;
+  }
   return (
     <section
       id={`listing-${id}`}
@@ -1027,14 +1072,21 @@ function Aside({
   label,
   refs,
   emphasis = false,
+  tabs,
+  active,
   children,
 }: {
   readonly id: string;
   readonly label: string;
   readonly refs: React.MutableRefObject<Record<string, HTMLElement | null>>;
   readonly emphasis?: boolean;
+  readonly tabs?: readonly string[];
+  readonly active?: string;
   readonly children: React.ReactNode;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
+  if (tabs && active && !tabs.includes(active)) {
+    return null;
+  }
   return (
     <section
       id={`listing-${id}`}

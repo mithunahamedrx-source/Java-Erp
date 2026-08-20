@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.11.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.12.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-19 (`LSC-060` — `FRAME 06` tabbed product view; refinement authority recorded) · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -502,6 +502,49 @@ this document follows.
 > the outbound endpoints, signing, bodies and errors, no field may be declared writable and no
 > real push may be implemented.**
 
+> **`LSC-060` — ✅ ADDED 2026-08-19. `FRAME 06` IS A TABBED PRODUCT VIEW, AND THE REFINEMENT
+> AUTHORITY IS RECORDED.**
+>
+> **A second Claude Design project — *AI page design refinement*, `Product Listing.dc.html`
+> (project `95232e3f-bf87-4922-9ac4-86c7be939cd1`) — refines HOW `FRAME 06` is composed.**
+> 🔴 **IT REFINES COMPOSITION ONLY AND SUPERSEDES NOTHING.** **The Listings Feature Pack remains
+> the visual authority for every frame** (`LSC-002`); **this project is consulted for the detail
+> view's grouping and hierarchy, and it creates no business rule, field, action or mapping.**
+>
+> **a.** 🔴 **THE PAGE SELECTS A TAB; IT NO LONGER MOUNTS EVERY PANEL.** ⚠ **The strip existed
+> before but SCROLLED, so overview, price, highlights, mapping, category, SKUs and the whole
+> comparison table were all mounted at once** — which is what made a Listing read as a debug dump
+> rather than a product view. ✅ **Only the active tab renders.**
+>
+> **b.** ✅ **THE GROUPING IS THE REFINEMENT PROJECT'S.** **Overview carries the listing's own
+> facts, price and stock, highlights and mapping, with media and recent activity in an aside
+> beside them; Orderable SKUs, Media, Category & attributes and Activity each own a tab.**
+> ⚠ **The aside column exists ONLY on Overview**, so a full-width panel never sits beside an
+> empty gutter.
+>
+> **c.** ✅ **INTENDED VS REPORTED KEEPS A TAB AND SITS LAST.** 🔴 **It is `FRAME 07`'s surface;
+> the refinement project does not draw it, and it is kept reachable rather than deleted or left
+> to dominate the view** (`LSC-011`).
+>
+> **d.** 🔴 **NOTHING WAS DROPPED — ONLY REGROUPED.** **Every panel that existed before is still
+> reachable through a tab, and a test asserts that.**
+>
+> **e.** 🔴 **TRIOLOO'S HEADER, BUTTON AND ICON LANGUAGE IS PRESERVED, NOT COPIED FROM THE
+> PROJECT.** **Button sizing, shape, spacing, icon treatment and the short operational wording
+> stay Trioloo's own** (`LSC-030`). ✅ **The tab strip is TEXT ONLY — Trioloo puts icons on
+> actions, not on navigation — and a test pins that no icon enters it.**
+>
+> **f.** ✅ **THE MEDIA PANEL DRAWS FOUR SLOTS.** **Unfilled positions are empty OUTLINES, never
+> placeholder art** (`RULE 3.15.a`), **and they claim no image: the caption states what is
+> actually on file.**
+>
+> **g.** ✅ **PROVIDER MARKUP IS ALREADY NORMALISED FOR DISPLAY ONLY** (`LSC-058`) **and long
+> values are contained** — both unchanged by this refinement.
+>
+> **h.** 🔴 **NO BUSINESS RULE MOVED.** **`name_en` is still an attribute, the price mapping is
+> unchanged, no reported value is written into intent, `GAP-134` stays open, and push remains
+> unavailable.**
+
 ---
 
 # 6. State of the world
@@ -523,6 +566,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.12.0** | **2026-08-19** | ✅ **`LSC-060` ADDED — `FRAME 06` IS A TABBED PRODUCT VIEW.** **A second Claude Design project, *AI page design refinement* (`Product Listing.dc.html`), is recorded as the COMPOSITION refinement authority for the detail view; the Listings Feature Pack remains the visual authority for every frame and this supersedes nothing.** 🔴 **The page now SELECTS a tab instead of mounting every panel — the strip existed but scrolled, so overview, price, highlights, mapping, category, SKUs and the whole comparison table rendered at once, which is what made a Listing read as a debug dump.** ✅ **Overview carries facts, price, highlights and mapping with media and activity in an aside beside them; SKUs, Media, Category & attributes and Activity each own a tab; the aside exists only on Overview.** 🔴 **Intended vs reported keeps a tab and sits last — it is `FRAME 07`'s surface, kept reachable rather than dominating.** 🔴 **Nothing was dropped, only regrouped, and a test asserts every panel is still reachable.** 🔴 **Trioloo's header, button and icon language is preserved rather than copied from the project; the tab strip is text only and a test pins that no icon enters it.** ✅ **The media panel draws four slots with empty OUTLINES for unfilled positions, never placeholder art.** 🔴 **No business rule moved: `name_en` still an attribute, price mapping unchanged, no intent written, `GAP-134` open, push still unavailable.** ✅ **Frontend only. `src/product` + `src/design` 680/680; build clean.** |
 | **1.11.0** | **2026-08-19** | 🔴 **`LSC-059` ADDED — READABLE, EDITABLE AND PUSHABLE ARE THREE DIFFERENT THINGS.** **The channel view built its per-field capability list from `channel_adapter_capability` alone — a table nothing writes — so every field reported UNDECLARED and the operator saw *"what it can read or write is unknown"* beside a channel whose adapter had just read nine real Listings.** ✅ **`API-063.a` makes the ADAPTER the declaring authority, so it is now asked directly; a stored row still wins where one exists, and absent still means NO support.** 🔴 **`FRAME 07`'s push control is gated on DECLARED WRITABILITY rather than adapter presence — Daraz declares every field readable and NONE writable, because no outbound write protocol is documented and `pushUpdate` refuses.** ✅ **The two unavailabilities keep separate sentences: a missing adapter is not the same as a read-only connection.** ✅ **Local work is untouched — editing intent and Accept Marketplace contact nothing and stay available.** 🔴 **No write protocol invented; no field declared writable.** ✅ **Backend `ChannelListingQueryService` only — no migration, no endpoint or response-shape change. Backend 613/613; `src/product` + `src/design` 663/663; build clean.** |
 | **1.10.0** | **2026-08-19** | ✅ **`LSC-058` ADDED — PROVIDER MARKUP IS NORMALISED FOR DISPLAY, AND ONLY FOR DISPLAY.** **The first live Daraz pull returned `short_description` as an HTML fragment, and rendering it raw turned Listing detail and `FRAME 07` into tag soup — one attribute made a comparison row taller than the rest of the page.** ✅ **Entities a provider actually writes are decoded, block and list tags become line breaks and bullets, inline `style` is dropped, and remaining tags are stripped.** 🔴 **NOTHING STORED CHANGES — the reported side stays a mirrored external fact, and normalised text is never written back, pushed, or used to decide whether two values differ.** 🔴 **Provider markup is NEVER executed: `dangerouslySetInnerHTML` appears nowhere and entities are decoded AFTER tags are stripped, so an escaped tag cannot be reassembled into a live one.** ✅ **Long values are CONTAINED and scroll, never truncated.** ✅ **The missing-adapter reason moved out of the resolution column to one line above the table — it describes the channel, not a row.** 🔴 **No mapping or business rule touched: `name_en` stays an attribute, price mapping unchanged, no intent written, `GAP-134` open.** ✅ **Frontend only. `src/product` + `src/design` 656/656; build clean.** |
 | **1.9.0** | **2026-08-18** | 🟨 **`LSC-057` ADDED — `FRAME 19`’S INBOUND HALF RECONCILED AGAINST REAL RECORDED BATCHES; THE FRAME IS NOT COMPLETE.** **`ChannelListingBatchPage.tsx` reconciled IN PLACE and tagged `FRAME 19`: subject with actor and both times, server-derived summary strip, the `INV-107.1` aggregate note, outcome tabs carrying the server’s counts, server-side filtering and paging, and one row per `E-107` operation. 11 tests.** 🔴 **The title names the act that actually ran — a `DISCOVER` run is a "Discovery result", never the pack’s "Push result".** 🔴 **No `FAILED` or `DIVERGED` member is fabricated in the screen or its fixtures.** 🔴 **"Export result" and "Retry N failed" are stated as unavailable — no export endpoint exists, and retry addresses failed members which an inbound run does not produce (`PRD-186.d`).** 🔴 **The OUTBOUND half remains BLOCKED on an adapter and a documented Daraz write protocol (`LSC-051`); `FRAME 18` still has no component.** ✅ **Also `LSC-003`: `FRAME 04`, `FRAME 11` and `FRAME 19` now named in their own source, with a traceability test.** 🔴 **No business question decided — `GAP-134` untouched, no `sync_state` written, `name_en` not mapped, price mapping unchanged.** ✅ **Frontend only. `src/product` + `src/design` 637/637; build clean.** |

@@ -203,6 +203,19 @@ function stubApiWithComparison(
   );
 }
 
+
+/**
+ * Selects a Listing Detail tab.
+ *
+ * <p>🔴 THE PAGE OPENS ON OVERVIEW AND MOUNTS ONLY THE ACTIVE TAB. The deep panels —
+ * attributes, the comparison table and its summary, orderable SKUs, the full media set — live
+ * behind their own tab, exactly as the approved Product Listing view groups them. A test that
+ * asserts one of them selects its tab first, which is what an operator does too.
+ */
+function showTab(id: 'overview' | 'skus' | 'media' | 'category' | 'activity' | 'comparison'): void {
+  fireEvent.click(screen.getByTestId(`detail-tab-${id}`));
+}
+
 function renderDetail(): void {
   render(
     <MemoryRouter initialEntries={[`/inventory/products/listings/${LISTING.id}`]}>
@@ -372,6 +385,8 @@ describe('Frame 06 — Listing Detail', () => {
   it('renders the attribute table with unreadable values named', async () => {
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('category');
 
     await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
     const attrs = screen.getByTestId('detail-attributes');
@@ -384,6 +399,8 @@ describe('Frame 06 — Listing Detail', () => {
   it('summarises the diverged facts and marks the section as an exception', async () => {
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-diverged-facts')).toBeTruthy());
     const facts = screen.getByTestId('detail-diverged-facts').textContent ?? '';
@@ -484,16 +501,37 @@ describe('Frame 06 — Listing Detail', () => {
     renderDetail();
 
     await waitFor(() => expect(screen.getByTestId('detail-sections')).toBeTruthy());
+
+    /* ✅ Every tab is offered. */
     for (const id of ['overview', 'comparison', 'skus', 'media', 'category', 'activity']) {
       expect(screen.getByTestId(`detail-tab-${id}`)).toBeTruthy();
-      expect(screen.getByTestId(`detail-section-${id}`)).toBeTruthy();
     }
+    /* ✅ Overview is where the page opens. */
     expect(screen.getByTestId('detail-tab-overview').getAttribute('aria-selected')).toBe('true');
+
+    /*
+      🔴 ONLY THE ACTIVE TAB IS MOUNTED. Rendering every panel at once is what made this page
+      read as a debug dump, so a deep panel must be ABSENT until its tab is chosen.
+    */
+    expect(screen.getByTestId('detail-section-overview')).toBeTruthy();
+    for (const hidden of ['comparison', 'skus', 'category']) {
+      expect(screen.queryByTestId(`detail-section-${hidden}`)).toBeNull();
+    }
+
+    /* ✅ Choosing a tab mounts it and unmounts the one before it. */
+    for (const id of ['comparison', 'skus', 'category', 'activity']) {
+      showTab(id as 'comparison');
+      expect(screen.getByTestId(`detail-section-${id}`)).toBeTruthy();
+      expect(screen.getByTestId(`detail-tab-${id}`).getAttribute('aria-selected')).toBe('true');
+      expect(screen.queryByTestId('detail-section-overview')).toBeNull();
+    }
   });
 
   it('lists the orderable channel SKUs with their commercial values', async () => {
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('skus');
 
     await waitFor(() => expect(screen.getByTestId('detail-sku-sku-1')).toBeTruthy());
     const sku = screen.getByTestId('detail-sku-sku-1');
@@ -524,6 +562,8 @@ describe('Frame 06 — Listing Detail', () => {
   it('reports a readable difference as divergence', async () => {
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-comparison-summary')).toBeTruthy());
     expect(screen.getByTestId('detail-comparison-summary').textContent)
@@ -544,6 +584,8 @@ describe('Frame 06 — Listing Detail', () => {
       { fieldKey: 'promotion_price', label: 'Promotion Price', intendedValue: null, reportedValue: null, reportedReadable: false, state: 'NOT_READABLE', resolvable: false },
     ]);
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-comparison-summary')).toBeTruthy());
     const summary = screen.getByTestId('detail-comparison-summary').textContent ?? '';
@@ -563,6 +605,8 @@ describe('Frame 06 — Listing Detail', () => {
       { ...LISTING, syncState: 'SYNCED' },
     );
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-comparison-summary')).toBeTruthy());
     expect(screen.getByTestId('detail-comparison-summary').textContent)
@@ -586,6 +630,8 @@ describe('Frame 06 — Listing Detail', () => {
       { ...LISTING, syncState: 'SYNCED' },
     );
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-comparison-summary')).toBeTruthy());
     expect(screen.getByTestId('detail-comparison-summary').textContent)
@@ -604,6 +650,8 @@ describe('Frame 06 — Listing Detail', () => {
       { fieldKey: 'sale_price', label: 'Sale Price', intendedValue: '11200.00', reportedValue: null, reportedReadable: false, state: 'NOT_READABLE', resolvable: false },
     ]);
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('detail-comparison-state-note')).toBeTruthy());
     expect(screen.getByTestId('detail-comparison-state-note').textContent)
@@ -698,11 +746,14 @@ describe('Frame 06 — Listing Detail', () => {
     window.history.replaceState({}, '', '/?__devState=comparisonCases');
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('comparison-row-sale_price')).toBeTruthy());
     expect(screen.getByTestId('comparison-state-sale_price').textContent).toBe('DIVERGED');
 
     // The Price card must agree, and must not call the same fact unreadable.
+    showTab('overview');
     const price = screen.getByTestId('detail-sale-price').textContent ?? '';
     expect(price).toContain('৳ 11,200');
     expect(price).toContain('৳ 10,900');
@@ -714,9 +765,12 @@ describe('Frame 06 — Listing Detail', () => {
     window.history.replaceState({}, '', '/?__devState=comparisonCases');
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('comparison-row-listing_stock')).toBeTruthy());
     expect(screen.getByTestId('comparison-state-listing_stock').textContent).toContain('UNSENT');
+    showTab('overview');
     expect(screen.getByTestId('detail-section-overview').textContent)
       .toContain('Yes — not sent to the channel');
   });
@@ -730,10 +784,13 @@ describe('Frame 06 — Listing Detail', () => {
     window.history.replaceState({}, '', '/?__devState=comparisonCases');
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('comparison-row-media')).toBeTruthy());
     // The stub returns an empty media set, so the row must not invent a count.
     expect(screen.getByTestId('comparison-row-media').textContent).toContain('0 images');
+    showTab('media');
     expect(screen.getByTestId('detail-section-media').textContent)
       .toContain('No media is attached to this listing.');
   });
@@ -743,6 +800,8 @@ describe('Frame 06 — Listing Detail', () => {
     window.history.replaceState({}, '', '/?__devState=comparisonCases');
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('comparison-push-sale_price')).toBeTruthy());
     expect((screen.getByTestId('comparison-push-sale_price') as HTMLButtonElement).disabled).toBe(true);
@@ -761,6 +820,8 @@ describe('Frame 06 — Listing Detail', () => {
     window.history.replaceState({}, '', '/?__devState=comparisonCases');
     stubApi();
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('comparison');
 
     await waitFor(() => expect(screen.getByTestId('comparison-accept-sale_price')).toBeTruthy());
     fireEvent.click(screen.getByTestId('comparison-accept-sale_price'));
@@ -784,6 +845,7 @@ describe('Frame 06 — Listing Detail', () => {
     stubApi();
     renderDetail();
 
+    /* ⚠ Stays on Overview: every fact this asserts lives there. */
     await waitFor(() => expect(screen.getByTestId('detail-sale-price')).toBeTruthy());
     // LISTING reports the promotion as unreadable and holds no unsent change; both survive.
     expect(screen.getByTestId('detail-promotion-price').textContent)
@@ -954,6 +1016,8 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
   it('renders a marketplace attribute as readable text', async () => {
     stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('category');
     await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
 
     const cell = screen.getByTestId('attribute-reported-attribute:short_description');
@@ -970,6 +1034,8 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
   it('never turns provider markup into live elements', async () => {
     stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('category');
     await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
 
     const cell = screen.getByTestId('attribute-reported-attribute:short_description');
@@ -982,6 +1048,8 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
   it('contains a long value instead of letting it set the row height', async () => {
     stubApiWithComparison(MARKUP_ROWS, WITH_MARKUP);
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('category');
     await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
 
     const style = screen.getByTestId('attribute-reported-attribute:short_description').getAttribute('style') ?? '';
@@ -1014,6 +1082,8 @@ describe('Frame 06 — provider markup is rendered as readable text', () => {
       WITH_MARKUP,
     );
     renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-tab-overview')).toBeTruthy());
+    showTab('category');
     await waitFor(() => expect(screen.getByTestId('detail-attributes')).toBeTruthy());
 
     /* ✅ name_en appears in the attribute table, where it belongs. */
@@ -1142,5 +1212,84 @@ describe('Frame 06 — Accept All', () => {
     renderDetail();
     await waitFor(() => expect(screen.getByTestId('detail-mapping-summary')).toBeTruthy());
     expect(screen.queryByTestId('detail-accept-all')).toBeNull();
+  });
+});
+
+/**
+ * THE TABBED PRODUCT VIEW — structure, and the Trioloo language it keeps.
+ *
+ * 🔴 The approved Product Listing view groups one Listing into a few readable panels and shows
+ * ONE at a time. What it does NOT change is Trioloo's own header, button and icon language:
+ * the design's own button sizing and icon treatment are deliberately not copied.
+ */
+describe('Frame 06 — tabbed product view', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  /** ✅ The aside column belongs to Overview, where the design puts media and activity. */
+  it('shows the Overview aside only on Overview', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    /* Media and Recent activity sit beside the facts on Overview. */
+    expect(screen.getByTestId('detail-section-media')).toBeTruthy();
+    expect(screen.getByTestId('detail-section-activity')).toBeTruthy();
+
+    showTab('category');
+    /* 🔴 On a deep tab the aside is gone — no empty gutter beside a full-width panel. */
+    expect(screen.queryByTestId('detail-section-activity')).toBeNull();
+    expect(screen.getByTestId('detail-section-category')).toBeTruthy();
+  });
+
+  /**
+   * 🔴 TRIOLOO'S HEADER LANGUAGE IS PRESERVED. The wording stays short and operational, and
+   * the design's longer labels are not adopted.
+   */
+  it('keeps the Trioloo header action wording', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    expect(screen.getByTestId('detail-refresh').textContent).toContain('Refresh');
+    expect(screen.getByTestId('edit-channel-listing').textContent).toContain('Edit');
+    expect(screen.getByTestId('detail-accept-all').textContent).toContain('Accept All');
+  });
+
+  /**
+   * 🔴 NO DECORATIVE ICONS WERE INTRODUCED. The tab strip is text only — Trioloo uses icons on
+   * actions, not on navigation, and the design's icon treatment is not copied in.
+   */
+  it('introduces no icons into the tab strip', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-sections')).toBeTruthy());
+
+    for (const id of ['overview', 'skus', 'media', 'category', 'activity', 'comparison']) {
+      const tab = screen.getByTestId(`detail-tab-${id}`);
+      expect(tab.querySelector('svg')).toBeNull();
+      expect((tab.textContent ?? '').trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  /** ✅ Every previous section remains reachable — nothing was dropped, only regrouped. */
+  it('keeps every section reachable through a tab', async () => {
+    stubApi();
+    renderDetail();
+    await waitFor(() => expect(screen.getByTestId('detail-section-overview')).toBeTruthy());
+
+    /* Overview carries the listing's own facts, price, highlights and mapping. */
+    for (const id of ['overview', 'price', 'highlights', 'mapping']) {
+      expect(screen.getByTestId(`detail-section-${id}`)).toBeTruthy();
+    }
+    showTab('skus');
+    expect(screen.getByTestId('detail-section-skus')).toBeTruthy();
+    showTab('media');
+    expect(screen.getByTestId('detail-section-media')).toBeTruthy();
+    showTab('category');
+    expect(screen.getByTestId('detail-section-category')).toBeTruthy();
+    showTab('activity');
+    expect(screen.getByTestId('detail-section-activity')).toBeTruthy();
+    showTab('comparison');
+    expect(screen.getByTestId('detail-section-comparison')).toBeTruthy();
   });
 });
