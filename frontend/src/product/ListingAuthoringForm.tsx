@@ -1420,7 +1420,7 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
               disabled={busy || (editing && !dirty)}
               style={{ ...sidebarPrimary, marginTop: '11px' }}
             >
-              {busy ? 'Saving…' : editing ? 'Save changes' : 'Save listing'}
+              {busy ? 'Saving…' : editing ? 'Save draft' : 'Save listing'}
             </button>
           </div>
 
@@ -1523,7 +1523,7 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
           /*
             🔴 `PRD-185` / §28 — THE TRANSACTION BOUNDARIES STAY SEPARATE. The mapping is
             already persisted; this only asks the page to re-read it. It does NOT save the
-            form, and Save changes will not touch the mapping.
+            form, and Save draft will not touch the mapping.
           */
           onMapped={() => mode.onMappingChanged?.()}
         />

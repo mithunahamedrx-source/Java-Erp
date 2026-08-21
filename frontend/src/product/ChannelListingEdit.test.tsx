@@ -448,6 +448,13 @@ describe('Frame 10 — save is not push', () => {
     await loaded();
     /* 🔴 `PRD-204.f` — the control names what it does: a save is LOCAL and contacts nothing. */
     expect(screen.getByTestId('create-save-header').textContent).toContain('Save draft');
+    /*
+      🔴 BOTH SAVE CONTROLS NAME THE SAME ACT. The form carries a header primary and a sidebar
+      submit; renaming only one left the operator reading "Save draft" in one place and "Save
+      changes" in the other, which is exactly the confusion `PRD-204.f` forbids.
+    */
+    expect(screen.getByTestId('create-save').textContent).toContain('Save draft');
+    expect(document.body.textContent).not.toContain('Save changes');
     expect(screen.queryByText(/Save & Push/i)).toBeNull();
     expect(screen.queryByText(/Publish Now/i)).toBeNull();
   });
