@@ -5,6 +5,7 @@ import { PageHeader } from '../shell/AppShell';
 import { ListingAuthoringForm, EMPTY } from './ListingAuthoringForm';
 import type { Draft } from './ListingAuthoringForm';
 import { fetchChannelListing, updateChannelListing } from './channelListingApi';
+import { readableProviderText } from './providerText';
 import type { ChannelListing } from './channelListingApi';
 
 /**
@@ -99,11 +100,22 @@ export default function ChannelListingEditPage(): React.JSX.Element {
 }
 
 /**
- * The listing's CURRENT intended content, in the shape the shared form authors.
+ * The listing as it stands now, in the shape the shared form authors.
  *
- * <p>🔴 EVERY VALUE IS THE LISTING'S OWN, never an effective or derived one. Prefilling a
- * fallback would make the operator's first save materialise someone else's content as this
- * listing's override — the fallback would be silently consumed by the act of opening the page.
+ * <p>🔴 `PRD-204.c` — A FIELD WITH NO LOCAL DRAFT OPENS ON THE MARKETPLACE'S CURRENT VALUE.
+ * The form used to seed from the intended side alone, so a discovered Daraz listing — which
+ * has no intent by design (`PRD-181.a`) — opened completely blank, and the only way to fill it
+ * was the Accept Marketplace workflow. The operator now meets the listing as the listing.
+ *
+ * <p>🔴 SEEDING IS NOT WRITING. Nothing here persists: this reads a listing already fetched and
+ * returns form state. `PRD-181.a` still forbids a PULL from authoring intent, and the operator's
+ * SAVE remains the only act that records a local draft.
+ *
+ * <p>🔴 A LOCAL DRAFT ALWAYS WINS. `??` falls back only where the local side is genuinely
+ * absent, so an operator's unsent edit is never overwritten by what the channel reports.
+ *
+ * <p>⚠ AN UNREADABLE VALUE SEEDS NOTHING. Where the channel could not report a field the box
+ * stays empty rather than being filled with a guess (`SYS-034`).
  *
  * <p>⚠ `EMPTY` is spread first so a field added to the form later starts blank here rather
  * than becoming `undefined` and breaking the dirty comparison.
@@ -116,8 +128,22 @@ function toDraft(listing: ChannelListing): Draft {
     // ⚠ Mapping is not authored on this page (it is per orderable SKU), and an empty value is
     //   IGNORED by the update — it never unmaps.
     mappedSellableSku: '',
-    intendedTitle: listing.intendedTitle ?? '',
-    intendedDescription: listing.intendedDescription ?? '',
+    /*
+      🔴 `PRD-204.c` — THE FORM OPENS ON THE MARKETPLACE'S OWN TITLE when no local draft
+      exists. `DZC-026` still holds: this is `attributes.name` as received, and no attribute —
+      `name_en` included — is ever substituted for it.
+    */
+    intendedTitle: listing.intendedTitle
+      ?? marketplace(listing.channelReportedTitle, listing.reportedTitleReadable),
+    /*
+      ⚠ NORMALISED FOR EDITING ONLY (`LSC-058`). Daraz sends description markup; an operator
+      cannot edit tag soup, so the box is seeded with readable text. 🔴 The STORED value is
+      untouched — nothing is written until the operator saves.
+    */
+    intendedDescription: listing.intendedDescription
+      ?? (listing.reportedDescriptionReadable
+        ? readableProviderText(listing.reportedDescription) ?? ''
+        : ''),
     /*
       🔴 `PRD-198.c` / `PRD-202.c` — the OWN set, never the effective one. Where the listing
       holds no highlights of its own the box is empty and the fallback stays a fallback.
@@ -141,13 +167,23 @@ function toDraft(listing: ChannelListing): Draft {
       🔴 `TEC-015` — money stays a STRING all the way through. It is never parsed into a
       JavaScript Number, which cannot represent decimal money exactly.
     */
-    salePrice: listing.salePrice ?? '',
-    promotionPrice: listing.promotionPrice ?? '',
-    promotionStartsAt: toLocalInput(listing.promotionStartsAt),
-    promotionEndsAt: toLocalInput(listing.promotionEndsAt),
-    publishedMarketplaceStock: listing.listingStock ?? '',
+    salePrice: listing.salePrice
+      ?? marketplace(listing.reportedSalePrice, listing.reportedSalePriceReadable),
+    promotionPrice: listing.promotionPrice
+      ?? marketplace(listing.reportedPromotionPrice, listing.reportedPromotionPriceReadable),
+    /*
+      🔴 `DZC-024.c` — the window seeds only where the channel returned one that PARSES. A
+      promotion price without its window is meaningless, so an unreadable window seeds neither.
+    */
+    promotionStartsAt: toLocalInput(listing.promotionStartsAt
+      ?? (listing.reportedPromotionWindowReadable ? listing.reportedPromotionStartsAt : null)),
+    promotionEndsAt: toLocalInput(listing.promotionEndsAt
+      ?? (listing.reportedPromotionWindowReadable ? listing.reportedPromotionEndsAt : null)),
+    publishedMarketplaceStock: listing.listingStock
+      ?? marketplace(listing.reportedStock, listing.reportedStockReadable),
     publicationIntent: listing.publicationIntent ?? EMPTY.publicationIntent,
-    intendedChannelCategory: listing.intendedChannelCategory ?? '',
+    intendedChannelCategory: listing.intendedChannelCategory
+      ?? marketplace(listing.reportedChannelCategory, listing.reportedChannelCategoryReadable),
     /*
       🔴 RATIFIED — editable ONLY while the unit has no remote identity. It is prefilled
       either way so the round-trip is value-preserving: a published listing sends back the
@@ -155,6 +191,16 @@ function toDraft(listing: ChannelListing): Draft {
     */
     channelSku: sku?.channelSku ?? '',
   };
+}
+
+/**
+ * A marketplace-reported value, but only where the channel could actually read it.
+ *
+ * <p>🔴 UNREADABLE IS NOT EMPTY (`SYS-034`). A field the channel could not report seeds blank
+ * rather than seeding a placeholder the operator might save as though it were real content.
+ */
+function marketplace(value: string | null, readable: boolean): string {
+  return readable && value !== null ? value : '';
 }
 
 /**

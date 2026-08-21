@@ -371,7 +371,7 @@ describe('Frame 10 — identity is not editable', () => {
 // =====================================================================================
 
 describe('Frame 10 — unsaved changes', () => {
-  it('disables Save changes until something actually changes', async () => {
+  it('disables Save draft until something actually changes', async () => {
     await loaded();
     expect((screen.getByTestId('create-save-header') as HTMLButtonElement).disabled).toBe(true);
     setField('field-intended-title', 'Hi-Power 22 Inch IPS Monitor v2');
@@ -444,9 +444,10 @@ describe('Frame 10 — save is not push', () => {
     expect(body().version).toBe(7);
   });
 
-  it('offers exactly one dark primary, labelled Save changes', async () => {
+  it('offers exactly one dark primary, labelled Save draft', async () => {
     await loaded();
-    expect(screen.getByTestId('create-save-header').textContent).toContain('Save changes');
+    /* 🔴 `PRD-204.f` — the control names what it does: a save is LOCAL and contacts nothing. */
+    expect(screen.getByTestId('create-save-header').textContent).toContain('Save draft');
     expect(screen.queryByText(/Save & Push/i)).toBeNull();
     expect(screen.queryByText(/Publish Now/i)).toBeNull();
   });
@@ -800,7 +801,7 @@ describe('Frame 10 + 12 — mapping from Edit', () => {
     expect(sent.filter((c) => c.method === 'PUT' && c.url.endsWith('/L-1'))).toEqual([]);
   });
 
-  it('never sends a mapping when Save changes is used', async () => {
+  it('never sends a mapping when Save draft is used', async () => {
     await loaded();
     setField('field-intended-title', 'Something else');
     save();
@@ -883,66 +884,92 @@ const DISCOVERED: ChannelListing = {
   skus: [{ ...SKU, salePrice: null, listingStock: null, reportedSalePrice: '49800.00', reportedStock: '100' }],
 };
 
-describe('Frame 10 — a discovered Listing with nothing authored yet', () => {
+describe('Frame 10 — a discovered Listing opens on the marketplace values', () => {
   beforeEach(() => { listingResponse = DISCOVERED; listingStatus = 200; stubApi(); });
   afterEach(() => { listingResponse = LISTING; cleanup(); vi.unstubAllGlobals(); });
 
   /**
-   * 🔴 THE BLANK FORM MUST EXPLAIN ITSELF. An empty form with no explanation reads as a
-   * failure to load, which is precisely how this was reported from production.
+   * 🔴 `PRD-204.c` — THE FORM OPENS ON THE MARKETPLACE'S CURRENT VALUES. It used to open blank
+   * for a discovered listing, because it seeded from the intended side alone, and the only way
+   * to fill it was the Accept Marketplace workflow.
    */
-  it('explains that no local content has been authored yet', async () => {
+  it('seeds every field from the marketplace current values', async () => {
     await loaded();
-    const notice = screen.getByTestId('edit-unauthored-notice');
-    expect(notice.textContent).toContain('No local content has been authored');
-    expect(notice.textContent).toContain('never writes intent on your behalf');
-  });
-
-  /** ✅ `PRD-184.b` — the ratified route from reported to intended is offered, not performed. */
-  it('points to the intended-vs-reported comparison', async () => {
-    await loaded();
-    const link = screen.getByTestId('edit-unauthored-resolve');
-    expect(link.getAttribute('href')).toBe('/inventory/products/listings/L-1');
-    expect(link.textContent).toContain('Compare intended vs reported');
-  });
-
-  /** 🔴 `PRD-181.a` — reported values are CONTEXT beside the field, never IN it. */
-  it('shows the reported values as read-only context', async () => {
-    await loaded();
-    expect(screen.getByTestId('reported-intendedTitle').textContent)
-      .toContain('ইন্টেল কোর i5 7500 Desktop PC');
-    expect(screen.getByTestId('reported-salePrice').textContent).toContain('49800.00');
-    expect(screen.getByTestId('reported-publishedMarketplaceStock').textContent).toContain('100');
-    expect(screen.getByTestId('reported-intendedDescription').textContent).toContain('Intel Core i5-7500');
+    expect((screen.getByTestId('field-intended-title') as HTMLInputElement).value)
+      .toBe('ইন্টেল কোর i5 7500 Desktop PC');
+    expect((screen.getByTestId('field-sale-price') as HTMLInputElement).value).toBe('49800.00');
+    expect((screen.getByTestId('field-published-stock') as HTMLInputElement).value).toBe('100');
   });
 
   /**
-   * 🔴 THE INPUTS STAY EMPTY. Pre-filling them would author intent by page load, which is
-   * exactly the deliberate operator act `PRD-184.a` requires.
+   * 🔴 `LSC-058` — PROVIDER MARKUP IS NORMALISED FOR EDITING. Daraz sends description markup; an
+   * operator cannot edit tag soup, so the box holds readable text and never raw tags.
    */
-  it('leaves every input empty and writes no intent on render', async () => {
+  it('normalises provider markup into editable text', async () => {
     await loaded();
-    expect((screen.getByTestId('field-intended-title') as HTMLInputElement).value).toBe('');
-    expect((screen.getByTestId('field-intended-description') as HTMLTextAreaElement).value).toBe('');
-    expect((screen.getByTestId('field-sale-price') as HTMLInputElement).value).toBe('');
-    expect((screen.getByTestId('field-published-stock') as HTMLInputElement).value).toBe('');
-    /* 🔴 No PUT or POST left the page merely by opening it. */
+    const box = screen.getByTestId('field-intended-description') as HTMLTextAreaElement;
+    expect(box.value).toContain('Processor : Intel Core i5-7500');
+    expect(box.value).not.toContain('<ul');
+    expect(box.value).not.toContain('<li');
+  });
+
+  /**
+   * 🔴 SEEDING IS NOT WRITING (`PRD-204.c`). `PRD-181.a` still forbids a pull from authoring
+   * intent: opening this page must persist nothing at all.
+   */
+  it('writes nothing by being opened', async () => {
+    await loaded();
     expect(sent).toHaveLength(0);
   });
 
-  /**
-   * ⚠ THE CONTEXT IS FOR UNAUTHORED FIELDS ONLY. Once a person types, `FRAME 07` owns the
-   * intended-versus-reported question and this form stops answering it too.
-   */
-  it('withdraws the reported context once the operator authors the field', async () => {
+  /** ✅ The notice names where the values came from, and that nothing is saved yet. */
+  it('says the values are the marketplace’s and nothing is saved yet', async () => {
     await loaded();
-    fireEvent.change(screen.getByTestId('field-intended-title'), { target: { value: 'Desktop PC' } });
-    await waitFor(() => expect(screen.queryByTestId('reported-intendedTitle')).toBeNull());
-    /* ✅ The untouched fields keep theirs. */
-    expect(screen.getByTestId('reported-salePrice')).toBeTruthy();
+    const notice = screen.getByTestId('edit-unauthored-notice');
+    expect(notice.textContent).toContain('what the channel reports');
+    expect(notice.textContent).toContain('Nothing has been saved yet');
   });
 
-  /** ✅ An ordinary authored listing is unaffected — no notice, no duplicated context. */
+  /**
+   * 🔴 `PRD-204.d` — ACCEPT MARKETPLACE IS NOT THE ORDINARY PATH. It is not a control here and
+   * the form no longer routes an operator through a divergence workflow to do ordinary editing.
+   */
+  it('offers no Accept Marketplace route', async () => {
+    await loaded();
+    expect(screen.queryByTestId('edit-unauthored-resolve')).toBeNull();
+    expect(document.body.textContent).not.toContain('Accept Marketplace');
+    expect(document.body.textContent).not.toContain('Compare intended vs reported');
+  });
+
+  /**
+   * 🔴 `PRD-204.g` — PUSH IS NOT AVAILABLE AND THE PAGE SAYS SO. Daraz declares no listing field
+   * writable, so a save is local-only, and an operator must never believe it reached the channel.
+   */
+  it('states that a save cannot be pushed to the marketplace yet', async () => {
+    await loaded();
+    const notice = screen.getByTestId('edit-push-unavailable');
+    expect(notice.textContent).toContain('does not declare any listing field writable');
+    expect(notice.textContent).toContain('saved locally');
+  });
+
+  /** ✅ The value is IN the field now, so it is not repeated as context beside it. */
+  it('does not repeat the marketplace value beside a field that holds it', async () => {
+    await loaded();
+    expect(screen.queryByTestId('reported-intendedTitle')).toBeNull();
+    expect(screen.queryByTestId('reported-salePrice')).toBeNull();
+  });
+
+  /**
+   * 🔴 `DZC-026` — `name_en` IS STILL NOT A TITLE. The box seeds from the channel's own title
+   * and no attribute is substituted for it, in any language.
+   */
+  it('never seeds the title from name_en', async () => {
+    await loaded();
+    expect((screen.getByTestId('field-intended-title') as HTMLInputElement).value)
+      .not.toContain('English Name');
+  });
+
+  /** ✅ An ordinary authored listing is unaffected — its own content still wins. */
   it('says nothing of the sort for a Listing that already has content', async () => {
     listingResponse = LISTING;
     stubApi();

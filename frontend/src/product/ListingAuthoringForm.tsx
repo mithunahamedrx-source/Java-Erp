@@ -241,9 +241,9 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
    * through discovery has every intended field empty until a person fills it in or explicitly
    * accepts the marketplace's values (`PRD-184.b`).
    *
-   * <p>⚠ IT IS WHY THIS FORM LOOKS BLANK, and saying so is the whole point: an empty form with
-   * no explanation reads as a loading failure, which is exactly how the first nine discovered
-   * Daraz listings were reported.
+   * <p>⚠ IT NO LONGER MEANS THE FORM IS BLANK. Under `PRD-204.c` a field with no local draft
+   * opens on the marketplace's current value, so this now marks a listing whose content is the
+   * CHANNEL'S rather than one the operator has written — which is what the notice says.
    */
   const unauthored = editing && mode.existing !== null
     && !mode.existing.intendedTitle
@@ -543,7 +543,7 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
               style={headerPrimary}
             >
               <SaveIcon size={ACTION_ICON_SIZE} strokeWidth={ACTION_ICON_STROKE} aria-hidden="true" />
-              {busy ? 'Saving…' : editing ? 'Save changes' : 'Save listing'}
+              {busy ? 'Saving…' : editing ? 'Save draft' : 'Save listing'}
             </button>
           </>
         }
@@ -557,35 +557,43 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
 
           {/*
-            🔴 THE BLANK FORM EXPLAINS ITSELF. A discovered listing legitimately has no
-            intended content (`PRD-181.a`), so this form is empty by design — but an empty form
-            with no explanation reads as a failure to load, which is exactly how the first live
-            Daraz pull was reported.
-
-            🔴 IT OFFERS THE RATIFIED ROUTE AND NOTHING ELSE. `PRD-184.b` Accept Marketplace is
-            the only path from reported to intended, it is per field, and it is a DELIBERATE
-            operator act (`PRD-184.a`). This links to it; it never performs it, and no value is
-            copied into an input by arriving here.
+            🔴 `PRD-204.c` — THE FORM OPENED ON THE MARKETPLACE'S OWN VALUES, and says so. It used
+            to open BLANK for a discovered listing, because it seeded from the intended side alone
+            and a pull never authors intent (`PRD-181.a`). That forced every operator through the
+            Accept Marketplace workflow in order to do ordinary editing.
+          
+            🔴 SAYING SO IS THE POINT. The operator must know these values came from the channel and
+            that NOTHING has been recorded yet — opening a page writes nothing, and only their save
+            creates a local draft (`PRD-204.c`, `PRD-204.f`).
           */}
+          {/*
+            🔴 `PRD-204.f`/`.g` — SAVE IS NOT PUSH, AND PUSH IS NOT AVAILABLE. Daraz declares no
+            listing field writable (`API-063.a`) because no outbound write protocol is
+            implemented, so every field here is LOCAL-ONLY today.
+            ⚠ Saying it plainly is the requirement: an operator must never be able to believe a
+            save reached the marketplace.
+          */}
+          {editing && (
+            <Notice
+              tone="info"
+              title="Saved changes stay in Trioloo — push is not available yet"
+              testId="edit-push-unavailable"
+            >
+              This channel does not declare any listing field writable, so nothing here can be
+              sent to the marketplace. Your edits are saved locally against this Listing and are
+              marked as unsent; sending them is a separate act that is not implemented yet.
+            </Notice>
+          )}
+
           {unauthored && hasReported && mode.existing && (
             <Notice
               tone="info"
-              title="No local content has been authored for this Listing yet"
+              title="Editing the marketplace's current values"
               testId="edit-unauthored-notice"
             >
-              The fields below are empty because Trioloo holds no intended values for this
-              Listing — reading a channel records what it reports and never writes intent on
-              your behalf. What the channel currently reports is shown beneath each field.
-              {' '}
-              <Link
-                data-testid="edit-unauthored-resolve"
-                to={`/inventory/products/listings/${mode.existing.id}`}
-                style={{ color: 'var(--color-link)', fontWeight: 600 }}
-              >
-                Compare intended vs reported
-              </Link>
-              {' '}to adopt the channel's values field by field, or simply type the content you
-              want Trioloo to publish.
+              These fields show what the channel reports it is showing right now. Nothing has been
+              saved yet — opening this page records nothing. Change what you need and save, and your
+              edits are kept as a local draft on this Listing.
             </Notice>
           )}
 

@@ -76,7 +76,7 @@
 | 35 | [`UI_UX_ARCHITECTURE.md`](UI_UX_ARCHITECTURE.md) | ✅ **Ratified** v1.20.0 — 2026-08-11 (`DOC-076`) | `UX-001`–`UX-273` |
 | 36 | [`SHOPS_CHANNELS_SCREEN_CONTRACT.md`](SHOPS_CHANNELS_SCREEN_CONTRACT.md) | ✅ **Ratified** v3.2.0 — 2026-08-15 (`DOC-090`) | `SCS-001`–`SCS-092` |
 | 37 | [`PRODUCTION_DEPLOYMENT_RUNBOOK.md`](PRODUCTION_DEPLOYMENT_RUNBOOK.md) | ✅ **Ratified** v1.5.0 — 2026-08-17 (`DOC-091`) | `DEP-001`–`DEP-124` |
-| 38 | [`LISTINGS_SCREEN_CONTRACT.md`](LISTINGS_SCREEN_CONTRACT.md) | ✅ **Ratified** v1.13.1 — 2026-08-20 (`DOC-092`) | `LSC-001`–`LSC-061` |
+| 38 | [`LISTINGS_SCREEN_CONTRACT.md`](LISTINGS_SCREEN_CONTRACT.md) | ✅ **Ratified** v1.14.0 — 2026-08-20 (`DOC-092`) | `LSC-001`–`LSC-061` |
 
 > 🔴 **SUPERSEDED 2026-08-10 — retained under `DOC-009`.** **HR & Payroll now has full discovery (`BD-457` – `BD-497`) and a written V1 architecture** (`DOC-072`, `SYS-093` as amended). *The original text follows.*
 >
