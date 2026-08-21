@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.7.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.8.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -711,12 +711,301 @@ reference links directly for signing details** — the two ventures share one pl
 
 ⚠ **§9'S PARAMETER AND RESPONSE DETAIL IS READ FROM THE SAME SHARED PLATFORM REFERENCE, AND THE LINK IS NOT AN ASSUMPTION:** **Daraz's own migration guide names `/products/get` as the REST successor to `GetProducts`.** 🔴 **The Daraz API-reference site renders its catalogue through client-side script and could not be enumerated as static text; the shared reference was used for field detail and every Daraz-specific decision — regional base, signing, envelope — remains §1–§8's.**
 
+
+---
+
+# §11 The listing write protocol — `DZC-033`–`DZC-039`
+
+> ⚠ **READ FROM THE PROVIDER'S OWN REFERENCE, 2026-08-21**, at `https://open.daraz.com/doc/api.htm`
+> (Product category, `cid=1`), including each endpoint's own parameter table, code sample and error
+> table. 🔴 **NO SELLER API WAS CALLED TO PRODUCE THIS SECTION.** **It is documentation, not a probe.**
+>
+> 🔴 **THIS SECTION LEGISLATES NOTHING AND IMPLEMENTS NOTHING.** **It records what the provider
+> publishes so that an implementation does not guess.** ⚠ **`pushUpdate`, `publishCreate` and
+> `withdraw` still refuse, and Daraz still declares no listing field writable** (`PRD-204.g`).
+
+---
+
+## `DZC-033` — The write endpoints Daraz publishes
+
+> ✅ **THE PRODUCT CATEGORY PUBLISHES EXACTLY THESE WRITE PATHS.** **Read from the API reference's
+> own path list; no other product-write path is offered there.**
+>
+> | # | Path | Method | Body parameter | Purpose |
+> |---|---|---|---|---|
+> | 1 | `/product/price_quantity/update` | `POST` | **`payload`** (XML) | price, promotion price, promotion window, quantity |
+> | 2 | `/product/update` | `POST` | **`payload`** (XML) | title, description, attributes, category, images, SKU fields |
+> | 3 | `/product/create` | `POST` | **`payload`** (XML) | first publication of a new product |
+> | 4 | `/product/deactivate` | `POST` | **`apiRequestBody`** (XML) | take SKUs off sale |
+> | 5 | `/product/remove` | `POST` | **`sku_id_list`** (JSON array) | delete SKUs |
+> | 6 | `/image/upload` | `POST` | **`image`** (multipart file) | upload one image file |
+> | 7 | `/image/migrate` | `POST` | **`payload`** (XML) | pull an external image URL into Daraz media |
+>
+> 🔴 **THE BODY PARAMETER NAME IS NOT UNIFORM, AND THIS IS A TRAP.** ⚠ **Three different names appear
+> across five endpoints — `payload`, `apiRequestBody`, `sku_id_list`.** **An implementation that
+> assumes `payload` everywhere will send a well-formed request that the gateway rejects for a reason
+> that names no parameter.**
+>
+> 🔴 **THERE IS NO `/product/activate`.** ⚠ **The Product category publishes `deactivate` and
+> `remove` and NO counterpart to bring a SKU back on sale.** **Deactivation must therefore be treated
+> as ONE-WAY until a documented reactivation path is found** (`DZC-038`).
+
+---
+
+## `DZC-034` — Transport, signing and the Bangladesh base
+
+> ✅ **NOTHING ABOUT SIGNING CHANGES FOR A WRITE.** **The same scheme §2 records for reads applies:
+> parameters sorted in ASCII order excluding `sign`, each name immediately followed by its value,
+> the whole prefixed by the API path, HMAC-SHA256 with the App Secret, `sign_method=sha256`.**
+>
+> 🔴 **THE API PATH IS PART OF THE SIGNED STRING.** ⚠ **This is why `DZC-033`'s paths are recorded
+> exactly: a path that differs by one character produces a perfectly well-formed signature that is
+> rejected every time, with an error that says nothing about the path.**
+>
+> **a.** ✅ **BASE URL — BANGLADESH IS `https://api.daraz.com.bd/rest`.** **Confirmed again from the
+> Service Endpoints table on the write pages themselves, unchanged from `DZC-001`.**
+>
+> **b.** ✅ **COMMON PARAMETERS ARE THE READ ONES.** **`app_key`, `timestamp`, `access_token`,
+> `sign_method`, `sign`** — **the same table the read endpoints publish**, with `timestamp` in
+> milliseconds and **less than 7200s from UTC**.
+>
+> **c.** 🔴 **THE XML BODY TRAVELS AS AN ORDINARY REQUEST PARAMETER, NOT AS THE HTTP BODY.** **The
+> provider's own sample calls `request.addApiParameter("payload", "<Request>…")`.** ⚠ **It is
+> therefore A SIGNED PARAMETER LIKE ANY OTHER** — **its exact string participates in the signature,
+> so any re-serialisation, re-indentation or entity change between signing and sending breaks it.**
+>
+> **d.** ⚠ **`/image/upload` IS THE ONE EXCEPTION AND IS UNRESOLVED.** **Its sample uses
+> `addFileParameter("image", new FileItem(…))`, a multipart file rather than an API parameter.**
+> 🔴 **Whether the file participates in the signature is NOT stated on the page** — **it must be
+> settled before any media write is attempted** (`DZC-039.d`).
+
+---
+
+## `DZC-035` — `/product/price_quantity/update`, and what it proves about price
+
+> ✅ **THE PAYLOAD SHAPE, AS PUBLISHED:**
+>
+> ```xml
+> <Request>
+>   <Product>
+>     <Skus>
+>       <Sku>
+>         <ItemId>234234234</ItemId>
+>         <SkuId>234</SkuId>
+>         <SellerSku>Apple-SG-Glod-64G</SellerSku>
+>         <Price>1099.00</Price>
+>         <SalePrice>900.00</SalePrice>
+>         <SaleStartDate>2017-08-08</SaleStartDate>
+>         <SaleEndDate>2017-08-31</SaleEndDate>
+>         <MultiWarehouseInventories>
+>           <MultiWarehouseInventory>
+>             <WarehouseCode>warehouseTest1</WarehouseCode>
+>             <Quantity>20</Quantity>
+>           </MultiWarehouseInventory>
+>         </MultiWarehouseInventories>
+>       </Sku>
+>     </Skus>
+>   </Product>
+> </Request>
+> ```
+>
+> **a.** ✅ **THE WRITE SIDE CORROBORATES `PRD-199`, AND REINTERPRETS NOTHING.** **`<Price>` is the
+> normal price and `<SalePrice>` is a SECOND selling price governed by `<SaleStartDate>` and
+> `<SaleEndDate>`** — **exactly the reading `PRD-199.a`/`.b` already holds for `price` and
+> `special_price` on the read side.** 🔴 **THIS DOES NOT RATIFY ANY CHANGE.** ⚠ **`PRD-199` and
+> `GAP-134` are untouched by this observation; it is corroboration, not a decision.**
+>
+> **b.** ✅ **THE PROMOTION WINDOW IS WRITABLE EVEN THOUGH IT IS NOT READABLE.** 🔴 **`DZC-024.c`
+> records that the read side returns no window Trioloo can parse; the WRITE side publishes
+> `<SaleStartDate>`/`<SaleEndDate>` plainly.** ⚠ **A window can therefore be SENT and not READ BACK,
+> which means a push of it cannot be verified by a subsequent pull** (`PRD-186`). **That asymmetry is
+> a business question, not a protocol one.**
+>
+> **c.** ⚠ **DATE FORMAT IS `yyyy-MM-dd`, DATE-ONLY.** **No time and no zone is published.** 🔴 **A
+> Trioloo promotion window is an INSTANT** — **narrowing an instant to a bare date is lossy, and the
+> rule for doing so is not a protocol fact.**
+>
+> **d.** ⚠ **QUANTITY IS PUBLISHED ONLY IN ITS MULTI-WAREHOUSE FORM.** **The sample carries
+> `<MultiWarehouseInventories>` with a `<WarehouseCode>`.** 🔴 **Whether a plain `<Quantity>` is
+> accepted, and what warehouse code a Bangladesh seller uses, is NOT published** (`DZC-039.b`).
+>
+> **e.** ✅ **RESPONSE ENVELOPE:** `{"code":"0","data":{},"request_id":"…"}`. ⚠ **`data` IS EMPTY ON
+> SUCCESS** — **the call confirms acceptance and returns no echo of what was stored, so a push cannot
+> be verified from its own response.**
+
+---
+
+## `DZC-036` — `/product/update`, and why it is NOT the first slice
+
+> ✅ **THE PAYLOAD SHAPE, AS PUBLISHED:**
+>
+> ```xml
+> <Request>
+>   <Product>
+>     <PrimaryCategory>6614</PrimaryCategory>
+>     <SPUId/>
+>     <AssociatedSku/>
+>     <Images><Image>https://…jpg</Image></Images>
+>     <Attributes>
+>       <name>…</name>
+>       <short_description>…</short_description>
+>       <brand>…</brand>
+>       <model>…</model>
+>     </Attributes>
+>     <Skus>
+>       <Sku>
+>         <SellerSku>…</SellerSku>
+>         <quantity>1</quantity>
+>         <price>388.50</price>
+>         <package_length>11</package_length>
+>         <package_weight>33</package_weight>
+>       </Sku>
+>     </Skus>
+>   </Product>
+> </Request>
+> ```
+>
+> **a.** ✅ **`<name>` IS THE TITLE AND `<short_description>` THE DESCRIPTION.** 🔴 **THE WRITE SIDE
+> CORROBORATES `DZC-026`: the title is `name`.** ⚠ **`name_en` DOES NOT APPEAR IN THE WRITE PAYLOAD
+> AT ALL** — **which is further evidence for, not a ratification of, the existing rule. `DZC-026`
+> and `PRD-202` are untouched.**
+>
+> **b.** 🔴 **THE PUBLISHED SAMPLE CARRIES NO `<ItemId>`, SO HOW AN UPDATE TARGETS AN EXISTING
+> PRODUCT IS NOT STATED.** ⚠ **The demo is create-shaped.** **Targeting is the FIRST thing an update
+> must get right, and guessing it risks creating a product instead of updating one** (`DZC-039.a`).
+>
+> **c.** 🔴 **THE ATTRIBUTES BLOCK LOOKS WHOLE-OBJECT, AND THAT IS THE REAL DANGER.** ⚠ **Nothing
+> published says whether omitting an attribute LEAVES it or CLEARS it.** **A title-only push that
+> sends `<Attributes><name>…</name></Attributes>` could blank `brand`, `model` and every
+> category attribute the seller has.** 🔴 **UNTIL THIS IS SETTLED, A CONTENT PUSH IS UNSAFE AT ANY
+> SIZE** (`DZC-039.c`).
+>
+> **d.** ⚠ **`<PrimaryCategory>` AND ATTRIBUTES ARE COUPLED.** **Category attributes are defined per
+> category (`/category/attributes/get`), so a category change and an attribute set cannot be reasoned
+> about independently.**
+>
+> **e.** ⚠ **RESPONSE RETURNS A `variation` OBJECT**, not a simple acknowledgement — **its meaning
+> for an update, as opposed to a create, is not documented.**
+
+---
+
+## `DZC-037` — Identity: the join keys, and the one Trioloo does not hold
+
+> ✅ **DARAZ USES THREE SKU IDENTIFIERS.** **`SellerSku` (the seller's own), `SkuId` (marketplace,
+> numeric) and `ShopSku` (marketplace, composite).** **`ItemId` identifies the product.**
+>
+> 🔴 **TRIOLOO PERSISTS `SellerSku` AND `ItemId` ONLY.** **`DarazListingMapper` reads `SellerSku` as
+> the channel SKU and deliberately does not substitute `ShopSku` or `SkuId` for it** (`DZC-026`);
+> **neither marketplace identifier is stored.**
+>
+> **a.** ✅ **PRICE AND QUANTITY CAN BE ADDRESSED BY WHAT TRIOLOO HOLDS.** **`/product/price_quantity/update`
+> publishes `SellerSku` alongside `ItemId`/`SkuId` in one `<Sku>` element.** ⚠ **Whether `SellerSku`
+> ALONE is sufficient is not stated and must be settled before implementation** (`DZC-039.e`).
+>
+> **b.** 🔴 **DEACTIVATE AND REMOVE CANNOT BE ADDRESSED AT ALL TODAY.** **`/product/deactivate`
+> requires `<SkuId>` and `/product/remove` requires a `sku_id_list` of composite SkuId strings
+> (`"SkuId_1269656765_5230534246"`).** ⚠ **Trioloo stores neither**, **so these are blocked on a READ
+> change that captures them — not on the write protocol.**
+>
+> **c.** ⚠ **CAPTURING `SkuId` IS A SEPARATE, RATIFIABLE CHANGE.** **The read response already
+> carries `SkuId` and `ShopSku`; persisting them is a schema and mapper decision that belongs to its
+> owning documents, and this section decides nothing about it.**
+
+---
+
+## `DZC-038` — Lifecycle, errors and throttling
+
+> **a.** 🔴 **DEACTIVATION IS ONE-WAY AS PUBLISHED.** **`/product/deactivate` exists; no
+> `/product/activate` is published in the Product category.** ⚠ **An operator who deactivates through
+> Trioloo could not be brought back through Trioloo** — **which makes it unsuitable for early
+> implementation regardless of the identity blocker.**
+>
+> **b.** ✅ **`/product/deactivate` SHAPE:** `apiRequestBody` = `<Request><Product><ItemId>…</ItemId><Skus><SkuId>…</SkuId><SkuId>…</SkuId></Skus></Product></Request>`.
+>
+> **c.** ✅ **`/product/remove` SHAPE:** `sku_id_list` = a JSON array of strings, e.g.
+> `["SkuId_1269656765_5230534246"]`. ⚠ **JSON, not XML, in an otherwise XML family.**
+>
+> **d.** ✅ **THE ERROR CODES THAT MATTER FOR A WRITE**, published on the endpoints themselves:
+>
+> | Code | Meaning | Why it matters |
+> |---|---|---|
+> | `0` | success | the only success value; `code` is a STRING (`DZC-010`) |
+> | `1` | `E001: Parameter %s is mandatory` | names the parameter |
+> | `5` | `E005: Invalid Request Format` | the shape was rejected |
+> | `204` | `E204: Too many SKU in one request` | 🔴 **a per-request SKU limit exists; its NUMBER is not published** |
+> | `501` | `E501: Update product failed` | price/stock update refused |
+> | `901` | too frequent, or functionality disabled | 🔴 **the throttling signal — RETRY, never "no change"** |
+> | `4104` | `BIZ_CHECK_PRICE_PRECISION_INVALID` | money precision refused |
+> | `4105` | `BIZ_CHECK_SELLER_SKU_DUPLICATE` | SellerSku collision |
+> | `4108` | `CHK_BASIC_REQUIRED` | a mandatory basic attribute was missing |
+> | `4110` | `BIZ_CHECK_CAT_PROP_MANDATORY` | a mandatory category attribute was missing |
+>
+> **e.** 🔴 **NO NUMERIC RATE LIMIT IS PUBLISHED.** **Throttling is expressed ONLY as error `901`.**
+> ⚠ **`901` MUST BE TREATED AS A RETRYABLE CONDITION AND NEVER AS AN OUTCOME** — **the same rule
+> `DZC-032.f` records for reviews.**
+>
+> **f.** ⚠ **NO PERMISSION SCOPE IS PUBLISHED PER ENDPOINT.** **The reference states none; whether
+> the existing app authorisation already covers product writes is unknown until a call is made.**
+
+---
+
+## `DZC-039` — What is NOT known, and must be settled before any implementation
+
+> 🔴 **EACH ITEM BELOW IS A GAP IN THE PROVIDER'S PUBLISHED DOCUMENTATION, NOT A TRIOLOO DECISION.**
+> ⚠ **NONE OF THEM CAN BE ANSWERED WITHOUT A CONTROLLED CALL AGAINST A REAL SELLER ACCOUNT**, which
+> is a separately-authorised act and did not happen in this gate.
+>
+> **a.** 🔴 **HOW `/product/update` TARGETS AN EXISTING PRODUCT.** **No `<ItemId>` in the sample.**
+> **The highest-risk unknown: a wrong guess may CREATE rather than update.**
+>
+> **b.** ⚠ **WHETHER A PLAIN `<Quantity>` IS ACCEPTED**, or a `<WarehouseCode>` is mandatory in
+> Bangladesh, and which code a seller uses.
+>
+> **c.** 🔴 **WHETHER OMITTING AN ATTRIBUTE PRESERVES OR CLEARS IT** on `/product/update`.
+>
+> **d.** ⚠ **WHETHER THE `/image/upload` FILE PARTICIPATES IN THE SIGNATURE.**
+>
+> **e.** ⚠ **WHETHER `SellerSku` ALONE ADDRESSES A SKU** on `/product/price_quantity/update`.
+>
+> **f.** ⚠ **THE NUMERIC SKU LIMIT BEHIND `E204`**, and any numeric rate limit behind `901`.
+>
+> **g.** ⚠ **WHETHER A PROMOTION WINDOW SENT AS `yyyy-MM-dd` IS INTERPRETED IN SELLER LOCAL TIME.**
+
+---
+
+## `DZC-040` — The recommended first slice, and why it is that one
+
+> ✅ **RECOMMENDATION — `/product/price_quantity/update`, RESTRICTED TO PRICE AND STOCK.**
+> ⚠ **A RECOMMENDATION IS NOT A RATIFICATION.** **Implementation remains blocked until the owning
+> business documents authorise a push at all.**
+>
+> **a.** ✅ **IT IS ADDRESSABLE BY WHAT TRIOLOO ALREADY HOLDS** — `SellerSku` and `ItemId`
+> (`DZC-037.a`), **with no schema change.**
+>
+> **b.** ✅ **IT IS THE ONLY WRITE WHOSE FIELDS TRIOLOO ALSO READS BACK**, **so a push can be
+> VERIFIED by a subsequent pull** (`PRD-186`) — **price and stock are both readable (`DZC-023`,
+> `DZC-031`).**
+>
+> **c.** ✅ **IT CARRIES NO WHOLE-OBJECT HAZARD.** **A `<Sku>` element names its own fields; nothing
+> published suggests omitting one clears another, unlike `/product/update`'s Attributes block.**
+>
+> **d.** 🔴 **EVEN THIS SLICE HAS TWO OPEN QUESTIONS FIRST** — **`DZC-039.b` (quantity form) and
+> `DZC-039.e` (SellerSku alone).** ⚠ **Both are answerable with ONE controlled call on ONE listing.**
+>
+> **e.** 🔴 **PROMOTION IS EXCLUDED FROM THE FIRST SLICE** even though the same endpoint carries it,
+> **because its window cannot be read back (`DZC-035.b`) and its date precision is lossy
+> (`DZC-035.c`).** **A push that cannot be verified is not a first slice.**
+>
+> **f.** 🔴 **CONTENT, MEDIA, CATEGORY, ATTRIBUTES, DEACTIVATE AND REMOVE ARE ALL EXCLUDED** — **each
+> is blocked by a named unknown in `DZC-039` or by the identity gap in `DZC-037.b`.**
+
 ---
 
 ## Version history
 
 | Version | Date | Change |
 |---|---|---|
+| **1.8.0** | **2026-08-21** | ✅ **§11 ADDED — `DZC-033`–`DZC-040`, THE LISTING WRITE PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY IMPLEMENTATION.** **Seven published write paths, with the Bangladesh base and the read signing scheme unchanged.** 🔴 **The body parameter name is NOT uniform — `payload`, `apiRequestBody`, `sku_id_list` across five endpoints — and the API path is part of the signed string.** 🔴 **There is no `/product/activate`: deactivation is one-way as published.** 🔴 **Trioloo persists `SellerSku` and `ItemId` only, so deactivate and remove — which need `SkuId` — are blocked on a READ change, not on the write protocol.** ✅ **The write side CORROBORATES `PRD-199` (`Price` vs `SalePrice` + window) and `DZC-026` (`name` is the title; `name_en` does not appear in the write payload at all) and RATIFIES neither.** 🔴 **`/product/update` publishes no `ItemId` in its sample and gives no rule for omitted attributes, so a content push is unsafe at any size.** ✅ **Recommended first slice: `/product/price_quantity/update` restricted to price and stock — addressable today, readable back, no whole-object hazard — with two questions answerable in one controlled call.** ⚠ **Documentation only. No seller API was called; `pushUpdate` still refuses and Daraz still declares no field writable.** |
 | **1.7.0** | **2026-08-19** | ✅ **§10 ADDED — `DZC-032`, THE PRODUCT REVIEW PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY ADAPTER CODE EXISTS.** **Daraz publishes a seller-side Product Review API of exactly three endpoints — `/review/seller/history/list`, `/review/seller/list/v2` and `/review/seller/reply/add` — on the same Bangladesh base and the same signing as the read half.** 🔴 **It is a TWO-STEP read: ids first, details second, ten ids per call.** 🔴 **`item_id` is REQUIRED, so every read is per listing — and it is the same identifier `DZC-026` maps to `external_listing_id`; the detail response carries `product_id` and a `ratings` object as the join and the star value.** 🔴 **TWO HARD WINDOWS DEFINE THE FEATURE: only 90 days of review history exists, and only 7 days may be requested at once — so a full 90-day picture for ONE listing costs thirteen windowed calls, and a LIFETIME review total cannot be obtained from this API at all.** 🔴 **A review count shown in Trioloo is therefore a 90-DAY count and must say so, because Seller Centre shows a lifetime total.** 🔴 **PROVEN ABSENT: product views, wishlist/favourites and cart have NO endpoint anywhere in the reference — there is no Data, Analytics, Traffic, Report or Dashboard category — and no daily breakdown of any metric exists.** ⚠ **`GetSellerMetricsById` (`/seller/metrics/get`) is SELLER-level and is not a per-product substitute.** ✅ **Documentation only — nothing implemented, no adapter method, no persistence, no screen. No live seller API was called.** |
 | **1.6.1** | **2026-08-18** | ⚠ **`DZC-031.h` ADDED — GENERIC ATTRIBUTE VALUES ARE BOUNDED BY TRIOLOO'S OWN PERSISTENCE, LEARNED FROM THE FIRST LIVE PULL.** **`channel_listing_attribute` stores `attribute_key varchar(160)` and `reported_value varchar(1024)`; the first discovery against a real seller failed with *value too long for type character varying(1024)* and rolled the whole catalogue back.** 🔴 **`name` and `description` are no longer duplicated into the generic attributes — they already own dedicated columns, and `reported_description` is unbounded `text`.** 🔴 **An over-long value keeps its key and is recorded `reported_readable = false` with NO value rather than truncated, because a truncated reported value would read as permanently DIVERGED under `PRD-181`.** ⚠ **An attribute whose KEY will not fit is dropped, since the key is its identity.** ✅ **No column widened, no migration taken — that is a `DB-`/`PRD-` decision, not a mapping one.** ✅ **Mapper-side fix only; no endpoint, parameter or response field changed.** |
 | **1.6.0** | **2026-08-18** | ✅ **`DZC-031` ADDED — REPORTED STOCK IS SKU `quantity`, SETTLED FROM THE FIRST LIVE PROBE.** **The live response carried `quantity`, `Available`, `channelInventories`, `multiWarehouseInventories` and `fblWarehouseInventories` at SKU level; the last three appear ZERO times in the `/products/get` reference.** ✅ **`quantity` is confirmed by symmetry with the documented write API `/product/price_quantity/update`, which sets *price and quantity* — the same pair the read returns.** 🔴 **The three containers are NOT MAPPED, no warehouse aggregation is inferred, `Available` is not mapped, and the `options=1` extras are not requested.** ⚠ **Records that `quantity`'s meaning for a Global Plus or FBL listing is NOT PUBLISHED — which does not block reporting it, because `API-062.c` makes the adapter an observer and `PRD-112`/`PRD-126` keep Published Marketplace Stock a manually controlled ERP figure.** 🔴 **No provider value, token or secret is recorded — field names and node presence only.** ✅ **No code change: the mapper already reads `quantity` and already ignores the containers.** |

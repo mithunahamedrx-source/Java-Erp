@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.61.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.62.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2063,6 +2063,46 @@ writing — `PRD-181.a` is untouched and opening a page persists nothing.**
 **Implementation state.** ⚠ **Documentation recorded first, deliberately** — `FRAME 06` / `FRAME 10`
 rebuild follows. 🔴 **No stored fact is deleted or reinterpreted, and no live Daraz call, Sync Now or
 deployment is part of this decision.**
+
+
+---
+
+## GAP-136 — registered 2026-08-21
+
+**Category:** Connected Listings · **Severity:** 🟡 Medium · **Class:** **C — third-party protocol documented; implementation blocked on named unknowns**
+**Source:** Gate 4 documentation research against the official Daraz reference, recorded as `DZC-033`–`DZC-040`
+
+**What changed.** ✅ **THE DARAZ WRITE PROTOCOL IS NO LONGER UNDOCUMENTED.** **Seven published write
+paths are recorded with their body parameter, payload shape, response envelope and error table.**
+🔴 **NOTHING WAS IMPLEMENTED AND NO SELLER API WAS CALLED.** ⚠ **`pushUpdate` still refuses and Daraz
+still declares no listing field writable, so `PRD-204.g` and `LSC-061` remain accurate as written.**
+
+**What this unblocks.** ✅ **A first push slice can now be PROPOSED on evidence rather than guessed:**
+**`/product/price_quantity/update` restricted to price and stock** (`DZC-040`) — **addressable by the
+`SellerSku` and `ItemId` Trioloo already holds, readable back so a push is verifiable, and free of
+the whole-object hazard that makes `/product/update` unsafe.**
+
+**What it does NOT decide.**
+
+| Item | State |
+|---|---|
+| **Whether Trioloo pushes at all** | 🔴 **UNDECIDED — a business decision, not a protocol one** |
+| **`PRD-199` price/`special_price`** | ✅ **CORROBORATED by `<Price>`/`<SalePrice>`, RATIFIED unchanged** |
+| **`DZC-026` `name_en`** | ✅ **CORROBORATED — `name_en` does not appear in the write payload at all; rule unchanged** |
+| **`GAP-134` sync state** | 🔴 **OPEN — untouched** |
+| **Batch transformation operators** | 🔴 **UNRATIFIED — `PRD-187` untouched** |
+| **Capturing Daraz `SkuId`** | ⚠ **A separate READ change; deactivate and remove are blocked on it, not on the write protocol** |
+
+**Blocked on the provider, not on us.** 🔴 **Seven unknowns are gaps in Daraz's own published
+documentation** (`DZC-039`) — **how `/product/update` targets an existing product, whether an omitted
+attribute is preserved or cleared, whether a plain `<Quantity>` is accepted, whether the
+`/image/upload` file is signed, whether `SellerSku` alone addresses a SKU, the numeric limits behind
+`E204` and `901`, and the timezone of a `yyyy-MM-dd` promotion window.** ⚠ **Two of them gate even
+the recommended slice and are answerable with ONE controlled call on ONE listing — which is a
+separately-authorised act that has not been taken.**
+
+**Implementation state.** ⚠ **Documentation only. No code, no migration, no deployment, no seller
+call.** 🔴 **V15 remains unapplied in production and was not touched by this gate.**
 
 
 ---
