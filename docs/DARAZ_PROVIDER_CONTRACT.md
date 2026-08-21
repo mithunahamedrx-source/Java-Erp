@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.9.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.10.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -1037,10 +1037,50 @@ reference links directly for signing details** — the two ventures share one pl
 
 ---
 
+## `DZC-042` — What the live probe settled, 2026-08-21
+
+> ✅ **THE `DZC-041` PROBE WAS RUN ONCE AND ACCEPTED.** **One same-value price and quantity update
+> for one Bangladesh listing returned `code` `0`.** ⚠ **Everything below is OBSERVED FACT from that
+> single call, not a documented promise** — **the provider's own reference still says none of it.**
+>
+> **a.** ✅ **`ItemId` + `SellerSku` ADDRESSES A SKU FOR PRICE AND QUANTITY.** **`DZC-039.e` is
+> answered YES.** 🔴 **No `SkuId` was sent and none was needed**, ⚠ **so price and stock are
+> addressable with the two identifiers Trioloo already persists** (`DZC-037.a`), **with no schema
+> change.** 🔴 **THIS SAYS NOTHING ABOUT DEACTIVATE OR REMOVE**, which name `SkuId` explicitly and
+> stay blocked (`DZC-037.b`).
+>
+> **b.** ✅ **A PLAIN `<Quantity>` IS ACCEPTED.** **`DZC-039.b` is answered YES for this seller.**
+> ⚠ **No `MultiWarehouseInventories` and no `WarehouseCode` were sent.** 🔴 **The published sample
+> shows only the multi-warehouse form, so this is an observation about ONE account and not a general
+> rule; a seller with real multi-warehouse configuration may behave differently.**
+>
+> **c.** 🔴 **THE SUCCESS ENVELOPE HAS NO `data` NODE, AND THIS AMENDS `DZC-035.e`.** **The observed
+> success carried exactly `code`, `request_id` and `_trace_id_`.** ⚠ **`DZC-035.e` recorded
+> `"data":{}` from the published sample; the live account returns NO `data` KEY AT ALL.**
+> 🔴 **IMPLEMENTATION RULE — `code` `0` IS SUCCESS WHETHER OR NOT `data` IS PRESENT.** **A reader
+> that requires `data` treats a success as a malformed response**, ⚠ **which is exactly what the
+> READ path's envelope check does, correctly, for reads — the two must not share one check.**
+>
+> **d.** ✅ **`_trace_id_` IS AN UNDOCUMENTED EXTRA FIELD AND IS HARMLESS.** 🔴 **An envelope reader
+> must tolerate unknown top-level fields rather than reject them.**
+>
+> **e.** ⚠ **NO `type` FIELD WAS PRESENT ON SUCCESS.** **Its absence is not an error.**
+>
+> **f.** 🔴 **NOTHING CHANGED ON EITHER SIDE.** **The values sent were the ones Daraz itself last
+> reported, and every Trioloo digest was byte-identical before and after.** ⚠ **The probe did not
+> re-read the marketplace, so the Daraz-side no-change is REASONED from the same-value construction
+> rather than measured.**
+>
+> **g.** 🔴 **ONE CALL, ONE ACCOUNT, ONE LISTING.** **No throttling was observed because nothing was
+> repeated; `901` remains the documented signal and remains untested here** (`DZC-038.e`).
+
+---
+
 ## Version history
 
 | Version | Date | Change |
 |---|---|---|
+| **1.10.0** | **2026-08-21** | ✅ **`DZC-042` ADDED — THE LIVE PROBE WAS RUN ONCE AND ACCEPTED (`code` `0`).** ✅ **`ItemId` + `SellerSku` addresses a SKU for price and quantity — `DZC-039.e` answered YES, so price and stock need no `SkuId` and no schema change; deactivate and remove still do.** ✅ **A plain `<Quantity>` is accepted — `DZC-039.b` answered YES for this seller, with no `WarehouseCode`.** 🔴 **`DZC-035.e` AMENDED — the live success envelope carries `code`, `request_id` and `_trace_id_` and NO `data` node at all; `code` `0` is success whether or not `data` is present, and an envelope reader must tolerate unknown fields.** ⚠ **Observed from ONE call on ONE account, not a documented promise; `901` remains untested.** |
 | **1.9.0** | **2026-08-21** | ✅ **`DZC-041` ADDED — THE CONTROLLED SAME-VALUE PROBE IS BUILT AND HAS NOT BEEN RUN.** **One server-side command sends one same-value price and quantity update for one listing, so `DZC-039.b` and `DZC-039.e` can be answered by asking.** 🔴 **Same value, therefore no business change — the figures come from the stored reported side, and an unreadable figure is a refusal rather than a guess.** 🔴 **Gated twice: a command name selects it and a separate confirmation authorises it; a dry run prints the payload and contacts nothing.** 🔴 **It is not `pushUpdate` — it writes nothing to Trioloo and its scoped context names no bean that could mutate a listing, product or inventory row.** 🔴 **Promotion is absent by name and `<Quantity>` is sent plain, because that is the question.** ✅ **It reports metadata only, never a value, a token, a signature or the provider's own message.** ⚠ **A transport failure is reported as an UNKNOWN outcome, never as a failure to write.** |
 | **1.8.0** | **2026-08-21** | ✅ **§11 ADDED — `DZC-033`–`DZC-040`, THE LISTING WRITE PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY IMPLEMENTATION.** **Seven published write paths, with the Bangladesh base and the read signing scheme unchanged.** 🔴 **The body parameter name is NOT uniform — `payload`, `apiRequestBody`, `sku_id_list` across five endpoints — and the API path is part of the signed string.** 🔴 **There is no `/product/activate`: deactivation is one-way as published.** 🔴 **Trioloo persists `SellerSku` and `ItemId` only, so deactivate and remove — which need `SkuId` — are blocked on a READ change, not on the write protocol.** ✅ **The write side CORROBORATES `PRD-199` (`Price` vs `SalePrice` + window) and `DZC-026` (`name` is the title; `name_en` does not appear in the write payload at all) and RATIFIES neither.** 🔴 **`/product/update` publishes no `ItemId` in its sample and gives no rule for omitted attributes, so a content push is unsafe at any size.** ✅ **Recommended first slice: `/product/price_quantity/update` restricted to price and stock — addressable today, readable back, no whole-object hazard — with two questions answerable in one controlled call.** ⚠ **Documentation only. No seller API was called; `pushUpdate` still refuses and Daraz still declares no field writable.** |
 | **1.7.0** | **2026-08-19** | ✅ **§10 ADDED — `DZC-032`, THE PRODUCT REVIEW PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY ADAPTER CODE EXISTS.** **Daraz publishes a seller-side Product Review API of exactly three endpoints — `/review/seller/history/list`, `/review/seller/list/v2` and `/review/seller/reply/add` — on the same Bangladesh base and the same signing as the read half.** 🔴 **It is a TWO-STEP read: ids first, details second, ten ids per call.** 🔴 **`item_id` is REQUIRED, so every read is per listing — and it is the same identifier `DZC-026` maps to `external_listing_id`; the detail response carries `product_id` and a `ratings` object as the join and the star value.** 🔴 **TWO HARD WINDOWS DEFINE THE FEATURE: only 90 days of review history exists, and only 7 days may be requested at once — so a full 90-day picture for ONE listing costs thirteen windowed calls, and a LIFETIME review total cannot be obtained from this API at all.** 🔴 **A review count shown in Trioloo is therefore a 90-DAY count and must say so, because Seller Centre shows a lifetime total.** 🔴 **PROVEN ABSENT: product views, wishlist/favourites and cart have NO endpoint anywhere in the reference — there is no Data, Analytics, Traffic, Report or Dashboard category — and no daily breakdown of any metric exists.** ⚠ **`GetSellerMetricsById` (`/seller/metrics/get`) is SELLER-level and is not a per-product substitute.** ✅ **Documentation only — nothing implemented, no adapter method, no persistence, no screen. No live seller API was called.** |

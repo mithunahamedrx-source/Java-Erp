@@ -1,7 +1,7 @@
 # Product Architecture
 
 **Owner:** Trioloo Technology · **Module:** Product · **Status:** Canonical
-**Version:** 1.29.0 · **Ratified:** 2026-08-05 · **Amended:** 2026-08-20 (**§39.17 the operator-facing listing model — `PRD-204`; `PRD-181` retained as persistence, `PRD-184` demoted off the ordinary editing path**) · **Amended:** 2026-08-15 (`§39.10` open register — `.k` orderable-SKU remote identity raised; `.g` owed `PRD-203` migration measured against `V10`) · **Amended:** 2026-08-14 (Candidate media and listing media roles §39.16 `PRD-203`; ✅ `GAP-131` discharged, `PRD-169.a` amended; `PRD-200` refined — `.m` partial text acceptance, `.n` provenance does not propagate, `.o`–`.r` candidate flow and provider neutrality) · **Amended:** 2026-08-14 (Listing package publishing facts §39.14 `PRD-201`; English/Bangla listing content §39.15 `PRD-202`) · **Amended:** 2026-08-14 (AI-assisted authoring readiness §39.13; `PRD-200`; ⚠ no capability created; `GAP-131` raised against `PRD-169.a`) · **Amended:** 2026-08-14 (Listing promotion price §39.11; `PRD-199`; 🔴 `PRD-197` SUPERSEDED — `MRP` is no longer a Listing price) · **Amended:** 2026-08-14 (Listing highlights §39.12; `PRD-198`; `PRD-164` extended) · **Amended:** 2026-08-14 (Listing commercial price §39.11; `PRD-197`; `PRD-029`/`PRD-138`/`PRD-190.b` refined) · **Amended:** 2026-08-13 (Connected Listings §39; `PRD-173`-`PRD-196`; `PRD-085`, `PRD-086`, `PRD-151`, `PRD-172.a`, `PRD-172.b` amended or superseded) · **Amended:** 2026-08-13 (Commercial content and media §38; `PRD-163`-`PRD-172`) · **Amended:** 2026-08-12 (Channel Listing capability codes `PRD-162`) · **Amended:** 2026-08-11 (assembled finished-variant identity `PRD-156`-`PRD-161`) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Marketplace §31; Warranty §32; Return & Exchange) · **Rule prefix:** `PRD-`
+**Version:** 1.30.0 · **Ratified:** 2026-08-05 · **Amended:** 2026-08-21 (**§39.18 the first push-supported fields — `PRD-205`: `sale_price` and `listing_stock` writable on Daraz, every other field local-only**) · **Amended:** 2026-08-20 (**§39.17 the operator-facing listing model — `PRD-204`; `PRD-181` retained as persistence, `PRD-184` demoted off the ordinary editing path**) · **Amended:** 2026-08-15 (`§39.10` open register — `.k` orderable-SKU remote identity raised; `.g` owed `PRD-203` migration measured against `V10`) · **Amended:** 2026-08-14 (Candidate media and listing media roles §39.16 `PRD-203`; ✅ `GAP-131` discharged, `PRD-169.a` amended; `PRD-200` refined — `.m` partial text acceptance, `.n` provenance does not propagate, `.o`–`.r` candidate flow and provider neutrality) · **Amended:** 2026-08-14 (Listing package publishing facts §39.14 `PRD-201`; English/Bangla listing content §39.15 `PRD-202`) · **Amended:** 2026-08-14 (AI-assisted authoring readiness §39.13; `PRD-200`; ⚠ no capability created; `GAP-131` raised against `PRD-169.a`) · **Amended:** 2026-08-14 (Listing promotion price §39.11; `PRD-199`; 🔴 `PRD-197` SUPERSEDED — `MRP` is no longer a Listing price) · **Amended:** 2026-08-14 (Listing highlights §39.12; `PRD-198`; `PRD-164` extended) · **Amended:** 2026-08-14 (Listing commercial price §39.11; `PRD-197`; `PRD-029`/`PRD-138`/`PRD-190.b` refined) · **Amended:** 2026-08-13 (Connected Listings §39; `PRD-173`-`PRD-196`; `PRD-085`, `PRD-086`, `PRD-151`, `PRD-172.a`, `PRD-172.b` amended or superseded) · **Amended:** 2026-08-13 (Commercial content and media §38; `PRD-163`-`PRD-172`) · **Amended:** 2026-08-12 (Channel Listing capability codes `PRD-162`) · **Amended:** 2026-08-11 (assembled finished-variant identity `PRD-156`-`PRD-161`) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`; Warehouse & Assembly §17; Purchase & Supplier §18; Marketplace §31; Warranty §32; Return & Exchange) · **Rule prefix:** `PRD-`
 
 ---
 
@@ -2504,6 +2504,45 @@ Source: `BUSINESS_DISCOVERY.md` §18, `BD-293` – `BD-303`. Cost-model conseque
 > **i.** 🔴 **NO STORED FACT IS DELETED OR REINTERPRETED BY THIS RULE.** **Existing reported and
 > intended columns keep their meaning, their history and their divergence computation** — ⚠ **a
 > future decision to change the STORAGE model would be a separate amendment, and this is not it.**
+
+## 39.18 The first push-supported fields
+
+> **PRD-205 — ✅ SALE PRICE AND LISTING STOCK ARE PUSH-SUPPORTED ON DARAZ. EVERY OTHER LISTING FIELD
+> REMAINS LOCAL-ONLY. Ratified 2026-08-21 on confirmed business decision, after the live protocol
+> probe was accepted.**
+>
+> ⚠ **THIS IS THE FIRST TIME TRIOLOO WRITES TO A MARKETPLACE.** 🔴 **It is deliberately two fields
+> and no more.**
+>
+> **a.** ✅ **THE SLICE IS `sale_price` AND `listing_stock`, TOGETHER OR SEPARATELY.** **Both go
+> through the one documented endpoint** (`DZC-033`, `DZC-035`) **and both are addressable with the
+> identifiers Trioloo already stores** (`DZC-042.a`).
+>
+> **b.** 🔴 **WHY THESE TWO AND NOTHING ELSE — A PUSH MUST BE VERIFIABLE** (`PRD-186`). **Price and
+> stock are the only fields Trioloo both writes AND reads back** (`DZC-023`, `DZC-031`), **so a later
+> pull can confirm what the marketplace actually did.** ⚠ **A field that cannot be read back cannot
+> be verified, and an unverifiable write is not a first slice.**
+>
+> **c.** 🔴 **EVERY OTHER FIELD IS LOCAL-ONLY AND MUST SAY SO** (`PRD-204.g`). **Title, description,
+> highlights, attributes, channel category, media, orderable SKUs and publication state are editable
+> in Trioloo and NOT sendable.** ⚠ **Each is blocked by a named, recorded reason** — `DZC-039.a`,
+> `DZC-039.c`, `DZC-039.d`, `DZC-037.b` — **not by preference.**
+>
+> **d.** 🔴 **PROMOTION IS EXCLUDED THOUGH THE SAME ENDPOINT CARRIES IT.** **`SalePrice`,
+> `SaleStartDate` and `SaleEndDate` are not sent** (`DZC-040.e`): **the window cannot be read back
+> (`DZC-035.b`) and a date-only window is lossy against a Trioloo instant (`DZC-035.c`).**
+> ⚠ **`PRD-199` IS UNCHANGED AND NOTHING HERE REINTERPRETS `price` OR `special_price`.**
+>
+> **e.** ✅ **A PUSH IS A SEPARATE, ATTRIBUTED ACT** (`PRD-185`, `PRD-196.a`). **A save remains local;
+> pushing is its own operation, recorded with its actor, and never a side effect of saving.**
+>
+> **f.** 🔴 **A PARTIAL SLICE MUST BE STATED, NOT SILENTLY NARROWED.** **When a draft holds both
+> push-supported and local-only changes, the operator is told plainly that only price and stock will
+> be sent and the rest stays local.** ⚠ **Sending two fields while implying all of them were sent is
+> the single worst failure available here.**
+>
+> **g.** 🔴 **NOTHING ELSE IS RATIFIED.** **`GAP-134` stays open, `PRD-187` batch operators stay
+> unratified, `DZC-026` `name_en` is untouched, and no create, deactivate or remove is authorised.**
 
 ## 39.10 Open, carried forward
 

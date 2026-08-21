@@ -567,21 +567,26 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
             creates a local draft (`PRD-204.c`, `PRD-204.f`).
           */}
           {/*
-            🔴 `PRD-204.f`/`.g` — SAVE IS NOT PUSH, AND PUSH IS NOT AVAILABLE. Daraz declares no
-            listing field writable (`API-063.a`) because no outbound write protocol is
-            implemented, so every field here is LOCAL-ONLY today.
-            ⚠ Saying it plainly is the requirement: an operator must never be able to believe a
-            save reached the marketplace.
+            🔴 `PRD-205` — TWO FIELDS ARE PUSH-SUPPORTED, AND THE REST ARE NOT. Sale Price and
+            Listing stock are the only fields Daraz declares writable, because they are the only
+            ones Trioloo can also read back and therefore VERIFY (`PRD-186`).
+
+            🔴 `PRD-205.f` — A PARTIAL SLICE MUST BE STATED, NEVER SILENTLY NARROWED. Sending two
+            fields while implying all of them went is the single worst failure available here.
+
+            ⚠ SAVE IS STILL NOT PUSH (`PRD-185`). This says what CAN be sent, not that saving sends
+            it — pushing remains a separate, separately-authorised act.
           */}
           {editing && (
             <Notice
               tone="info"
-              title="Saved changes stay in Trioloo — push is not available yet"
+              title="Only Sale Price and Listing stock can be sent to this channel"
               testId="edit-push-unavailable"
             >
-              This channel does not declare any listing field writable, so nothing here can be
-              sent to the marketplace. Your edits are saved locally against this Listing and are
-              marked as unsent; sending them is a separate act that is not implemented yet.
+              Saving always keeps your changes in Trioloo. Of the fields on this page, this channel
+              accepts <strong>Sale Price</strong> and <strong>Listing stock</strong>; everything
+              else — title, description, highlights, attributes, category and media — is local-only
+              and stays in Trioloo until that changes. Sending is a separate step from saving.
             </Notice>
           )}
 

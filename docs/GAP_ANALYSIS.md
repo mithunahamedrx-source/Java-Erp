@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.62.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.62.1 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2101,8 +2101,18 @@ attribute is preserved or cleared, whether a plain `<Quantity>` is accepted, whe
 the recommended slice and are answerable with ONE controlled call on ONE listing — which is a
 separately-authorised act that has not been taken.**
 
-**Implementation state.** ⚠ **Documentation only. No code, no migration, no deployment, no seller
-call.** 🔴 **V15 remains unapplied in production and was not touched by this gate.**
+**Implementation state.** ⚠ **Documentation only in Gate 4. No code, no migration, no deployment, no
+seller call.** 🔴 **V15 remains unapplied in production and was not touched by this gate.**
+
+**✅ UPDATE 2026-08-21 — PARTIALLY CLOSED.** **The controlled probe (`DZC-041`) was run once and
+ACCEPTED, answering `DZC-039.b` and `DZC-039.e`** (`DZC-042`), **and the business ratified a first
+writable slice of `sale_price` and `listing_stock`** (`PRD-205`), **which is now implemented.**
+🔴 **THE GAP IS NOT CLOSED.** ⚠ **Five of the seven unknowns in `DZC-039` remain open — how
+`/product/update` targets an existing product, whether an omitted attribute is preserved or cleared,
+whether the `/image/upload` file is signed, the numeric limits behind `E204` and `901`, and the
+timezone of a date-only promotion window.** 🔴 **Title, description, attributes, category, media,
+orderable SKUs, publication state, deactivate and remove all remain BLOCKED**, **each by a named
+reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays unratified.**
 
 
 ---

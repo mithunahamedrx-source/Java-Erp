@@ -9,6 +9,10 @@ import com.trioloo.erp.product.domain.ListingStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.Nested;
+import com.trioloo.erp.product.application.channel.OutboundListingPayload;
+import com.trioloo.erp.product.application.channel.OutboundResult;
+import com.trioloo.erp.product.domain.OperationOutcome;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -42,6 +46,15 @@ class DarazChannelAdapterTest {
     private final List<String> order = new java.util.ArrayList<>();
 
     private String response = "";
+    /* ✅ The write path's captures. No marketplace is contacted by any of it. */
+    private final AtomicInteger postCalls = new AtomicInteger();
+    private final AtomicReference<URI> postUri = new AtomicReference<>();
+    private final AtomicReference<String> postBody = new AtomicReference<>();
+    private String postResponse = "";
+
+    private String sentBody() {
+        return postBody.get() == null ? "" : postBody.get();
+    }
     private RuntimeException tokenFailure;
 
     /** 🔴 A stub token provider that RECORDS when it was asked, so ordering can be proven. */
@@ -75,7 +88,12 @@ class DarazChannelAdapterTest {
 
             @Override
             public String post(URI uri, String body, String contentType) {
-                throw new UnsupportedOperationException("This gate reads with GET only.");
+                /* ✅ `PRD-205` — the write path. Captured, never forwarded anywhere. */
+                postCalls.incrementAndGet();
+                order.add("transport");
+                postUri.set(uri);
+                postBody.set(body);
+                return postResponse;
             }
         };
     }
@@ -143,9 +161,19 @@ class DarazChannelAdapterTest {
         /* ⚠ Publication intent is ERP-owned and never channel-read. */
         assertThat(declaration.forField(ListingFieldKey.PUBLICATION_INTENT).readable()).isFalse();
 
-        /* 🔴 NOTHING is writable while the outbound half refuses. */
-        ListingFieldKey.all().forEach(key ->
-                assertThat(declaration.forField(key).writable()).as("%s writable", key).isFalse());
+        /*
+          ✅ `PRD-205.a` — SALE PRICE AND LISTING STOCK ARE WRITABLE, AND NOTHING ELSE IS. They are
+          the only fields Trioloo both writes and reads back, so a push can be VERIFIED (`PRD-186`).
+        */
+        assertThat(declaration.forField(ListingFieldKey.SALE_PRICE).writable()).isTrue();
+        assertThat(declaration.forField(ListingFieldKey.LISTING_STOCK).writable()).isTrue();
+
+        /* 🔴 EVERY OTHER FIELD STAYS LOCAL-ONLY, each blocked by a named reason. */
+        ListingFieldKey.all().stream()
+                .filter(key -> !ListingFieldKey.SALE_PRICE.equals(key)
+                        && !ListingFieldKey.LISTING_STOCK.equals(key))
+                .forEach(key ->
+                        assertThat(declaration.forField(key).writable()).as("%s writable", key).isFalse());
     }
 
     // ================================================================ the request
@@ -473,13 +501,14 @@ class DarazChannelAdapterTest {
     }
 
     @Test
-    @DisplayName("🔴 every outbound method refuses and contacts nothing")
+    @DisplayName("🔴 create and withdraw still refuse and contact nothing")
     void outboundRefuses() {
         DarazChannelAdapter adapter = adapter();
 
-        assertThatThrownBy(() -> adapter.pushUpdate(SHOP, null))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("was not sent");
+        /*
+          ⚠ `pushUpdate` NO LONGER APPEARS HERE. `PRD-205` ratified price and stock, so it is
+          implemented and tested below; create and withdraw remain unratified and unimplemented.
+        */
         assertThatThrownBy(() -> adapter.publishCreate(SHOP, null))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("was not sent");
@@ -585,5 +614,199 @@ class DarazChannelAdapterTest {
         String key = "k".repeat(161);
         Map<String, String> attributes = attributesOf(withAttribute(key, 10));
         assertThat(attributes).doesNotContainKey(key);
+    }
+
+    // ================================= PRD-205 — the first push-supported slice
+
+    /**
+     * The Daraz write path, price and stock only.
+     *
+     * <p>🔴 NO MARKETPLACE IS CONTACTED. The transport is a double, so every claim below — what goes
+     * on the wire, what does not, and how a refusal is classified — is proven without a live call.
+     */
+    @Nested
+    @DisplayName("PRD-205 — pushUpdate for sale price and listing stock")
+    class PushUpdate {
+
+        private static final String ACCEPTED =
+                "{\"code\":\"0\",\"request_id\":\"r-1\",\"_trace_id_\":\"t-1\"}";
+
+        /** ✅ Price alone travels as `<Price>`, and no `<Quantity>` appears. */
+        @Test
+        @DisplayName("sends Price when only the sale price changed")
+        void sendsPriceOnly() {
+            postResponse = ACCEPTED;
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(new BigDecimal("49800.00"), null));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.SUCCEEDED);
+            assertThat(sentBody()).contains("%3CPrice%3E49800.00%3C%2FPrice%3E");
+            assertThat(sentBody()).doesNotContain("Quantity");
+            assertThat(postCalls.get()).isEqualTo(1);
+        }
+
+        /** ✅ Stock alone travels as the PLAIN `<Quantity>` the live probe proved accepted. */
+        @Test
+        @DisplayName("sends a plain Quantity when only the stock changed")
+        void sendsQuantityOnly() {
+            postResponse = ACCEPTED;
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(null, new BigDecimal("118")));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.SUCCEEDED);
+            assertThat(sentBody()).contains("%3CQuantity%3E118%3C%2FQuantity%3E");
+            assertThat(sentBody()).doesNotContain("Price%3E");
+            /* 🔴 `DZC-042.b` — no warehouse form. */
+            assertThat(sentBody()).doesNotContain("WarehouseCode");
+            assertThat(sentBody()).doesNotContain("MultiWarehouse");
+        }
+
+        /** ✅ Both changed, both sent, in one request. */
+        @Test
+        @DisplayName("sends both when both changed")
+        void sendsBoth() {
+            postResponse = ACCEPTED;
+            OutboundResult result =
+                    adapter().pushUpdate(SHOP, payload(new BigDecimal("49800.00"), new BigDecimal("118")));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.SUCCEEDED);
+            assertThat(sentBody()).contains("%3CPrice%3E");
+            assertThat(sentBody()).contains("%3CQuantity%3E");
+            assertThat(postCalls.get()).isEqualTo(1);
+        }
+
+        /**
+         * 🔴 `PRD-205.d` — PROMOTION IS NEVER SENT, though the same endpoint carries it, and neither
+         * is any content field. The payload names four elements and no others.
+         */
+        @Test
+        @DisplayName("omits promotion, content, media and category entirely")
+        void omitsEverythingElse() {
+            postResponse = ACCEPTED;
+            adapter().pushUpdate(SHOP, payload(new BigDecimal("49800.00"), new BigDecimal("118")));
+
+            String body = sentBody();
+            for (String forbidden : new String[]{
+                    "SalePrice", "SaleStartDate", "SaleEndDate", "MultiWarehouse",
+                    "Attributes", "short_description", "PrimaryCategory", "Images"}) {
+                assertThat(body).as("%s must not be sent", forbidden).doesNotContain(forbidden);
+            }
+            /* ✅ The endpoint is the documented one. */
+            assertThat(postUri.get().toString())
+                    .isEqualTo("https://api.daraz.com.bd/rest/product/price_quantity/update");
+        }
+
+        /**
+         * 🔴 `DZC-042.c` — A WRITE SUCCESS CARRIES NO `data`. The read path's envelope check demands
+         * one; sharing it here would turn this success into a malformed response.
+         */
+        @Test
+        @DisplayName("accepts code 0 with no data node at all")
+        void acceptsSuccessWithoutData() {
+            postResponse = "{\"code\":\"0\",\"request_id\":\"r-2\"}";
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(new BigDecimal("1.00"), null));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.SUCCEEDED);
+            assertThat(result.detail()).contains("accepted");
+        }
+
+        /** ✅ `DZC-042.d` — an unknown top-level field is tolerated, not rejected. */
+        @Test
+        @DisplayName("tolerates the undocumented _trace_id_ field")
+        void toleratesUnknownFields() {
+            postResponse = "{\"code\":\"0\",\"request_id\":\"r-3\",\"_trace_id_\":\"t\",\"extra\":1}";
+            assertThat(adapter().pushUpdate(SHOP, payload(null, new BigDecimal("5"))).outcome())
+                    .isEqualTo(OperationOutcome.SUCCEEDED);
+        }
+
+        /** ✅ A provider refusal is a FAILURE of the change, reported with its code. */
+        @Test
+        @DisplayName("classifies a provider refusal as failed")
+        void classifiesRefusal() {
+            postResponse = "{\"code\":\"4104\",\"type\":\"ISV\",\"request_id\":\"r-4\","
+                    + "\"message\":\"BIZ_CHECK_PRICE_PRECISION_INVALID ELT020 49800.00\"}";
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(new BigDecimal("49800.001"), null));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.FAILED);
+            assertThat(result.detail()).contains("4104");
+            /* 🔴 The provider message can echo a Seller SKU or a price. Neither reaches the record. */
+            assertThat(result.detail()).doesNotContain("ELT020");
+            assertThat(result.detail()).doesNotContain("49800.00");
+        }
+
+        /**
+         * 🔴 `DZC-038.e` — `901` IS THROTTLING, AND THROTTLING IS NOT A VERDICT. It must never be
+         * recorded as "the change was refused".
+         */
+        @Test
+        @DisplayName("classifies 901 as needing another attempt, not as a refusal")
+        void classifiesThrottling() {
+            postResponse = "{\"code\":\"901\",\"request_id\":\"r-5\"}";
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(new BigDecimal("1.00"), null));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.MANUAL_REQUIRED);
+            assertThat(result.detail()).contains("was not applied and was not refused");
+            assertThat(result.detail()).contains("again");
+        }
+
+        /** ⚠ A payload with nothing sendable is a caller mistake, not an empty success. */
+        @Test
+        @DisplayName("refuses a change with nothing push-supported in it")
+        void refusesNothingToSend() {
+            OutboundResult result = adapter().pushUpdate(SHOP, payload(null, null));
+
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.MANUAL_REQUIRED);
+            assertThat(result.detail()).contains("Sale Price and Listing stock are the only");
+            /* 🔴 Nothing was signed, sent, or even tokenised. */
+            assertThat(postCalls.get()).isZero();
+            assertThat(tokenCalls.get()).isZero();
+        }
+
+        /** ⚠ A variation listing would make the adapter choose which unit to write. It refuses. */
+        @Test
+        @DisplayName("refuses a listing with more than one orderable SKU")
+        void refusesVariation() {
+            OutboundListingPayload two = new OutboundListingPayload(
+                    UUID.randomUUID(), "338562593", null, null, null, null, null, null,
+                    null, null, null, null,
+                    List.of(sku(new BigDecimal("1.00"), null), sku(new BigDecimal("2.00"), null)), null);
+
+            OutboundResult result = adapter().pushUpdate(SHOP, two);
+            assertThat(result.outcome()).isEqualTo(OperationOutcome.MANUAL_REQUIRED);
+            assertThat(postCalls.get()).isZero();
+        }
+
+        /** 🔴 No marketplace identity means nothing to address. */
+        @Test
+        @DisplayName("refuses a listing with no marketplace identity")
+        void refusesWithoutIdentity() {
+            OutboundListingPayload none = new OutboundListingPayload(
+                    UUID.randomUUID(), null, null, null, null, null, null, null,
+                    null, null, null, null, List.of(sku(new BigDecimal("1.00"), null)), null);
+
+            assertThatThrownBy(() -> adapter().pushUpdate(SHOP, none))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            assertThat(postCalls.get()).isZero();
+        }
+
+        /** 🔴 The XML is a SIGNED PARAMETER (`DZC-034.c`), so the body carries payload and sign. */
+        @Test
+        @DisplayName("signs the payload as a request parameter")
+        void signsThePayload() {
+            postResponse = ACCEPTED;
+            adapter().pushUpdate(SHOP, payload(new BigDecimal("1.00"), null));
+
+            assertThat(sentBody()).contains("payload=");
+            assertThat(sentBody()).contains("sign=");
+            assertThat(sentBody()).contains("sign_method=sha256");
+        }
+
+        private OutboundListingPayload payload(BigDecimal price, BigDecimal stock) {
+            return new OutboundListingPayload(
+                    UUID.randomUUID(), "338562593", null, null, null, null, null, null,
+                    null, null, null, null, List.of(sku(price, stock)), null);
+        }
+
+        private OutboundListingPayload.OutboundSku sku(BigDecimal price, BigDecimal stock) {
+            return new OutboundListingPayload.OutboundSku("ELT020", price, null, null, null, stock);
+        }
     }
 }

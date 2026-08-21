@@ -949,14 +949,26 @@ describe('Frame 10 — a discovered Listing opens on the marketplace values', ()
   });
 
   /**
-   * 🔴 `PRD-204.g` — PUSH IS NOT AVAILABLE AND THE PAGE SAYS SO. Daraz declares no listing field
-   * writable, so a save is local-only, and an operator must never believe it reached the channel.
+   * ✅ `PRD-205`/`LSC-062` — TWO FIELDS ARE PUSH-SUPPORTED AND THE REST ARE NOT, and the page says
+   * exactly that. 🔴 `PRD-205.f` — a partial slice is STATED, never silently narrowed: sending two
+   * fields while implying all of them went is the worst failure available here.
    */
-  it('states that a save cannot be pushed to the marketplace yet', async () => {
+  it('names Sale Price and Listing stock as the only push-supported fields', async () => {
     await loaded();
     const notice = screen.getByTestId('edit-push-unavailable');
-    expect(notice.textContent).toContain('does not declare any listing field writable');
-    expect(notice.textContent).toContain('saved locally');
+    expect(notice.textContent).toContain('Sale Price');
+    expect(notice.textContent).toContain('Listing stock');
+    /* 🔴 Everything else is named as local-only, not left to inference. */
+    expect(notice.textContent).toContain('local-only');
+    expect(notice.textContent).toContain('title, description, highlights, attributes, category and media');
+    /* ⚠ `PRD-185` — saving is still not sending. */
+    expect(notice.textContent).toContain('separate step from saving');
+  });
+
+  /** 🔴 No blanket claim that nothing can be pushed survives — that wording is now false. */
+  it('no longer claims the channel declares nothing writable', async () => {
+    await loaded();
+    expect(document.body.textContent).not.toContain('does not declare any listing field writable');
   });
 
   /** ✅ The value is IN the field now, so it is not repeated as context beside it. */
