@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.8.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.9.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -1001,10 +1001,47 @@ reference links directly for signing details** — the two ventures share one pl
 
 ---
 
+## `DZC-041` — The controlled probe that settles `DZC-039.b` and `DZC-039.e`
+
+> ✅ **BUILT 2026-08-21, NOT RUN.** **A server-side command sends ONE same-value price and quantity
+> update for ONE listing, so the two questions gating `DZC-040`'s first slice can be answered by
+> asking rather than by guessing.** 🔴 **IT HAS NOT BEEN RUN AGAINST DARAZ.**
+>
+> **a.** ✅ **SAME VALUE, THEREFORE NO BUSINESS CHANGE.** **The price and quantity sent are read
+> from the STORED REPORTED side — what Daraz itself last said it is showing.** 🔴 **Both must be
+> present AND readable or the probe refuses**: ⚠ **an unreadable figure would leave it inventing
+> one, which is exactly the change it must never make.**
+>
+> **b.** 🔴 **IT IS GATED TWICE.** **A command name selects it and a separate
+> `--daraz.confirm-same-value-write=true` authorises it.** ⚠ **One argument is enough for a READ
+> probe and not for a WRITE: a command that only had to be named could be re-run from shell
+> history.** ✅ **`--daraz.dry-run=true` prints the exact payload and contacts nothing.**
+>
+> **c.** 🔴 **IT IS NOT `pushUpdate` AND MUST NOT BECOME IT.** **It writes nothing to Trioloo,
+> records no operation, and its scoped context names no bean that COULD mutate a listing, product or
+> inventory row.** ⚠ **The adapter's outbound half still refuses and no field became writable
+> (`PRD-204.g`).**
+>
+> **d.** 🔴 **PROMOTION IS ABSENT BY NAME.** **No `SalePrice`, no `SaleStartDate`, no `SaleEndDate`
+> (`DZC-040.e`).** ✅ **`<Quantity>` is sent in its PLAIN form deliberately — that is the question.**
+>
+> **e.** ✅ **IT REPORTS METADATA ONLY** — **outcome, provider `code`, `type`, `request_id` and
+> envelope field names.** 🔴 **Never a price, a quantity, a SellerSku, an item id, a token, a
+> signature or the provider's own message**, ⚠ **which can echo a SellerSku back.**
+>
+> **f.** ⚠ **A TRANSPORT FAILURE IS REPORTED AS AN UNKNOWN OUTCOME, NOT AS A FAILURE TO WRITE.**
+> **Whether Daraz applied the update cannot be known from a dropped connection; the report says so
+> and directs a re-read.**
+>
+> **g.** 🔴 **THE ONLY PERMITTED PERSISTENT SIDE EFFECT IS A TOKEN REFRESH.**
+
+---
+
 ## Version history
 
 | Version | Date | Change |
 |---|---|---|
+| **1.9.0** | **2026-08-21** | ✅ **`DZC-041` ADDED — THE CONTROLLED SAME-VALUE PROBE IS BUILT AND HAS NOT BEEN RUN.** **One server-side command sends one same-value price and quantity update for one listing, so `DZC-039.b` and `DZC-039.e` can be answered by asking.** 🔴 **Same value, therefore no business change — the figures come from the stored reported side, and an unreadable figure is a refusal rather than a guess.** 🔴 **Gated twice: a command name selects it and a separate confirmation authorises it; a dry run prints the payload and contacts nothing.** 🔴 **It is not `pushUpdate` — it writes nothing to Trioloo and its scoped context names no bean that could mutate a listing, product or inventory row.** 🔴 **Promotion is absent by name and `<Quantity>` is sent plain, because that is the question.** ✅ **It reports metadata only, never a value, a token, a signature or the provider's own message.** ⚠ **A transport failure is reported as an UNKNOWN outcome, never as a failure to write.** |
 | **1.8.0** | **2026-08-21** | ✅ **§11 ADDED — `DZC-033`–`DZC-040`, THE LISTING WRITE PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY IMPLEMENTATION.** **Seven published write paths, with the Bangladesh base and the read signing scheme unchanged.** 🔴 **The body parameter name is NOT uniform — `payload`, `apiRequestBody`, `sku_id_list` across five endpoints — and the API path is part of the signed string.** 🔴 **There is no `/product/activate`: deactivation is one-way as published.** 🔴 **Trioloo persists `SellerSku` and `ItemId` only, so deactivate and remove — which need `SkuId` — are blocked on a READ change, not on the write protocol.** ✅ **The write side CORROBORATES `PRD-199` (`Price` vs `SalePrice` + window) and `DZC-026` (`name` is the title; `name_en` does not appear in the write payload at all) and RATIFIES neither.** 🔴 **`/product/update` publishes no `ItemId` in its sample and gives no rule for omitted attributes, so a content push is unsafe at any size.** ✅ **Recommended first slice: `/product/price_quantity/update` restricted to price and stock — addressable today, readable back, no whole-object hazard — with two questions answerable in one controlled call.** ⚠ **Documentation only. No seller API was called; `pushUpdate` still refuses and Daraz still declares no field writable.** |
 | **1.7.0** | **2026-08-19** | ✅ **§10 ADDED — `DZC-032`, THE PRODUCT REVIEW PROTOCOL, RECORDED FROM THE OFFICIAL REFERENCE BEFORE ANY ADAPTER CODE EXISTS.** **Daraz publishes a seller-side Product Review API of exactly three endpoints — `/review/seller/history/list`, `/review/seller/list/v2` and `/review/seller/reply/add` — on the same Bangladesh base and the same signing as the read half.** 🔴 **It is a TWO-STEP read: ids first, details second, ten ids per call.** 🔴 **`item_id` is REQUIRED, so every read is per listing — and it is the same identifier `DZC-026` maps to `external_listing_id`; the detail response carries `product_id` and a `ratings` object as the join and the star value.** 🔴 **TWO HARD WINDOWS DEFINE THE FEATURE: only 90 days of review history exists, and only 7 days may be requested at once — so a full 90-day picture for ONE listing costs thirteen windowed calls, and a LIFETIME review total cannot be obtained from this API at all.** 🔴 **A review count shown in Trioloo is therefore a 90-DAY count and must say so, because Seller Centre shows a lifetime total.** 🔴 **PROVEN ABSENT: product views, wishlist/favourites and cart have NO endpoint anywhere in the reference — there is no Data, Analytics, Traffic, Report or Dashboard category — and no daily breakdown of any metric exists.** ⚠ **`GetSellerMetricsById` (`/seller/metrics/get`) is SELLER-level and is not a per-product substitute.** ✅ **Documentation only — nothing implemented, no adapter method, no persistence, no screen. No live seller API was called.** |
 | **1.6.1** | **2026-08-18** | ⚠ **`DZC-031.h` ADDED — GENERIC ATTRIBUTE VALUES ARE BOUNDED BY TRIOLOO'S OWN PERSISTENCE, LEARNED FROM THE FIRST LIVE PULL.** **`channel_listing_attribute` stores `attribute_key varchar(160)` and `reported_value varchar(1024)`; the first discovery against a real seller failed with *value too long for type character varying(1024)* and rolled the whole catalogue back.** 🔴 **`name` and `description` are no longer duplicated into the generic attributes — they already own dedicated columns, and `reported_description` is unbounded `text`.** 🔴 **An over-long value keeps its key and is recorded `reported_readable = false` with NO value rather than truncated, because a truncated reported value would read as permanently DIVERGED under `PRD-181`.** ⚠ **An attribute whose KEY will not fit is dropped, since the key is its identity.** ✅ **No column widened, no migration taken — that is a `DB-`/`PRD-` decision, not a mapping one.** ✅ **Mapper-side fix only; no endpoint, parameter or response field changed.** |

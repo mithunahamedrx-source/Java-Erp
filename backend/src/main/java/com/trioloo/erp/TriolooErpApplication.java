@@ -3,6 +3,8 @@ package com.trioloo.erp;
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapApplication;
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapRunner;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeApplication;
+import com.trioloo.erp.integration.infrastructure.diagnostic.DarazPriceStockProbeApplication;
+import com.trioloo.erp.integration.infrastructure.diagnostic.DarazPriceStockProbeRunner;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -50,6 +52,18 @@ public class TriolooErpApplication {
         */
         if (DarazListingShapeRunner.isProbeInvocation(args)) {
             SpringApplication probe = new SpringApplication(DarazListingShapeApplication.class);
+            probe.setWebApplicationType(WebApplicationType.NONE);
+            probe.run(args);
+            return;
+        }
+
+        /*
+          🔴 THE PRICE AND STOCK WRITE PROBE, IN ITS OWN SCOPED CONTEXT FOR THE SAME REASON.
+          ⚠ Reaching this line is not enough to send anything: the runner demands a second,
+          write-specific confirmation argument before it contacts Daraz at all.
+        */
+        if (DarazPriceStockProbeRunner.isProbeInvocation(args)) {
+            SpringApplication probe = new SpringApplication(DarazPriceStockProbeApplication.class);
             probe.setWebApplicationType(WebApplicationType.NONE);
             probe.run(args);
             return;
