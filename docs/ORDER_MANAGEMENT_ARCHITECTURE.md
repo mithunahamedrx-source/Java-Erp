@@ -1,7 +1,7 @@
 # Order Management — Business Architecture
 
 **Owner:** Trioloo Technology · **Module:** Order Management · **Status:** Canonical
-**Version:** 1.20.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-10 (Order sync authority — `BD-498`, §28) · **Amended:** 2026-08-10 (Order confirmation attribution — `BD-497`, §27) · **Amended:** 2026-08-09 (pre-freeze reconciliation note at §18.2 — documentary only) · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; discount policy `BD-255`; Warehouse & Assembly §17; Purchase & Supplier §18; revenue recognition `BD-304`; Accounting §19; Marketplace §9.11; Return & Exchange §9.12)
+**Version:** 1.21.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-23 (Marketplace Order ingestion MVP operating rules — `BR-178`–`BR-183`, §29: backfill in 7-day chunks to a 3-month cap, a 15-minute configurable cadence with an overlapping watermark deduplicated by `order_id`, one explicit channel instance per job, `ACTIVE` shops only, no in-job retry, and the webhook explicitly out of MVP) · **Amended:** 2026-08-10 (Order sync authority — `BD-498`, §28) · **Amended:** 2026-08-10 (Order confirmation attribution — `BD-497`, §27) · **Amended:** 2026-08-09 (pre-freeze reconciliation note at §18.2 — documentary only) · **Amended:** 2026-08-08 (Sales reconciliation; immutability `BD-254`; serial policy `BD-242`; discount policy `BD-255`; Warehouse & Assembly §17; Purchase & Supplier §18; revenue recognition `BD-304`; Accounting §19; Marketplace §9.11; Return & Exchange §9.12)
 
 ---
 
@@ -3323,6 +3323,122 @@ These points were **inferred from the current system** and required confirmation
 
 **What this amendment deliberately does NOT do** (`BD-498` §13): no CRDT merging · no per-field conflict queue · no two-way merge resolution · no timestamp winner selection · no per-field override flags · no automatic push-back to the marketplace · no integration orchestration.
 
+
+# 29. Marketplace Order Ingestion — the MVP operating rules — 2026-08-23
+
+**Source:** product-owner decision, taken on the evidence of `DZC §12` (the order read protocol, live-verified at `DZC-057`) and `DZC §13` (the notification protocol).
+
+> 🔴 **THIS SECTION DECIDES HOW OFTEN AND HOW WIDELY TRIOLOO READS, AND NOTHING ELSE.** ⚠ **It creates no
+> entity, no state, no transition, no event and no permission.** **Ingestion is the act `EVT-002
+> Order.Imported` already names; these rules bound its WINDOW, its CADENCE, its SCOPE and its FAILURE
+> BEHAVIOUR** (`BR-005` — channel-specific logic stays in the adapter).
+>
+> 🔴 **IT IS MVP SCOPE AND RATIFIES NOTHING BEYOND ITSELF** (`BR-183`).
+
+## 29.1 Backfill
+
+> **BR-178 — ✅ THE INITIAL BACKFILL WALKS BACKWARD IN SEVEN-DAY CHUNKS TO A THREE-MONTH CAP, AND STOPS ON
+> REFUSAL.**
+>
+> **a.** ✅ **THE WINDOW IS SEVEN DAYS AND THE CAP IS THREE MONTHS**, walked from most recent to oldest.
+> **b.** ✅ **IT OPENS WITH A BOUNDARY PROBE NEAR THE THREE-MONTH EDGE.** ⚠ **The point is to LEARN the real
+> limit before spending a long run against an assumed one.**
+> **c.** 🔴 **A PROVIDER REFUSAL STOPS THE BACKFILL AND IS REPORTED. IT IS NEVER RETRIED BLIND.** ✅ **The
+> refusal is the ANSWER: it names the retention boundary the provider does not publish** (`DZC-050.a`).
+> **d.** 🔴 **A SINGLE THREE-MONTH REQUEST IS PROHIBITED.** ⚠ **Not for politeness — because a request that
+> SILENTLY TRUNCATES produces an incomplete backfill with no signal that it happened**, and Trioloo would
+> have no way to know what it never received. **`DZC-032` records the same hazard on the review API, where
+> 90-day retention and a 7-day maximum window would have defeated a naive request.**
+> **e.** ⚠ **THE DISCOVERED LIMIT IS RECORDED WHEN IT IS FOUND.** 🔴 **It is a provider fact and belongs in
+> `DZC §12`, not inferred here.**
+
+## 29.2 Cadence
+
+> **BR-179 — ✅ THE DEFAULT POLL CADENCE IS FIFTEEN MINUTES PER SHOP, AND IT IS CONFIGURATION.**
+>
+> **a.** 🔴 **THE CADENCE IS CONFIGURATION, NEVER HARD-CODED** (`SYS-013`). **Fifteen minutes is the
+> DEFAULT, not a constant.**
+> **b.** ⚠ **IT IS NOT THE FIVE MINUTES THE LEGACY SYSTEM SHOWS.** **`BD-018` records ~5 minutes as
+> OBSERVED LEGACY BEHAVIOUR and `§7.8` restates it as ARRIVAL LATENCY carrying no rule number.** ✅ **A
+> legacy latency is not a business requirement**, and an imported order lands in `PENDING_VERIFICATION`
+> for human verification measured in minutes to days (`§7.4`).
+> **c.** 🔴 **THE READ IS INCREMENTAL, BY UPDATE WATERMARK.** ✅ **`update_after` with `updated_at` ordering
+> is what the protocol offers** (`DZC-049.c`).
+> **d.** 🔴 **THE WATERMARK OVERLAPS AND THE OVERLAP IS DEDUPLICATED BY `order_id`.** ⚠ **THIS IS NOT
+> OPTIONAL AND IT IS NOT A TUNING CHOICE:** **no cursor exists** (`DZC-049.d`), **and `update_after`
+> inclusivity and timezone are UNSTATED by the provider** (`DZC-050.e`) — **so a non-overlapping watermark
+> can silently miss an order at the boundary.** ✅ **`order_id` is the external idempotency key**
+> (`DZC-049.b`, `SYS-045`, `API-024`, `EVA-016`).
+> **e.** ⚠ **NO RATE LIMIT IS PUBLISHED** (`DZC-050.b`). 🔴 **The cadence is therefore CONSERVATIVE BY
+> CHOICE, and tightening it is a configuration change made on evidence, never a default.**
+
+## 29.3 Shop scope
+
+> **BR-180 — ✅ ONE PULL JOB TARGETS EXACTLY ONE EXPLICIT CHANNEL INSTANCE.**
+>
+> **a.** 🔴 **EVERY JOB CARRIES AN EXPLICIT `channelInstanceId`** (`API-071.a`, `BR-002`).
+> **b.** 🔴 **NO SHARED OR AMBIENT "CURRENT SHOP" CONTEXT MAY EXIST** (`API-071.b`). ⚠ **An ambient
+> current-shop variable is the exact mechanism by which one seller's authorisation reads another's data**,
+> which `AGV-016` forbids.
+> **c.** ✅ **THE SCHEDULER MAY FAN OUT BY LAUNCHING ONE JOB PER ELIGIBLE SHOP.** 🔴 **Fan-out is a
+> SCHEDULING act, never a widened job.** ✅ **One shop's failure, throttle or lapsed authorisation cannot
+> stall another's** (`INV-108.1` — partial success is the normal outcome).
+
+> **BR-181 — ✅ MVP PULLS FROM `ACTIVE` DARAZ SHOPS ONLY.**
+>
+> **a.** 🔴 **A `DRAFT` CHANNEL INSTANCE IS EXCLUDED, EVEN WHERE ITS CONNECTION IS `CONNECTED`.** ⚠ **The
+> two facts are independent: a shop may be authorised against the marketplace while its own configuration
+> is unfinished** (`SYS-108`, `SCS-`).
+> **b.** ⚠ **THE REASON IS THAT NOBODY HAS DECIDED IT.** **Importing live customer orders from a shop whose
+> configuration is still a draft is a decision, not a default** — **and `CP-8` does not license it.**
+> **c.** 🔴 **ADMITTING `DRAFT` SHOPS IS A SEPARATE BUSINESS DECISION AND IS NOT TAKEN HERE.**
+> **d.** ✅ **ELIGIBILITY IS EVALUATED PER RUN, NOT FROZEN.** **A shop that becomes `ACTIVE` becomes
+> eligible without a rule change.**
+
+## 29.4 Failure and retry
+
+> **BR-182 — ✅ A FAILED PAGE STOPS THE JOB, IS RECORDED, AND IS RETRIED ON THE NEXT SCHEDULED CYCLE.**
+>
+> **a.** 🔴 **THERE IS NO IN-JOB RETRY LOOP IN MVP.** ⚠ **Against an UNPUBLISHED rate limit
+> (`DZC-050.b`), an in-job retry is the behaviour most likely to turn a transient failure into a
+> throttle.**
+> **b.** ✅ **NOTHING IS LOST BY WAITING.** **The next cycle is one cadence away and the read is idempotent
+> by `order_id`** (`BR-179.d`), **so a repeated page is absorbed rather than duplicated** (`EVA-016`).
+> **c.** 🔴 **PARTIAL SUCCESS IS RETAINED. A FAILED PAGE NEVER ROLLS BACK PAGES ALREADY IMPORTED**
+> (`INV-108.1`, `PRD-186.b`). ⚠ **Discarding good pages because a later one failed would throw away work
+> the provider may not serve again.**
+> **d.** ✅ **THE FAILURE IS RECORDED AS A FACT**, not merely logged and forgotten.
+> **e.** ⚠ **THIS IS THE MVP ANSWER, AND `BD-158` REMAINS UNANSWERED AS DISCOVERY** — **what the BUSINESS
+> wants to happen when an import fails, including who is told, is a separate question this rule does not
+> close.**
+
+## 29.5 Notifications, and what this section does not ratify
+
+> **BR-183 — 🔴 THE WEBHOOK IS NOT IN MVP, AND THIS SECTION RATIFIES NOTHING BEYOND INGESTION.**
+>
+> **a.** 🔴 **A WEBHOOK CANNOT REPLACE PERIODIC READS AND IS NOT TREATED AS AN ALTERNATIVE TO THEM**
+> (`DZC-056.c`). **Its payload is identifiers and a fulfilment status, not the order; a message abandoned
+> after twelve retries is never resent; and pushes stop entirely while an authorisation is revoked or
+> expired.**
+> **b.** ✅ **IT MAY SUPPLEMENT LATER, AND ONLY ONCE TWO FACTS ARE KNOWN** — **the `message_type`
+> enumeration and whether the webhook is available on the Bangladesh venture at all** (`DZC-055.z.a`,
+> `DZC-055.z.j`). ⚠ **Both need App Console access, which is a separately authorised credentialed act.**
+>
+> **c.** 🔴 **NOT RATIFIED BY THIS SECTION, AND NOT INFERABLE FROM IT** (`DOC-024`):
+>
+> | Not ratified | Where it belongs |
+> |---|---|
+> | **Pulling from `DRAFT` shops** | `BR-181.c` — a separate decision |
+> | **Webhook implementation, subscription or callback endpoint** | `BR-183.b`, `DZC §13` |
+> | **Any ORDER WRITE to a marketplace** | `DZC-044.a` — `SetInvoiceNumber` stays unauthorised |
+> | **Shipment or fulfilment action** | `SM-3`, `SM-4` |
+> | **Inventory movement or reservation** | `BR-096`, `BR-004` |
+> | **Settlement or payment reconciliation** | `SM-5`, `SM-6`, `GAP-019` residual |
+> | **Order lifecycle progression beyond `PENDING_VERIFICATION`** | `EVT-002`, `§7` |
+>
+> **d.** ✅ **AN IMPORTED ORDER STILL LANDS EXACTLY WHERE `EVT-002` PUTS IT** — `PENDING_VERIFICATION`,
+> `API_MANAGED` (`BR-168`), **with no product, inventory, payment or settlement side effect** (`§18.3`'s
+> coupling matrix is unchanged).
 
 **Amendment procedure.** Proposals state the business problem, the affected sections and rules, the proposed change, alternatives considered, and the operational impact. Ratified amendments increment the version and are recorded here. Business rules are never silently altered — a changed rule is a changed contract with the operation.
 

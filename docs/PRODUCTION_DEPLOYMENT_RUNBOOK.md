@@ -1,7 +1,7 @@
 # Production Deployment Runbook
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting operations · **Status:** Canonical
-**Version:** 1.5.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
+**Version:** 1.6.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
 
 > 🔴 **THIS DOCUMENT RATIFIES INFRASTRUCTURE THAT ALREADY EXISTS. IT INVENTS NONE.** **The host, the reverse proxy, the routing model and the origin address are USER DECISIONS**, recorded here so a deployment agent never has to choose them — and never may.
 >
@@ -390,6 +390,28 @@
 > **f.** 🔴 **PRODUCT AND LISTING PULL IS NOT PART OF THIS.** **No listing read, no product read, no sync, no marketplace write.** ⚠ **A working connection is permission to read nothing yet** — `GAP-133` stays open for the ingestion work.
 >
 > **g.** ✅ **WHAT CONFIGURING THIS DOES NOT DO.** **It creates no Shop, binds no seller, stores no credential and contacts no marketplace.** **Every one of those needs a human to click Connect and sign in as the seller.**
+
+---
+
+# 15b. The `V15` position — resolved 2026-08-23
+
+> **`DEP-125` — ✅ `V15` IS APPLIED DELIBERATELY ON THE NEXT BACKEND DEPLOYMENT, AND THE V15-FREE BRANCH IS RETIRED. Business decision, 2026-08-23.**
+>
+> ✅ **THE APPARENT CONTRADICTION IS RESOLVED AND WAS NEVER ONE.** **Read-only production inspection on 2026-08-23 found `flyway_schema_history` at `V14`, `V15` unapplied and `channel_listing_review` absent — because the DEPLOYED artifact is a jar carrying `V1`–`V14` and NO `V15`.** 🔴 **`DEP-071` never applied a migration the deployed jar does not contain.** ✅ **`GAP-136`'s statement and [`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4 were both correct.**
+>
+> **a.** 🔴 **THE NEXT DEPLOYMENT FROM `main` APPLIES `V15`, AND THAT IS THE DECISION.** ⚠ **It is not a side effect to be discovered: `DEP-071` makes starting the new artifact the migration, so the deploy that carries `V15` applies it.**
+>
+> **b.** 🔴 **THE BACKUP GATE CLOSES BEFORE THE NEW BACKEND IS STARTED** (`DEP-060`, `DEP-071.a`). ⚠ **This is the whole operational consequence of the decision — there is no separate "apply the migration" step to gate, so the backup IS the gate.**
+>
+> **c.** ✅ **WHY APPLYING IT IS LOW RISK.** **`V15` is ADDITIVE — it creates `channel_listing_review` and alters nothing** (`PRJ-082`, `TEC-021`: backfill by adding, never by editing). ⚠ **AND IT IS CURRENTLY INERT: no JPA entity maps that table, so nothing reads or writes it yet.**
+>
+> **d.** 🔴 **CUTTING FURTHER V15-FREE RELEASE BRANCHES IS DISCONTINUED.** ⚠ **The `v14n-no-v15` branch worked, but an unmaintained divergence between `main` and what is deployed costs something every release — and it already produced one multi-day investigation into whether production and `main` disagreed.** ✅ **Should a future release ever need to omit a migration, that becomes a deliberate, recorded release process rather than an ad-hoc cut.**
+>
+> **e.** ⚠ **`DEP-070.b` IS UNCHANGED AND STILL BINDING.** **Pending migrations are determined by reading production `flyway_schema_history` and are NEVER ASSUMED** — **this decision fixes the POSITION, not a licence to skip the pre-flight read** (`DEP-031` step 7).
+>
+> **f.** 🔴 **THIS AUTHORISES NO DEPLOYMENT.** **A deployment remains an explicit user instruction** (`DEP-010.c`), **and nothing here schedules one.**
+>
+> **g.** ✅ **THE MIGRATION BAR ELSEWHERE IS LIFTED BY THIS, NOT BEFORE IT.** **`OSC-060` and [`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4 forbade assigning a new migration number while the `V15` position was open.** ✅ **It is now taken, so a subsequent Order migration may be numbered — 🔴 after the `DEP-031` pre-flight read confirms the applied ceiling, never from an assumed one.**
 
 ---
 

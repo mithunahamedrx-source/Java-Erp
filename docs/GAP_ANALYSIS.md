@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.65.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.67.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2203,6 +2203,63 @@ reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays u
 > 🔴 **EVERY BUSINESS QUESTION IN THIS GAP REMAINS OPEN** — **backfill window, cadence, shop fan-out, retry-and-recovery policy, whether Trioloo subscribes at all, and which message types.** 🔴 **No callback endpoint is authorised and none exists.**
 >
 > 🔴 **STILL NO SCHEMA, NO MIGRATION AND NO MIGRATION NUMBER.** **The `V15` contradiction is unchanged.**
+
+**✅ UPDATE 2026-08-23 (third) — THE READ PROTOCOL IS LIVE-VERIFIED. STILL PARTIALLY ADDRESSED.**
+
+> ✅ **`/orders/get` WAS RUN ONCE AGAINST A REAL CONNECTED DARAZ BANGLADESH SHOP AND ACCEPTED** (`code` `0`, `DZC-057`). **One request, one shop, `offset` 0, page size 10 — no paging, no retry, no `/order/get`, no `/order/items/get`, nothing imported, nothing written, and no migration.** 🔴 **§12 is no longer documentation alone: it is documentation CONFIRMED against the provider.**
+>
+> ✅ **THREE PROTOCOL FACTS MOVED FROM UNKNOWN TO KNOWN.** **`DZC-050.d` is SETTLED — the gateway accepted `limit`, so `limt` is a typo in the provider's own table.** **`DZC-042.d` is WIDENED — `_trace_id_` appears on reads as well as writes and is a general envelope field.** **`DZC-045.e` is CONFIRMED — thirty-two order fields returned, every one documented, none undocumented.**
+>
+> 🔴 **ONE FINDING CUTS THE OTHER WAY AND IS RECORDED AS SUCH.** **`address_updated_at` is DOCUMENTED and was NOT RETURNED.** ⚠ **The documented field set is a CEILING, not a guarantee — a mapper must read defensively, and an absent field stays ABSENT rather than becoming an empty string or a zero** (`SYS-034`).
+>
+> ⚠ **THE `V15` CONTRADICTION IS ALSO RESOLVED, AND IT WAS NEVER A CONTRADICTION.** **Production Flyway is at `V14`, `V15` is unapplied and `channel_listing_review` is absent — because the DEPLOYED artifact is a jar containing `V1`–`V14` and NO `V15`.** ✅ **This gap's statement and `GAP-136`'s were both correct; `DEP-071` never applied a migration the deployed jar does not carry.** 🔴 **THE HAZARD IS STILL LIVE FOR THE NEXT DEPLOY: any jar built from `main` DOES contain `V15` and would apply it on startup, so `OSC-060`'s bar stands until that is a taken decision.**
+>
+> 🔴 **WHAT REMAINS BLOCKED IS NOW ALMOST ENTIRELY BUSINESS, NOT PROTOCOL.**
+>
+> | Remaining | Kind |
+> |---|---|
+> | **Order retention limit** | 🔴 **UNPUBLISHED** (`DZC-050.a`) — ⚠ **the fact a 3-month backfill most needs, and `countTotal` 1 over one 24-hour window settles nothing about it** |
+> | **Rate limit / throttling signal** | 🔴 **UNPUBLISHED** (`DZC-050.b`) |
+> | **Webhook `message_type` enumeration** | 🔴 **UNPUBLISHED** (`DZC-055.z.a`) — visible only inside the App Console |
+> | **Bangladesh webhook availability** | 🔴 **UNCONFIRMED** (`DZC-055.z.j`) — the only published sample carries `daraz_pk` |
+> | **Backfill window** | 🔴 **UNDECIDED — business** |
+> | **Poll cadence** | 🔴 **UNDECIDED — business.** ⚠ **Unchanged by the webhook: `DZC-056.c` keeps periodic reconciliation necessary** |
+> | **Shop fan-out across the four connected shops** | 🔴 **UNDECIDED — business** |
+> | **Retry and recovery policy** | 🔴 **UNDECIDED — business** (`BD-158` unanswered) |
+> | **Whether a push announces a NEW order** | 🔴 **UNESTABLISHED** (`BD-159`, `DZC-052.b`) |
+>
+> 🔴 **NO BUSINESS DECISION IS TAKEN HERE, AND NO SCHEMA, MIGRATION OR MIGRATION NUMBER IS PROPOSED.**
+
+**✅ UPDATE 2026-08-23 (fourth) — THE MVP BUSINESS DECISIONS ARE TAKEN. STILL PARTIALLY ADDRESSED.**
+
+> ✅ **THE OPERATING RULES ARE RATIFIED** — **`ORDER_MANAGEMENT_ARCHITECTURE.md` v1.21.0 `§29`, `BR-178`–`BR-183`** — **and the deployment position with them** (`PRODUCTION_DEPLOYMENT_RUNBOOK.md` v1.6.0 `DEP-125`).
+>
+> | Decision | Ratified as |
+> |---|---|
+> | **Backfill** — 7-day chunks, backward, 3-month cap, boundary probe first, stop-and-report on refusal, single 3-month request PROHIBITED | **`BR-178`** |
+> | **Cadence** — 15 minutes per shop, CONFIGURATION not constant, incremental by `update_after`, watermark OVERLAPPED and deduplicated by `order_id` | **`BR-179`** |
+> | **Shop scope** — one explicit `channelInstanceId` per job, no ambient current-shop, scheduler fans out one job per shop | **`BR-180`** |
+> | **Eligible shops** — `ACTIVE` Daraz shops only; `DRAFT` excluded pending a separate decision | **`BR-181`** |
+> | **Retry** — no in-job loop; stop, record, retry next cycle; partial success retained | **`BR-182`** |
+> | **Webhook** — NOT MVP; may supplement only once `message_type` and Bangladesh availability are known; never replaces reads | **`BR-183`** |
+> | **`V15`** — applied deliberately on the next deploy behind the backup gate; V15-free branches discontinued | **`DEP-125`** |
+>
+> ✅ **THE MIGRATION BAR IS LIFTED, AND ONLY BY `DEP-125`.** **`OSC-060` and [`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4 forbade assigning a migration number while the `V15` position was OPEN; it is now TAKEN.** 🔴 **A number is still assigned only AFTER the `DEP-031` pre-flight read confirms the applied ceiling — never from an assumed one** (`DEP-070.b`).
+>
+> 🔴 **WHAT REMAINS OPEN IS NOW ALMOST ENTIRELY THE PROVIDER'S SILENCE, NOT TRIOLOO'S INDECISION.**
+>
+> | Still open | Kind |
+> |---|---|
+> | **Order retention limit** | 🔴 **UNPUBLISHED** (`DZC-050.a`) — ⚠ **`BR-178.b`'s boundary probe is designed to discover it, and `BR-178.e` says where the answer gets recorded** |
+> | **Rate limit / throttling signal** | 🔴 **UNPUBLISHED** (`DZC-050.b`) — ⚠ **why `BR-179` is deliberately conservative** |
+> | **`update_after` inclusivity and timezone** | 🔴 **UNSTATED** (`DZC-050.e`) — ⚠ **why `BR-179.d`'s overlap is mandatory rather than a tuning choice** |
+> | **Webhook `message_type` enumeration** | 🔴 **UNPUBLISHED** (`DZC-055.z.a`) — App Console access required |
+> | **Bangladesh webhook availability** | 🔴 **UNCONFIRMED** (`DZC-055.z.j`) |
+> | **Whether `DRAFT` shops may be pulled** | 🔴 **UNDECIDED — a separate business decision** (`BR-181.c`) |
+> | **What the business wants on import failure** | 🔴 **`BD-158` UNANSWERED** — ⚠ **`BR-182` gives the MVP mechanism, not the business answer** |
+> | **Whether a push announces a NEW order** | 🔴 **`BD-159` UNESTABLISHED** (`DZC-052.b`) |
+>
+> 🔴 **NOTHING BEYOND INGESTION IS RATIFIED** (`BR-183.c`): **no `DRAFT` shop pull, no webhook implementation, no order write, no shipment or fulfilment action, no inventory movement, no settlement or payment reconciliation, and no lifecycle progression beyond `PENDING_VERIFICATION`.**
 
 
 ---

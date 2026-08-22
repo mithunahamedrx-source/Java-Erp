@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.12.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-051`–`DZC-056` — §13 the ORDER NOTIFICATION protocol; a webhook exists and CANNOT replace the read, so periodic reconciliation remains necessary) · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.13.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-057` — the confirmed `/orders/get` read; `limit` accepted so `DZC-050.d` is SETTLED, `_trace_id_` widened to a general envelope field, and the documented order field set confirmed as a CEILING) · **Amended:** 2026-08-23 (`DZC-051`–`DZC-056` — §13 the ORDER NOTIFICATION protocol; a webhook exists and CANNOT replace the read, so periodic reconciliation remains necessary) · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -1064,7 +1064,15 @@ reference links directly for signing details** — the two ventures share one pl
 > **d.** ✅ **`_trace_id_` IS AN UNDOCUMENTED EXTRA FIELD AND IS HARMLESS.** 🔴 **An envelope reader
 > must tolerate unknown top-level fields rather than reject them.**
 >
+> ✅ **WIDENED 2026-08-23 BY `DZC-057`. `_trace_id_` IS A GENERAL ENVELOPE FIELD, NOT A WRITE-PATH
+> QUIRK.** **It was observed again on a READ — the `/orders/get` confirmed read carried `data`, `code`,
+> `request_id` and `_trace_id_`.** ⚠ **This clause was written from a WRITE response alone and could
+> not then say which.** 🔴 **The obligation is unchanged and now applies to every path: tolerate
+> unknown top-level fields, never reject on them, and never bind to them** (`DZC-042.d` original
+> wording retained, `DOC-009`).
+>
 > **e.** ⚠ **NO `type` FIELD WAS PRESENT ON SUCCESS.** **Its absence is not an error.**
+> ✅ **CORROBORATED 2026-08-23 on the read path — `type` was absent there too** (`DZC-057.b`).
 >
 > **f.** 🔴 **NOTHING CHANGED ON EITHER SIDE.** **The values sent were the ones Daraz itself last
 > reported, and every Trioloo digest was byte-identical before and after.** ⚠ **The probe did not
@@ -1198,6 +1206,12 @@ reference links directly for signing details** — the two ventures share one pl
 > | **Buyer** | `customer_first_name` · `customer_last_name` — ⚠ published as *"Empty for now."* |
 > | **Regional / other** | `national_registration_number1` · `branch_number` (TH only) · `tax_code` (TH and VN only) · `extra_attributes` |
 >
+> ✅ **CONFIRMED AGAINST A LIVE RESPONSE 2026-08-23** (`DZC-057.c`). **The order object returned by the
+> confirmed read carried THIRTY-TWO fields and every one of them is in the table above — no undocumented
+> order field appeared.** ⚠ **THE TABLE IS A CEILING, NOT A GUARANTEE: `address_updated_at` is documented
+> here and was NOT returned.** 🔴 **A DOCUMENTED FIELD MAY BE ABSENT, so a mapper reads defensively and an
+> absent field is ABSENT rather than empty** (`SYS-034`).
+>
 > **f.** ✅ **ADDRESS FIELDS — TWO NODES, IDENTICAL SHAPE:** **`address_billing` and `address_shipping`, each
 > carrying `first_name`, `last_name`, `phone`, `phone2`, `address1`, `address2`, `address3`, `address4`,
 > `address5`, `city`, `post_code`, `country`.** ⚠ **The provider annotates `address2` as *"Not used for now"*,
@@ -1318,6 +1332,12 @@ reference links directly for signing details** — the two ventures share one pl
 > **Daraz's parameter table prints **`limt`**; its own error text `E019` says *"the limit parameter"*; the
 > corroborating Lazada page prints `limit`.** ⚠ **NOT PUBLISHED — DO NOT ASSUME which the gateway accepts.**
 > ✅ **It is settleable by one controlled read, exactly as `DZC-039.b`/`.e` were settled by `DZC-041`.**
+>
+> ✅ **SETTLED 2026-08-23 BY `DZC-057`. The wording above is retained** (`DOC-009`) **because it records the
+> contradiction that made the question worth asking.** **The gateway ACCEPTED `limit`: the confirmed read
+> returned `code` `0` and NO `E019`.** 🔴 **`limt` IS TREATED AS A TYPO IN THE PROVIDER'S OWN PARAMETER
+> TABLE, contradicted by the provider's own error text, unless future evidence says otherwise.** ⚠ **One
+> account, one call — the `DZC-042.g` caveat applies unchanged.**
 > **e.** 🔴 **`update_after` / `created_after` INCLUSIVITY AND TIMEZONE ARE NOT STATED.** **The text says
 > *"after or on the specified date"*, which reads inclusive, but no timezone, offset handling or precision is
 > published.** ⚠ **`DZC-039.g` records the same class of unknown for a date-only promotion window.**
@@ -1341,6 +1361,56 @@ reference links directly for signing details** — the two ventures share one pl
 > | **Whether Daraz notifications participate** | 🔴 **UNDECIDED — `BD-159` unanswered** (`.g`) |
 > | **Retry behaviour after a failed import** | 🔴 **UNDECIDED — `BD-158` unanswered** |
 > | **Any schema or migration** | 🔴 **NONE PROPOSED.** ⚠ **No migration number may be assigned while the `V15` production contradiction stands** ([`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4, `OSC-060`, `DEP-070.b`) |
+
+## `DZC-057` — What the confirmed read settled, 2026-08-23
+
+> ⚠ **THE NUMBER IS OUT OF PHYSICAL SEQUENCE AND THAT IS CORRECT.** **This rule belongs to `§12` but was
+> issued AFTER `§13` took `DZC-051`–`DZC-056`.** 🔴 **A rule number is permanent and never reused
+> (`DOC-009`), so it is not renumbered to sit tidily.**
+>
+> ✅ **THE `/orders/get` READ WAS RUN ONCE AND ACCEPTED.** **One request for one connected Bangladesh
+> shop, a 24-hour created-window, `offset` 0 and a page size of 10, returned `code` `0`.**
+> ⚠ **Everything below is OBSERVED FACT from that single call, not a documented promise.**
+>
+> 🔴 **EXACTLY ONE REQUEST WAS MADE.** **No paging, no retry, no `/order/get`, no `/order/items/get`.**
+> ✅ **NOTHING WAS IMPORTED OR WRITTEN — no order, listing, inventory, payment or operation row, and no
+> migration.** ⚠ **A token refresh did not occur; the stored credential was still valid.**
+>
+> **a.** ✅ **`limit` IS THE PAGE-SIZE PARAMETER. `DZC-050.d` IS SETTLED.** **It was accepted with no
+> `E019`.** 🔴 **`limt`, which the provider's own parameter table prints, is treated as a TYPO in that
+> table — contradicted by the provider's own `E019` text — unless future evidence says otherwise.**
+>
+> **b.** ✅ **THE ENVELOPE CARRIED `data`, `code`, `request_id` AND `_trace_id_`.** 🔴 **`_trace_id_` IS
+> THEREFORE A GENERAL ENVELOPE FIELD AND NOT A WRITE-PATH QUIRK** — **`DZC-042.d` observed it on a write
+> and could not then say which; it is now seen on a read** (`DZC-042.d` widened). ⚠ **No `type` field was
+> present on success here either, and its absence is not an error** (`DZC-042.e`). ✅ **`data` carried
+> exactly `count`, `orders` and `countTotal`, as `DZC-045.d` records.**
+>
+> **c.** ✅ **THE DOCUMENTED ORDER FIELD SET IS CORRECT, AND IT IS A CEILING RATHER THAN A GUARANTEE.**
+> **Thirty-two order fields came back and every one is in `DZC-045.e`; no undocumented field appeared.**
+> 🔴 **`address_updated_at` IS DOCUMENTED AND WAS NOT RETURNED.** ⚠ **A mapper must therefore read
+> defensively — a documented field may simply be absent, and absent is ABSENT, never an empty string or a
+> zero** (`SYS-034`).
+>
+> **d.** ✅ **BOTH ADDRESS NODES WERE PRESENT** — `address_billing` and `address_shipping`, as `DZC-045.f`
+> records.
+>
+> **e.** ⚠ **THE WINDOW RETURNED `countTotal` 1 AND `count` 1.** 🔴 **THIS SETTLES NOTHING ABOUT VOLUME,
+> PAGING OR RETENTION.** **One order in one 24-hour window on one shop is a sample, and `DZC-050.a`'s
+> unpublished retention limit is untouched by it.**
+>
+> **f.** 🔴 **NO SELLER VALUE WAS RECORDED, HERE OR IN THE PROBE'S OUTPUT.** **This clause carries
+> outcomes, counts and field NAMES only** — **no order id, order number, buyer name, phone, address,
+> price, SKU, token, signature or raw body** (`API-070`, `DZC-041` discipline).
+>
+> **g.** ⚠ **ONE CALL, ONE ACCOUNT, ONE SHOP, ONE WINDOW.** **The `DZC-042.g` caveat applies unchanged:
+> this is an observation about a live account, not a documented promise, and a different seller or
+> venture may behave differently.**
+>
+> **h.** 🔴 **NOTHING ELSE IS SETTLED AND NO BUSINESS DECISION IS TAKEN.** **The backfill window, the poll
+> cadence, shop fan-out and retry remain OPEN at `GAP-137`; `DZC-050`'s other unpublished facts stand;
+> and no migration number is proposed while the `V15` position is what
+> [`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4 and `OSC-060` describe.**
 
 ## Sources — §12
 
@@ -1560,6 +1630,7 @@ extend to `§13`** (`DZC-051.a`).
 
 | Version | Date | Change |
 |---|---|---|
+| **1.13.0** | **2026-08-23** | ✅ **`DZC-057` ADDED — THE `/orders/get` READ WAS RUN ONCE AND ACCEPTED (`code` `0`).** **One request for one connected Bangladesh shop over a 24-hour created-window, `offset` 0, page size 10 — no paging, no retry, no `/order/get`, no `/order/items/get`, nothing imported and nothing written.** ✅ **`DZC-050.d` IS SETTLED: the gateway accepted `limit` with no `E019`, so `limt` — which the provider's OWN parameter table prints and its OWN `E019` text contradicts — is treated as a typo unless future evidence says otherwise.** 🔴 **`DZC-042.d` WIDENED: `_trace_id_` appeared on a READ as well as a write, so it is a GENERAL envelope field rather than a write-path quirk, and the tolerate-unknown-fields obligation applies on every path.** ✅ **`DZC-042.e` corroborated — no `type` field on success here either.** ✅ **`DZC-045.e` CONFIRMED AGAINST A LIVE RESPONSE: thirty-two order fields returned and every one is documented, with no undocumented field appearing.** 🔴 **THE FIELD TABLE IS A CEILING, NOT A GUARANTEE — `address_updated_at` is documented and was NOT returned, so a mapper reads defensively and absent stays ABSENT (`SYS-034`).** ⚠ **`countTotal` 1 and `count` 1 settle NOTHING about volume, paging or retention; `DZC-050.a`'s unpublished retention limit is untouched.** ⚠ **One call, one account, one shop, one window — the `DZC-042.g` caveat applies unchanged.** 🔴 **No seller value recorded anywhere: outcomes, counts and field NAMES only.** 🔴 **No business decision taken — backfill window, cadence, fan-out and retry stay OPEN at `GAP-137`, and no migration number is proposed.** ⚠ **The number is out of physical sequence because `§13` had already taken `DZC-051`–`DZC-056`; `DOC-009` forbids renumbering.** |
 | **1.12.0** | **2026-08-23** | ✅ **§13 ADDED — `DZC-051`–`DZC-056`, THE ORDER NOTIFICATION PROTOCOL, RECORDED FROM THE DARAZ DEVELOPER GUIDE BEFORE ANY IMPLEMENTATION.** ✅ **Daraz publishes a webhook — the *Dazop Message Service* — carrying ORDER MESSAGES in two kinds: trade order (every order action except return and refund) and reverse order (return and refund).** ✅ **The push is a JSON `POST` to a seller-supplied HTTPS callback carrying `seller_id`, `message_type`, `data`, `timestamp` and `site`; authentication is a hex lower-case HMAC-SHA256 `Authorization` header over `app_key` + the raw body, and IP allow-listing is explicitly unsupported.** 🔴 **THE JOIN KEY IS ALREADY OURS: `trade_order_id` is published as mapping to the API's `order_id`, which `DZC-049.b` had already fixed as the external idempotency key — that is what lets a pushed and a polled read be recognised as the same order.** ✅ **Acknowledgement is HTTP 200 within 500 ms; retries are 30 minutes apart and STOP after more than twelve, so a message can be abandoned after a ~6-hour tail, and pushes abort entirely while a seller authorisation is revoked or expired.** ✅ **Subscription is a CONSOLE act by a signed-in human — an OV or EV certificate is required and DV is explicitly rejected.** 🔴 **THE DECISIVE CONSEQUENCE: the payload is NOT the order — no lines, buyer, address or money — so a webhook cannot replace `§12`'s read, and abandonment, authorisation lapse and the absence of ordering or at-most-once guarantees each independently force PERIODIC RECONCILIATION. "Webhook instead of polling" is not an available option, and the cadence question is therefore NOT settled by this discovery.** 🔴 **Eleven facts recorded NOT PUBLISHED, including the entire `message_type` enumeration, which type covers order CREATION, and whether the webhook is available on the BANGLADESH venture at all — the only published sample carries `daraz_pk`.** ⚠ **`BD-159` is partially answered on the provider side only: a mechanism exists, but the creation trigger is unestablished and legacy Trioloo behaviour is a discovery question no provider document can answer.** 🔴 **No Lazada source was used — Daraz names its own service and does not state that it shares Lazada's push mechanism, so `§12`'s corroboration licence does not extend here.** ⚠ **Documentation only — nothing implemented, no callback endpoint, no subscription, no App Console, no credential, no seller API call.** |
 | **1.11.0** | **2026-08-23** | ✅ **§12 ADDED — `DZC-043`–`DZC-050`, THE ORDER READ PROTOCOL, RECORDED FROM THE DARAZ-PUBLISHED REFERENCE BEFORE ANY IMPLEMENTATION.** 🔴 **THE DARAZ TREE IS THE AUTHORITY AND IS NOT THE LAZADA SET** — **Lazada publishes `GetOVOOrders` and `OrderCancelValidate` which Daraz does not; Daraz publishes `GetOrderLogisticDetail` and `GetOrderTrace` which Lazada does not.** ✅ **This closes the equivalence doubt `GAP-137` raised: the order paths are read from Daraz's own reference, not inferred from a product migration guide, and every order page prints the Bangladesh endpoint.** ✅ **Eight endpoints registered; four READS specified — `/orders/get`, `/order/get`, `/order/items/get`, `/orders/items/get`.** 🔴 **`SetInvoiceNumber` is the category's only WRITE, is named and unspecified, and NOTHING here authorises an order write.** ✅ **`/orders/get` records the conditional rule that one of `update_after` / `created_after` is mandatory, offset paging capped at 100, `created_at`/`updated_at` sorting, the DARAZ status set (`unpaid, pending, canceled, ready_to_ship, delivered, returned, shipped, failed`, with `topack`/`toship` published for white-list sellers only), the Daraz-only `mp3_Order`, the `data{countTotal,count,orders[]}` envelope, the order, buyer, billing/shipping-address and payment fields, and six error codes.** ✅ **The item fields, five published enumerations and four batch error codes are recorded from `/order/items/get` and `/orders/items/get`.** ✅ **`DZC-049` records what the protocol SUPPORTS — per-shop scoping by construction, `order_id` as the external idempotency key, incremental reading by `update_after` + `updated_at`, and 🔴 that with NO opaque cursor a checkpoint can only be a timestamp watermark that must be OVERLAPPED and deduplicated by `order_id`.** 🔴 **`DZC-050` records NINE things NOT PUBLISHED — no retention limit, no rate limit or throttle signal, no `E038` batch maximum, the provider's own `limt`/`limit` contradiction, unstated `update_after` inclusivity and timezone, unknowable white-list membership, unrendered webhook behaviour, the unpublished `sales_order_reason` table, and nothing about order writes.** 🔴 **NO BUSINESS DECISION IS RATIFIED: backfill window, poll cadence, shop fan-out, notification participation and retry all stay OPEN, and no migration number is proposed while the `V15` contradiction stands.** ⚠ **Documentation only — no code, no seller API call, no credential, no seller data.** |
 | **1.10.0** | **2026-08-21** | ✅ **`DZC-042` ADDED — THE LIVE PROBE WAS RUN ONCE AND ACCEPTED (`code` `0`).** ✅ **`ItemId` + `SellerSku` addresses a SKU for price and quantity — `DZC-039.e` answered YES, so price and stock need no `SkuId` and no schema change; deactivate and remove still do.** ✅ **A plain `<Quantity>` is accepted — `DZC-039.b` answered YES for this seller, with no `WarehouseCode`.** 🔴 **`DZC-035.e` AMENDED — the live success envelope carries `code`, `request_id` and `_trace_id_` and NO `data` node at all; `code` `0` is success whether or not `data` is present, and an envelope reader must tolerate unknown fields.** ⚠ **Observed from ONE call on ONE account, not a documented promise; `901` remains untested.** |

@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.1.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating is unblocked, no frame is) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.2.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating is unblocked, no frame is) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -409,6 +409,19 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > because that deployment applies whatever is pending as a side effect of starting.
 > **c.** 🔴 **AN ORDERS MIGRATION PROPOSED AGAINST AN ASSUMED CEILING WOULD BE A DEFECT**, and this contract
 > therefore describes the migration SURFACE without numbering it.
+>
+> ✅ **RESOLVED 2026-08-23. The wording above is retained** (`DOC-009`) **because it records the position
+> that was correct while the question was open.**
+>
+> **d.** ✅ **THE READ WAS PERFORMED.** **Production `flyway_schema_history` is at `V14`, `V15` is unapplied
+> and `channel_listing_review` is absent — because the DEPLOYED jar carries `V1`–`V14` and no `V15`.**
+> 🔴 **There was never a contradiction: `DEP-071` cannot apply a migration the deployed artifact does not
+> contain.**
+> **e.** ✅ **THE POSITION IS NOW A TAKEN DECISION** — **`DEP-125` applies `V15` deliberately on the next
+> deployment, behind the backup gate, and discontinues V15-free release branches.**
+> **f.** ✅ **THE BAR IS THEREFORE LIFTED AND AN ORDERS MIGRATION MAY BE NUMBERED.** 🔴 **Only after the
+> `DEP-031` pre-flight read confirms the applied ceiling at the time** — **`DEP-070.b` is unchanged and a
+> number is never taken from an assumed ceiling.**
 
 > **`OSC-061` — ✅ THE RECOMMENDED FIRST IMPLEMENTATION SLICE.**
 >
@@ -462,7 +475,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
 | `order.*` permission codes | 🔴 **Unratified — the hardest blocker** (`OSC-052`) |
-| Orders migration number | 🔴 **Not assignable until `flyway_schema_history` is read** (`OSC-060`) |
+| Orders migration number | ✅ **Assignable** — the read was done and `DEP-125` took the position; still only after the `DEP-031` pre-flight (`OSC-060.d`–`.f`) |
 | Capture / create / amend form | ⬜ **Not designed, deliberately unnumbered** (`OSC-020.b`) |
 
 ---
@@ -471,5 +484,6 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-08-23** | ✅ **`OSC-060` RESOLVED — THE MIGRATION BAR IS LIFTED.** **The production read was performed: `flyway_schema_history` is at `V14`, `V15` unapplied and `channel_listing_review` absent, BECAUSE the deployed jar carries `V1`–`V14` and no `V15`.** 🔴 **There was never a contradiction — `DEP-071` cannot apply a migration the deployed artifact does not contain.** ✅ **`DEP-125` then TOOK the position: `V15` is applied deliberately on the next deployment behind the backup gate, and V15-free release branches are discontinued.** 🔴 **A number is still assigned only AFTER the `DEP-031` pre-flight confirms the applied ceiling — `DEP-070.b` is unchanged and a ceiling is never assumed.** ⚠ **The superseded wording is retained (`DOC-009`) because it was correct while the question was open.** ⚠ **THIS CHANGES NO FRAME: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT and `OSC-050`'s blocked register is untouched.** |
 | **1.1.0** | **2026-08-23** | ✅ **`OSC-052` DISCHARGED BY `PRM-091`.** **The owning module named `order.channel-order.view` and `order.channel-order.sync`; the superseded wording is retained (`DOC-009`) because it records WHY the codes could not be invented here.** 🔴 **Neither grants Order mutation, inventory movement, payment or settlement action, shipment action, or any marketplace write** (`PRM-091.b`). ✅ **`PRM-091.c` keeps probe, incremental poll and backfill on the one `sync` code rather than inventing a third.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT, every entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.** ✅ **Documentation only in this contract — the first Orders code is a read-only diagnostic that creates no schema.** |
 | **1.0.0** | **2026-08-23** | **Initial ratification** (`DOC-094`). ✅ **Registers the *Trioloo Orders Screens* artifact and its two artboards as the approved Orders visual authority (`OSC-010`), and records the `FRAME 01`–`FRAME 09` register with NONE built.** ✅ **Fixes per frame what must be visible, what may be done, what must be refused, which rules govern and what coverage is owed.** 🔴 **Records ten blocked elements in one register (`OSC-050`) and decides none of them** — KPIs, the legacy label mapping, `B2C`, the `DRAFT` lifecycle, ageing, line-level cancel, cancel consequences, notes, reconcile, bulk transitions. 🔴 **Records that NO `order.*` permission code is ratified and that implementation may never coin one (`OSC-052`).** 🔴 **Records that the collection is a CARD LIST and never a table (`OSC-030`, `RULE 3.15`), and that a BLOCKED marker is NEUTRAL because canonical red is reserved for destructive action (`OSC-042.b`).** ⚠ **Records honestly that the pack is not yet tracked repo-locally (`OSC-011`) and that two higher-precedence Order design files were unreachable and did not inform it (`OSC-012`).** 🔴 **Preserves the `V15` production contradiction and forbids proposing any migration number until `flyway_schema_history` is read (`OSC-060`).** ✅ **Recommends a read-only `FRAME 01`/`02`/`08` first slice, shipping without status tabs until `GAP-017` is answered (`OSC-061`).** 🔴 **No business rule, entity, permission, endpoint, migration or visual decision created.** |
