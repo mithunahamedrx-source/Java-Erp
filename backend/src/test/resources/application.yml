@@ -16,6 +16,19 @@ spring:
     username: ${TEST_DB_USERNAME:trioloo_test}
     password: ${TEST_DB_PASSWORD}
 
+    # 🔴 TEST SCOPE ONLY. The suite caches SEVERAL Spring contexts — the full application plus
+    # each scoped command context — and every one holds its OWN connection pool for the whole
+    # run. At Hikari's default of 10 they multiply until PostgreSQL answers
+    # "remaining connection slots are reserved for roles with the SUPERUSER attribute", which
+    # fails as a CONTEXT LOAD error and is therefore reported against whichever test happened
+    # to load next rather than against the cause.
+    # ⚠ Adding one scoped command context is enough to cross the line, so the ceiling is
+    # removed here rather than left for the next command to rediscover.
+    # 🔴 Production is UNAFFECTED: this file is test scope, and no production pool is sized here.
+    hikari:
+      maximum-pool-size: 4
+      minimum-idle: 0
+
   jpa:
     hibernate:
       ddl-auto: validate

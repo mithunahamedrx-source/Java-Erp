@@ -3,6 +3,8 @@ package com.trioloo.erp;
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapApplication;
 import com.trioloo.erp.access.infrastructure.bootstrap.OwnerBootstrapRunner;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeApplication;
+import com.trioloo.erp.integration.infrastructure.diagnostic.DarazOrderPullApplication;
+import com.trioloo.erp.integration.infrastructure.diagnostic.DarazOrderPullRunner;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazPriceStockProbeApplication;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazPriceStockProbeRunner;
 import com.trioloo.erp.integration.infrastructure.diagnostic.DarazListingShapeRunner;
@@ -64,6 +66,19 @@ public class TriolooErpApplication {
         */
         if (DarazPriceStockProbeRunner.isProbeInvocation(args)) {
             SpringApplication probe = new SpringApplication(DarazPriceStockProbeApplication.class);
+            probe.setWebApplicationType(WebApplicationType.NONE);
+            probe.run(args);
+            return;
+        }
+
+        /*
+          🔴 THE ORDER PULL PROBE, IN ITS OWN SCOPED CONTEXT FOR THE SAME REASON.
+          ⚠ Reaching this line contacts nothing: the runner DEFAULTS to a dry run and demands a
+          second, read-specific confirmation before any seller API is called. It reads real
+          customer orders, so the safe path is the one a forgotten flag produces.
+        */
+        if (DarazOrderPullRunner.isProbeInvocation(args)) {
+            SpringApplication probe = new SpringApplication(DarazOrderPullApplication.class);
             probe.setWebApplicationType(WebApplicationType.NONE);
             probe.run(args);
             return;

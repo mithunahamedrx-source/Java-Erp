@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.0.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.1.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating is unblocked, no frame is) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -376,6 +376,19 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > naming the codes later changes a gate, not a layout** (`RULE 3.14.a.c`, the same reasoning).
 > **b.** 🔴 **THIS IS THE HARDEST BLOCKER ON ANY ORDERS BACKEND SLICE** and is named by the owning module
 > under `PRM-007`, not by this contract and not by implementation.
+>
+> ✅ **DISCHARGED 2026-08-23 BY `PRM-091`. The wording above is retained** (`DOC-009`) **because it was
+> correct when written and because it records WHY the codes could not simply be invented here.**
+>
+> **c.** ✅ **THE OWNING MODULE HAS NOW NAMED THEM:** **`order.channel-order.view`** — read-only dashboard
+> and detail — **and `order.channel-order.sync`** — initiate an inbound channel-order pull. **Two codes, and
+> `PRM-091.c` keeps probe, incremental poll and backfill on the one `sync` code rather than inventing a
+> third.**
+> **d.** 🔴 **NEITHER GRANTS ORDER MUTATION, INVENTORY MOVEMENT, PAYMENT OR SETTLEMENT ACTION, SHIPMENT
+> ACTION, OR ANY MARKETPLACE WRITE** (`PRM-091.b`). ⚠ **The frames may now cite them; `OSC-044` still
+> requires the gate to live in the application service.**
+> **e.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES.** **`FRAME 01`–`FRAME 09` remain `⬜ Not built`, every
+> entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.**
 
 ---
 
@@ -458,4 +471,5 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.1.0** | **2026-08-23** | ✅ **`OSC-052` DISCHARGED BY `PRM-091`.** **The owning module named `order.channel-order.view` and `order.channel-order.sync`; the superseded wording is retained (`DOC-009`) because it records WHY the codes could not be invented here.** 🔴 **Neither grants Order mutation, inventory movement, payment or settlement action, shipment action, or any marketplace write** (`PRM-091.b`). ✅ **`PRM-091.c` keeps probe, incremental poll and backfill on the one `sync` code rather than inventing a third.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT, every entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.** ✅ **Documentation only in this contract — the first Orders code is a read-only diagnostic that creates no schema.** |
 | **1.0.0** | **2026-08-23** | **Initial ratification** (`DOC-094`). ✅ **Registers the *Trioloo Orders Screens* artifact and its two artboards as the approved Orders visual authority (`OSC-010`), and records the `FRAME 01`–`FRAME 09` register with NONE built.** ✅ **Fixes per frame what must be visible, what may be done, what must be refused, which rules govern and what coverage is owed.** 🔴 **Records ten blocked elements in one register (`OSC-050`) and decides none of them** — KPIs, the legacy label mapping, `B2C`, the `DRAFT` lifecycle, ageing, line-level cancel, cancel consequences, notes, reconcile, bulk transitions. 🔴 **Records that NO `order.*` permission code is ratified and that implementation may never coin one (`OSC-052`).** 🔴 **Records that the collection is a CARD LIST and never a table (`OSC-030`, `RULE 3.15`), and that a BLOCKED marker is NEUTRAL because canonical red is reserved for destructive action (`OSC-042.b`).** ⚠ **Records honestly that the pack is not yet tracked repo-locally (`OSC-011`) and that two higher-precedence Order design files were unreachable and did not inform it (`OSC-012`).** 🔴 **Preserves the `V15` production contradiction and forbids proposing any migration number until `flyway_schema_history` is read (`OSC-060`).** ✅ **Recommends a read-only `FRAME 01`/`02`/`08` first slice, shipping without status tabs until `GAP-017` is answered (`OSC-061`).** 🔴 **No business rule, entity, permission, endpoint, migration or visual decision created.** |

@@ -1,7 +1,7 @@
 # Permission Architecture
 
 **Owner:** Trioloo Technology · **Module:** Permission · **Status:** Canonical
-**Version:** 1.13.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
+**Version:** 1.14.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-23 (**`PRM-091` — the Order MVP capability codes `order.channel-order.view` and `order.channel-order.sync`; neither grants Order mutation, inventory movement, payment/settlement, shipment action or any marketplace write**) · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
 
 ---
 
@@ -166,6 +166,30 @@ A permission is the right to perform one **action** on one **subject type**.
 > **b.** ✅ **The owning module differs between the first three and the fourth, and that is deliberate:** **the record is System's** (`DM-084.b`) **and the authorisation is Integration's** (`API-069`). **`PRM-089.a` makes that visible in the code itself.**
 > **c.** 🔴 **BACKEND ENFORCEMENT REMAINS MANDATORY** (`PRM-004`). **A hidden control is not an authorisation control.**
 > **d.** ⚠ **`PRM-064`'s Marketplace Shop SCOPE dimension is unaffected.** **These are CAPABILITIES; scope bounds which instances a capability reaches** (`PRM-009`, `SYS-020`), **and the two remain separate mechanisms.**
+
+> **PRM-091 — ✅ THE ORDER MVP CAPABILITY CODES. Ratified 2026-08-23 on confirmed business decision.**
+>
+> **Derived under `PRM-089` and named by the owning module** (`PRM-007`) — **Order Management.** ⚠ **The Orders workspace has been reachable with NO permission attached at all; these close that, and nothing implements them beyond the read-only diagnostic named in `.f`.**
+>
+> | Code | Grants | Explicitly does NOT grant |
+> |---|---|---|
+> | **`order.channel-order.view`** | **READ-ONLY access to the Orders dashboard and Order detail** — view, search, filter, list and read detail | 🔴 **Any change to an Order, any inbound pull, any outbound act** |
+> | **`order.channel-order.sync`** | **INITIATE AN INBOUND CHANNEL-ORDER PULL** — the probe, an incremental read and a historical backfill alike | 🔴 **Viewing. Any Order mutation. Any marketplace write** |
+>
+> **a.** 🔴 **THE TWO ARE INDEPENDENT, IN THE SAME WAY THE LISTINGS FOUR ARE** (`PRD-196`, `PRM-090.a`). **VIEW NEVER IMPLIES SYNC, AND SYNC NEVER IMPLIES VIEW.** ⚠ **A channel-scoped run consumes external quota and rewrites the mirrored side wholesale; reading a single order on screen does not.** ✅ **This mirrors `product.channel-listing.view` / `.sync` exactly, and deliberately so** (`PRD-196.d`).
+>
+> **b.** 🔴 **NEITHER GRANTS ANY OF THE FOLLOWING, AT ANY SCOPE.** **Order mutation — creation, amendment, confirmation, release, hold, cancellation** · **inventory movement or reservation** (`BR-096`, `BR-004`) · **payment, receipt, refund or settlement action** (`SM-5`, `SM-6`) · **shipment or fulfilment action** (`SM-3`, `SM-4`) · **any marketplace WRITE, including `SetInvoiceNumber`** (`DZC-044.a`).
+> **b.i.** ⚠ **THIS IS STATED POSITIVELY BECAUSE THE PULL LOOKS LIKE A BIG ACT AND IS NOT ONE.** **An inbound read mirrors an external fact** (`OM §3.5`, `BR-168`) **and touches nothing Trioloo owns.**
+>
+> **c.** 🔴 **`sync` IS ONE CODE FOR ONE ACT AT THREE WINDOWS.** **A probe, an incremental poll and an initial backfill are the same inbound read with different bounds.** ⚠ **No separate backfill or probe capability is created** — **`PRM-089.b` is a spelling rule and not a generator, and a code exists only where a canonical capability does.**
+>
+> **d.** 🔴 **BACKEND ENFORCEMENT REMAINS MANDATORY** (`PRM-004`, `OSC-044`). **A hidden control is not an authorisation control**, and the gate lives in the application service, never in a controller annotation.
+>
+> **e.** ⚠ **`PRM-064`'s Marketplace Shop SCOPE dimension is unaffected**, and it is the mechanism that bounds WHICH shops a `sync` holder may pull (`API-071.a`). **Capability and scope stay separate** (`PRM-009`).
+>
+> **f.** ✅ **WHAT EXISTS TODAY IS A READ-ONLY DIAGNOSTIC, NOT A FEATURE.** **No Order table, endpoint, screen, scheduler or import exists**, and `OSC-052`'s blocker is discharged only in the sense that the codes are now RATIFIED and may be referenced. 🔴 **`GAP-137`'s business questions — backfill window, cadence, shop fan-out, retry — are untouched by this rule.**
+>
+> **g.** 🔴 **THE MODULE SEGMENT IS `order`, AND IT IS PERMANENT** (`DOC-013`, `PRM-089.a`). **Order Management owns these actions, so the first segment names it.**
 
 ## 5.3 Authority magnitude
 
