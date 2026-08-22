@@ -1,6 +1,6 @@
 # Listings — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.15.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-20 (`LSC-061` — operator surfaces drop intended-vs-reported as the mental model, per `PRD-204`) · **Amended:** 2026-08-19 (`LSC-060` — `FRAME 06` tabbed product view; refinement authority recorded) · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.16.0 · **Ratified:** 2026-08-18 · **Amended:** 2026-08-20 (`LSC-061` — operator surfaces drop intended-vs-reported as the mental model, per `PRD-204`) · **Amended:** 2026-08-19 (`LSC-060` — `FRAME 06` tabbed product view; refinement authority recorded) · **Amended:** 2026-08-19 (`LSC-059` — readable/editable/pushable separated; capability read from the adapter) · **Amended:** 2026-08-19 (`LSC-058` — provider markup normalised for display only) · **Amended:** 2026-08-18 (`LSC-057` — `FRAME 19` inbound half reconciled; frame still partial) · **Amended:** 2026-08-18 (`LSC-056` — `FRAME 20` implemented; four result figures unavailable) · **Amended:** 2026-08-18 (`LSC-055` — `FRAME 10` explains an unauthored Listing; no title or business rule changed) · **Amended:** 2026-08-18 (`LSC-054` — `FRAME 20`’s per-listing data source exists; frame still blocked) · **Amended:** 2026-08-18 (`LSC-052` — a read-only Daraz adapter exists) · **Amended:** 2026-08-18 (`LSC-040` test-coverage range corrected) · **Amended:** 2026-08-18 (`FRAME 22` implemented) · **Amended:** 2026-08-18 (`FRAME 21` implemented) · **Amended:** 2026-08-18 (`FRAME 17` accepted as implemented) · **Amended:** 2026-08-18 (`LSC-050.b` — the `FRAME 17` apply set) · **Rule prefix:** `LSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Listings Feature Pack as the visual
 > authority, fixes which frames are built and which are not, and states the implementation constraints that
@@ -576,6 +576,40 @@ this document follows.
 > correct for a form that opened empty; once `FRAME 10` seeds from the marketplace current values
 > the empty case is the exception rather than the rule.**
 >
+> **`LSC-063` — ✅ ADDED 2026-08-21. THE PUSH CONTROL LIVES ON `FRAME 10`, UNDER SAVE, AND IS
+> DRIVEN BY THE CHANNEL'S OWN DECLARATION.**
+>
+> **a.** ✅ **IT SITS IN THE EDIT SIDEBAR, DIRECTLY UNDER SAVE DRAFT.** 🔴 **NOT on the comparison
+> surface** (`PRD-204.e` — divergence is not the everyday path) **and NOT on a route of its own**
+> (`PRD-204.d` — routing ordinary work through extra screens is the habit that was removed).
+> ⚠ **Adjacency is what teaches the difference: one control keeps the change, the other sends it.**
+>
+> **b.** 🔴 **THE WORDING IS GENERATED FROM THE DECLARATION, NEVER HARDCODED.** ⚠ **A fixed list is
+> correct only until the declaration changes** — **and the build deployed on 2026-08-21 proved it:
+> after the adapter began declaring two fields writable, the page went on insisting none were.**
+>
+> **c.** ⚠ **UNKNOWN IS NOT "NOTHING".** **While the channel list is still loading the page claims
+> NEITHER way and shows no notice**; **a default of "nothing is writable" is a falsehood with a
+> short lifetime, which is still a falsehood.**
+>
+> **d.** ✅ **THE CONTROL APPEARS ONLY WHERE A PUSH-SUPPORTED FIELD ACTUALLY CHANGED** (`LSC-062.b`).
+> 🔴 **A local-only draft shows a stated REASON instead of a dead control.**
+>
+> **e.** 🔴 **THE DIALOG NAMES WHAT GOES AND WHAT STAYS** (`LSC-062.c`, `PRD-205.f`). ⚠ **It lists
+> the fields that will ACTUALLY be sent — the backend sends the listing's current values for every
+> supported field, not only the one just edited — so naming only the edited field would misdescribe
+> the request.**
+>
+> **f.** 🔴 **IT CONFIRMS AN ACT, NOT A PAYLOAD.** **No marketplace identifier, Seller SKU, price,
+> quantity, token, signature or raw XML appears on the surface.**
+>
+> **g.** 🔴 **IT NEVER REPORTS SUCCESS ON THE ADAPTER'S BEHALF.** **The operation settles server-side,
+> so the page says a request was MADE and that the outcome — accepted, refused, or needing another
+> attempt — is recorded on the Listing.** ⚠ **A throttle is not a refusal** (`DZC-038.e`).
+>
+> **h.** ✅ **NO BACKEND CHANGE WAS NEEDED.** **`POST /operations` already routes `PUSH_UPDATE` to
+> the adapter with actor attribution.**
+
 > **`LSC-062` — ✅ ADDED 2026-08-21. PUSH IS AVAILABLE FOR SALE PRICE AND LISTING STOCK, AND FOR
 > NOTHING ELSE, PER `PRD-205`.**
 >
@@ -661,6 +695,7 @@ this document follows.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.16.0** | **2026-08-21** | ✅ **`LSC-063` ADDED — THE PUSH CONTROL LIVES ON `FRAME 10`, UNDER SAVE DRAFT, AND IS DRIVEN BY THE CHANNEL'S OWN DECLARATION.** 🔴 **Not the comparison surface and not a route of its own; adjacency is what teaches save from send.** 🔴 **The wording is generated, never hardcoded — the build deployed 2026-08-21 proved why, insisting no field was writable after the adapter began declaring two.** ⚠ **Unknown is not "nothing": while the declaration is loading the page claims neither way.** ✅ **The control appears only where a push-supported field changed; a local-only draft gets a stated reason, not a dead control.** 🔴 **The dialog names what goes and what stays, confirms an ACT rather than a payload, and never reports success on the adapter's behalf — a throttle is not a refusal.** ✅ **No backend change was needed. Frontend 696/696; build clean.** |
 | **1.15.0** | **2026-08-21** | ✅ **`LSC-062` ADDED — PUSH IS AVAILABLE FOR SALE PRICE AND LISTING STOCK AND FOR NOTHING ELSE (`PRD-205`).** **`FRAME 10` marks those two push-supported and every other field local-only with a short reason.** 🔴 **The push control is offered only when a draft actually holds a push-supported change; a local-only draft cannot be pushed and the surface says why.** 🔴 **A mixed draft states its partial slice plainly — only price and stock are sent, the rest stays local.** ✅ **`LSC-061`'s blanket push-unavailable wording is NARROWED, not reversed; save is still not push and no Accept Marketplace returns.** |
 | **1.14.1** | **2026-08-21** | ⚠ **`LSC-061.i` ANNOTATED — the push-unavailable wording is UNCHANGED by the Daraz write protocol being documented.** **`DZC-033`–`DZC-040` record what the provider publishes; nothing is implemented, no field became writable, and every surface stays as it is until a push is separately ratified (`GAP-136`).** ✅ **Documentation only — no code, no test, no deployment.** |
 | **1.14.0** | **2026-08-20** | ✅ **`LSC-061.i` — THE EDIT FORM IS BUILT.** **`FRAME 10` opens on the MARKETPLACE CURRENT VALUES — title, description, price, promotion and window, stock, category — wherever no local draft exists; a local draft always wins, and an unreadable value seeds nothing.** 🔴 **Seeding is not writing: opening the page persists nothing, and a test asserts no PUT or POST leaves the page on render.** ✅ **The save control is named *Save draft*; provider markup is normalised for editing only, with the stored value untouched.** 🔴 **The Accept Marketplace route — including the *Compare intended vs reported* link that was the only way out of the blank form — is gone, replaced by a notice naming where the values came from.** 🔴 **Push is stated unavailable: Daraz declares no listing field writable, so a save is local-only and no control implies otherwise.** ⚠ **No column renamed, no schema migrated — the draft still stores on the intended side.** ✅ **Frontend and docs only. `src/product` + `src/design` 686/686; build clean.** |

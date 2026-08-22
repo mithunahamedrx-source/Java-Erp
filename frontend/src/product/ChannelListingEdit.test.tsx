@@ -19,10 +19,27 @@ import type { ChannelListing, ChannelListingSku } from './channelListingApi';
  * listing-level price onto a variation listing (`INV-106.2`).
  */
 
+/**
+ * ✅ WHAT THE DEPLOYED ADAPTER ACTUALLY DECLARES (`PRD-205.a`): sale price and listing stock
+ * writable, everything else readable-only.
+ *
+ * <p>🔴 THE UI READS THIS RATHER THAN ASSUMING IT (`LSC-062`), which is what these fixtures are
+ * for — the second channel below declares NOTHING writable, and the same page must then say so.
+ */
+const DARAZ_CAPABILITIES = [
+  'title', 'description', 'sale_price', 'promotion_price', 'listing_stock',
+  'media', 'channel_category', 'attributes', 'orderable_skus',
+].map((fieldKey) => ({
+  fieldKey,
+  readable: true,
+  writable: fieldKey === 'sale_price' || fieldKey === 'listing_stock',
+}));
+
 const CHANNELS = [
   {
     id: 'ch-1', code: 'DARAZ-A', name: 'Daraz account A', channelType: 'DARAZ',
-    adapterAvailable: false, knownListings: 12, lastSyncAt: null, capabilities: [],
+    adapterAvailable: false, knownListings: 12, lastSyncAt: null,
+    capabilities: DARAZ_CAPABILITIES,
   },
   {
     id: 'ch-2', code: 'DARAZ-B', name: 'Daraz account B', channelType: 'DARAZ',
@@ -147,6 +164,8 @@ const UNPUBLISHED: ChannelListing = {
 let sent: { url: string; method: string; body: unknown }[] = [];
 let listingResponse: Partial<ChannelListing> | null = LISTING;
 let listingStatus = 200;
+/* ⚠ Mutable so a test can present a channel that declares NOTHING writable. */
+let channelsResponse: unknown = CHANNELS;
 
 function stubApi(permissions: readonly string[] = [
   'product.channel-listing.view',
@@ -164,7 +183,7 @@ function stubApi(permissions: readonly string[] = [
     if (url.includes('/api/auth/me')) {
       return json({ id: 'dev', username: 'devuser', fullName: 'Dev User', roles: [], permissions });
     }
-    if (url.includes('/channels')) return json(CHANNELS);
+    if (url.includes('/channels')) return json(channelsResponse);
     if (url.includes('/sellable-products')) {
       return json({ content: [], page: 0, size: 6, totalElements: 0, totalPages: 0 });
     }
@@ -892,8 +911,8 @@ const DISCOVERED: ChannelListing = {
 };
 
 describe('Frame 10 — a discovered Listing opens on the marketplace values', () => {
-  beforeEach(() => { listingResponse = DISCOVERED; listingStatus = 200; stubApi(); });
-  afterEach(() => { listingResponse = LISTING; cleanup(); vi.unstubAllGlobals(); });
+  beforeEach(() => { channelsResponse = CHANNELS; listingResponse = DISCOVERED; listingStatus = 200; stubApi(); });
+  afterEach(() => { channelsResponse = CHANNELS; listingResponse = LISTING; cleanup(); vi.unstubAllGlobals(); });
 
   /**
    * 🔴 `PRD-204.c` — THE FORM OPENS ON THE MARKETPLACE'S CURRENT VALUES. It used to open blank
@@ -948,28 +967,12 @@ describe('Frame 10 — a discovered Listing opens on the marketplace values', ()
     expect(document.body.textContent).not.toContain('Compare intended vs reported');
   });
 
-  /**
-   * ✅ `PRD-205`/`LSC-062` — TWO FIELDS ARE PUSH-SUPPORTED AND THE REST ARE NOT, and the page says
-   * exactly that. 🔴 `PRD-205.f` — a partial slice is STATED, never silently narrowed: sending two
-   * fields while implying all of them went is the worst failure available here.
-   */
-  it('names Sale Price and Listing stock as the only push-supported fields', async () => {
-    await loaded();
-    const notice = screen.getByTestId('edit-push-unavailable');
-    expect(notice.textContent).toContain('Sale Price');
-    expect(notice.textContent).toContain('Listing stock');
-    /* 🔴 Everything else is named as local-only, not left to inference. */
-    expect(notice.textContent).toContain('local-only');
-    expect(notice.textContent).toContain('title, description, highlights, attributes, category and media');
-    /* ⚠ `PRD-185` — saving is still not sending. */
-    expect(notice.textContent).toContain('separate step from saving');
-  });
-
-  /** 🔴 No blanket claim that nothing can be pushed survives — that wording is now false. */
-  it('no longer claims the channel declares nothing writable', async () => {
-    await loaded();
-    expect(document.body.textContent).not.toContain('does not declare any listing field writable');
-  });
+  /*
+    ⚠ THE HARDCODED-WORDING TESTS THAT STOOD HERE ARE SUPERSEDED. They asserted a fixed list of
+    local-only field names, which is exactly what `LSC-062` forbids the page from carrying. The
+    capability-driven behaviour they were reaching for is proven in
+    "Frame 10 — the push control is capability-driven" below, against TWO different declarations.
+  */
 
   /** ✅ The value is IN the field now, so it is not repeated as context beside it. */
   it('does not repeat the marketplace value beside a field that holds it', async () => {
@@ -995,5 +998,166 @@ describe('Frame 10 — a discovered Listing opens on the marketplace values', ()
     await loaded();
     expect(screen.queryByTestId('edit-unauthored-notice')).toBeNull();
     expect(screen.queryByTestId('reported-intendedTitle')).toBeNull();
+  });
+});
+
+/**
+ * `LSC-062` — WHAT CAN BE SENT IS READ FROM THE CHANNEL, NEVER HARDCODED.
+ *
+ * 🔴 The deployed build hardcoded it, so when the adapter began declaring two fields writable the
+ * page went on insisting nothing was. These tests exist so that cannot recur: the same page is
+ * driven from two different declarations and must say two different things.
+ */
+describe('Frame 10 — the push control is capability-driven', () => {
+  beforeEach(() => { channelsResponse = CHANNELS; listingResponse = DISCOVERED; listingStatus = 200; stubApi(); });
+  afterEach(() => { channelsResponse = CHANNELS; listingResponse = LISTING; cleanup(); vi.unstubAllGlobals(); });
+
+  /** ✅ With the deployed declaration, the two fields are named as sendable. */
+  it('names the declared writable fields', async () => {
+    await loaded();
+    /* ⚠ The notice waits for the declaration rather than guessing at it. */
+    await waitFor(() => expect(screen.getByTestId('edit-push-unavailable')).toBeTruthy());
+    const notice = screen.getByTestId('edit-push-unavailable');
+    expect(notice.textContent).toContain('Sale Price and Listing stock');
+    expect(notice.textContent).toContain('local-only');
+    /* ⚠ `PRD-185` — saving is still not sending. */
+    expect(notice.textContent).toContain('separate step from saving');
+    /* 🔴 The old blanket falsehood is gone. */
+    expect(document.body.textContent).not.toContain('does not declare any listing field writable');
+  });
+
+  /**
+   * 🔴 THE PROOF THAT IT IS NOT HARDCODED. Same page, a channel declaring nothing writable, and
+   * the wording must revert on its own.
+   */
+  it('says nothing is sendable when the channel declares nothing writable', async () => {
+    channelsResponse = CHANNELS.map((c) => ({ ...c, capabilities: [] }));
+    stubApi();
+    await loaded();
+
+    const notice = screen.getByTestId('edit-push-unavailable');
+    expect(notice.textContent).toContain('does not declare any listing field writable');
+    expect(notice.textContent).not.toContain('Sale Price and Listing stock');
+    /* 🔴 And no control is offered, whatever is edited. */
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '5.00' } });
+    expect(screen.queryByTestId('create-push')).toBeNull();
+  });
+
+  /** 🔴 `LSC-062.b` — nothing changed, nothing to send, no control. */
+  it('offers no push control before anything is edited', async () => {
+    await loaded();
+    expect(screen.queryByTestId('create-push')).toBeNull();
+    expect(screen.queryByTestId('create-push-unavailable')).toBeNull();
+  });
+
+  /**
+   * 🔴 `LSC-062.b` — A LOCAL-ONLY DRAFT CANNOT BE PUSHED, AND THE REASON IS STATED. A control that
+   * cannot act is worse than no control.
+   */
+  it('refuses a draft of local-only changes and says why', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-intended-title'), { target: { value: 'A new title' } });
+
+    expect(screen.queryByTestId('create-push')).toBeNull();
+    const reason = screen.getByTestId('create-push-unavailable');
+    expect(reason.textContent).toContain('Nothing in this change can be sent');
+    expect(reason.textContent).toContain('Sale Price and Listing stock');
+  });
+
+  /** ✅ A push-supported change offers the control, in Trioloo's own short wording. */
+  it('offers the control once a push-supported field changes', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+
+    const button = screen.getByTestId('create-push');
+    expect(button.textContent).toContain('Review push');
+    expect(screen.queryByTestId('create-push-unavailable')).toBeNull();
+  });
+
+  /**
+   * 🔴 `LSC-062.c` / `PRD-205.f` — A MIXED DRAFT STATES ITS PARTIAL SLICE. Implying a full push is
+   * the failure this clause exists to prevent.
+   */
+  it('tells a mixed draft what stays local', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+    fireEvent.change(screen.getByTestId('field-intended-title'), { target: { value: 'Also edited' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+
+    const dialog = screen.getByTestId('push-dialog');
+    expect(dialog.textContent).toContain('Sale Price');
+    expect(dialog.textContent).toContain('not sent');
+    expect(dialog.textContent).toContain('local draft');
+  });
+
+  /** ✅ A supported-only draft is not told that other edits stay behind, because none do. */
+  it('does not invent leftover edits when the draft is fully sendable', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-published-stock'), { target: { value: '7' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+
+    const dialog = screen.getByTestId('push-dialog');
+    expect(dialog.textContent).toContain('Saving alone would not have sent anything');
+    expect(dialog.textContent).not.toContain('Your other edits are not sent');
+  });
+
+  /** ✅ The confirm sends exactly one PUSH_UPDATE for this listing, and nothing else. */
+  it('requests exactly one PUSH_UPDATE operation', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+    fireEvent.click(screen.getByTestId('push-dialog-confirm'));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    const request = sent[0]!;
+    expect(request.url).toContain('/operations');
+    expect(request.method).toBe('POST');
+    expect((request.body as { kind: string }).kind).toBe('PUSH_UPDATE');
+    expect((request.body as { listingIds: string[] }).listingIds).toEqual(['L-1']);
+  });
+
+  /**
+   * 🔴 IT NEVER REPORTS SUCCESS ON THE ADAPTER'S BEHALF. The batch settles server-side, so the
+   * page says a request was MADE — including that it may need another attempt.
+   */
+  it('reports that the outcome is recorded, not that it succeeded', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+    fireEvent.click(screen.getByTestId('push-dialog-confirm'));
+
+    await waitFor(() => expect(screen.getByTestId('create-push-requested')).toBeTruthy());
+    const note = screen.getByTestId('create-push-requested').textContent ?? '';
+    expect(note).toContain('needing another attempt');
+    expect(note).not.toContain('Accepted by');
+    expect(note).not.toContain('succeeded');
+  });
+
+  /**
+   * 🔴 THE OPERATOR CONFIRMS AN ACT, NOT A PAYLOAD. No marketplace identifier, value, token or
+   * signature appears anywhere on the page.
+   */
+  it('exposes no identifier, token or signature', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+
+    const dialog = screen.getByTestId('push-dialog').textContent ?? '';
+    expect(dialog).not.toContain('244613983');
+    expect(dialog).not.toContain('ELT0');
+    expect(dialog).not.toContain('sign');
+    expect(dialog).not.toContain('access_token');
+    expect(dialog).not.toContain('<Request>');
+    expect(dialog).not.toContain('api.daraz');
+  });
+
+  /** 🔴 `PRD-204.d` — the old workflow does not return through this door. */
+  it('reintroduces no Accept Marketplace workflow', async () => {
+    await loaded();
+    fireEvent.change(screen.getByTestId('field-sale-price'), { target: { value: '51000.00' } });
+    fireEvent.click(screen.getByTestId('create-push'));
+
+    expect(document.body.textContent).not.toContain('Accept Marketplace');
+    expect(document.body.textContent).not.toContain('Compare intended vs reported');
   });
 });

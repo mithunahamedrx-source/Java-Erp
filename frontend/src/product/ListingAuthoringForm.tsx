@@ -4,13 +4,15 @@ import { PageHeader } from '../shell/AppShell';
 import { ACTION_ICON, ACTION_ICON_SIZE, ACTION_ICON_STROKE } from '../shell/icons';
 import { Notice, buttonStyle } from '../ui/primitives';
 import { useAuth } from '../auth/AuthContext';
-import { fetchChannels } from './channelListingApi';
+import { fetchChannels, requestOperation } from './channelListingApi';
+import { declaresWritable } from './ChannelListingComparison';
 import { listSellableProducts } from './sellableProductApi';
 import type { CapabilityView, ChannelListing, ChannelView } from './channelListingApi';
 import type { SellableProduct } from './sellableProductApi';
 import { compareDecimalStrings, formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
 import { MappingModal } from './MappingModal';
+import { ConfirmDialog } from '../ui/Overlay';
 import { ListingAiAssist } from './ListingAiAssist';
 import type { AiAcceptance } from './ListingAiAssist';
 import type { AiAuthoringKind } from './channelListingApi';
@@ -147,6 +149,8 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
   const editing = mode.kind === 'edit';
 
   const [channels, setChannels] = useState<readonly ChannelView[]>([]);
+  /* ⚠ Until the channel list resolves, what it accepts is UNKNOWN — not 'nothing'. */
+  const [capabilitiesKnown, setCapabilitiesKnown] = useState(false);
   const [draft, setDraft] = useState<Draft>(mode.initial);
   /*
     ⚠ OPEN WHEN THERE IS SOMETHING TO SHOW. A listing that already carries a promotion must
@@ -181,7 +185,10 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
-    fetchChannels().then(setChannels).catch(() => setChannels([]));
+    fetchChannels()
+      .then(setChannels)
+      .catch(() => setChannels([]))
+      .finally(() => setCapabilitiesKnown(true));
   }, []);
 
   /**
@@ -280,6 +287,85 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
   const sellerSkuLocked = editing && (published || skuCount > 1);
 
   const channel = channels.find((c) => c.code === draft.channelInstance) ?? null;
+
+  /*
+    🔴 `LSC-062` — WHAT CAN BE SENT IS READ FROM THE CHANNEL'S OWN DECLARATION, NEVER HARDCODED.
+    A fixed list would be correct only until the declaration changed, and would then state a
+    falsehood with total confidence — which is exactly what the deployed build did after the
+    adapter began declaring two fields writable.
+  */
+  const pricePushable = declaresWritable(channel?.capabilities, 'sale_price');
+  const stockPushable = declaresWritable(channel?.capabilities, 'listing_stock');
+  const anyPushable = pricePushable || stockPushable;
+
+  /*
+    🔴 THE FIELDS THAT WOULD ACTUALLY GO. The backend sends the listing's CURRENT local values for
+    every push-supported field, not only the one just edited, so naming only the edited field
+    would misdescribe the request. ⚠ What is listed here is what the wire will carry.
+  */
+  const pushFields = useMemo(() => {
+    const out: string[] = [];
+    if (pricePushable && draft.salePrice.trim() !== '') out.push('Sale Price');
+    if (stockPushable && draft.publishedMarketplaceStock.trim() !== '') out.push('Listing stock');
+    return out;
+  }, [pricePushable, stockPushable, draft.salePrice, draft.publishedMarketplaceStock]);
+
+  /*
+    ⚠ `LSC-062.b` — THE CONTROL IS OFFERED ONLY WHERE A PUSH-SUPPORTED FIELD ACTUALLY CHANGED.
+    A draft of local-only edits alone cannot be pushed, and a control that cannot act is worse
+    than no control.
+  */
+  const supportedChanged = useMemo(() =>
+    (pricePushable && draft.salePrice !== mode.initial.salePrice)
+    || (stockPushable && draft.publishedMarketplaceStock !== mode.initial.publishedMarketplaceStock),
+  [pricePushable, stockPushable, draft.salePrice, draft.publishedMarketplaceStock,
+    mode.initial.salePrice, mode.initial.publishedMarketplaceStock]);
+
+  /* ⚠ `LSC-062.c` — a mixed draft must SAY it is partial rather than imply a full push. */
+  const localOnlyChanged = useMemo(() =>
+    (Object.keys(draft) as (keyof Draft)[]).some((k) =>
+      draft[k] !== mode.initial[k]
+      && !(pricePushable && k === 'salePrice')
+      && !(stockPushable && k === 'publishedMarketplaceStock')),
+  [draft, mode.initial, pricePushable, stockPushable]);
+
+  const [pushOpen, setPushOpen] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushRequested, setPushRequested] = useState(false);
+
+  /**
+   * Sends the push-supported fields, as its own recorded operation.
+   *
+   * <p>🔴 IT IS NOT A SAVE AND NEVER IMPLIES ONE (`PRD-185`). The draft must already be saved;
+   * this asks the backend to send what the Listing currently holds for the supported fields.
+   *
+   * <p>🔴 IT REPORTS WHAT ACTUALLY HAPPENED. The batch is requested and the operator is sent to
+   * the Listing, where the operation's own outcome — accepted, refused, or throttled and needing
+   * another attempt — is the record. ⚠ Nothing here reports success on the adapter's behalf.
+   */
+  const push = async (): Promise<void> => {
+    if (!mode.existing) return;
+    setPushing(true);
+    setPushError(null);
+    try {
+      await requestOperation('PUSH_UPDATE', [mode.existing.id],
+        `Push ${pushFields.join(' and ')} from Edit`);
+      setPushOpen(false);
+      /*
+        ⚠ THE OUTCOME IS NOT KNOWN HERE. The batch is requested and settles server-side, so this
+        says a request was MADE — never that the marketplace accepted it. The Listing's own
+        activity carries the verdict, including a throttle that needs another attempt.
+      */
+      setPushRequested(true);
+    } catch (cause) {
+      /* ⚠ The failure is the provider's or the platform's, and it is shown as it came. */
+      setPushError(cause instanceof Error ? cause.message : 'The change could not be sent.');
+    } finally {
+      setPushing(false);
+    }
+  };
+
   const highlights = highlightLines(draft.highlights);
   const highlightsBn = highlightLines(draft.highlightsBn);
   const activeHighlights = language === 'EN' ? highlights : highlightsBn;
@@ -567,26 +653,35 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
             creates a local draft (`PRD-204.c`, `PRD-204.f`).
           */}
           {/*
-            🔴 `PRD-205` — TWO FIELDS ARE PUSH-SUPPORTED, AND THE REST ARE NOT. Sale Price and
-            Listing stock are the only fields Daraz declares writable, because they are the only
-            ones Trioloo can also read back and therefore VERIFY (`PRD-186`).
+            🔴 `LSC-062` — THIS TEXT IS GENERATED FROM THE CHANNEL'S DECLARATION. The previous
+            build hardcoded it, so when the adapter began declaring two fields writable the
+            deployed page went on insisting nothing was — stating a falsehood with confidence.
 
-            🔴 `PRD-205.f` — A PARTIAL SLICE MUST BE STATED, NEVER SILENTLY NARROWED. Sending two
-            fields while implying all of them went is the single worst failure available here.
-
-            ⚠ SAVE IS STILL NOT PUSH (`PRD-185`). This says what CAN be sent, not that saving sends
-            it — pushing remains a separate, separately-authorised act.
+            🔴 `PRD-205.f` — A PARTIAL SLICE IS STATED, NEVER SILENTLY NARROWED. Sending two
+            fields while implying all of them went is the worst failure available here.
           */}
-          {editing && (
+          {editing && capabilitiesKnown && (
             <Notice
               tone="info"
-              title="Only Sale Price and Listing stock can be sent to this channel"
+              title={anyPushable
+                ? `Only ${pushableNames(pricePushable, stockPushable)} can be sent to this channel`
+                : 'Saved changes stay in Trioloo — push is not available yet'}
               testId="edit-push-unavailable"
             >
-              Saving always keeps your changes in Trioloo. Of the fields on this page, this channel
-              accepts <strong>Sale Price</strong> and <strong>Listing stock</strong>; everything
-              else — title, description, highlights, attributes, category and media — is local-only
-              and stays in Trioloo until that changes. Sending is a separate step from saving.
+              {anyPushable ? (
+                <>
+                  Saving always keeps your changes in Trioloo. Of the fields on this page, this
+                  channel accepts{' '}
+                  <strong>{pushableNames(pricePushable, stockPushable)}</strong>; everything else is
+                  local-only and stays in Trioloo. Sending is a separate step from saving.
+                </>
+              ) : (
+                <>
+                  This channel does not declare any listing field writable, so nothing here can be
+                  sent to the marketplace. Your edits are saved locally against this Listing and are
+                  marked as unsent.
+                </>
+              )}
             </Notice>
           )}
 
@@ -1419,6 +1514,37 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
                 {failure}
               </p>
             )}
+            {/*
+              🔴 `LSC-062.b` — OFFERED ONLY WHERE A PUSH-SUPPORTED FIELD ACTUALLY CHANGED. A draft
+              of local-only edits cannot be pushed, and the reason is stated rather than left to a
+              greyed-out control the operator has to interpret.
+
+              ⚠ IT SITS UNDER SAVE ON PURPOSE (`PRD-204.f`). Adjacency is what teaches the
+              difference: this one keeps it, that one sends it.
+            */}
+            {editing && anyPushable && supportedChanged && (
+              <button
+                type="button"
+                data-testid="create-push"
+                disabled={busy || pushing}
+                onClick={() => { setPushError(null); setPushOpen(true); }}
+                style={{ ...sidebarSecondary, marginTop: '9px' }}
+              >
+                {pushing ? 'Sending…' : 'Review push'}
+              </button>
+            )}
+            {pushRequested && (
+              <p data-testid="create-push-requested" style={{ ...note, marginTop: '9px' }}>
+                Sent for processing. The outcome — accepted, refused, or needing another attempt —
+                is recorded on this Listing.
+              </p>
+            )}
+            {editing && anyPushable && !supportedChanged && dirty && (
+              <p data-testid="create-push-unavailable" style={{ ...note, marginTop: '9px' }}>
+                Nothing in this change can be sent. This channel accepts{' '}
+                {pushableNames(pricePushable, stockPushable)}; your other edits stay local.
+              </p>
+            )}
             <button
               type="submit"
               data-testid="create-save"
@@ -1520,6 +1646,39 @@ export function ListingAuthoringForm({ mode }: { readonly mode: AuthoringMode })
           </div>
         </div>
       </form>
+
+      {/*
+        🔴 `LSC-062.c` / `PRD-205.f` — THE DIALOG NAMES EXACTLY WHAT GOES AND WHAT STAYS. A mixed
+        draft must never be able to read as a full push.
+
+        🔴 IT SENDS NO VALUE AND SHOWS NONE. No item id, Seller SKU, price, quantity, token or
+        signature appears here — the operator confirms an ACT, not a payload.
+      */}
+      {pushOpen && mode.existing && (
+        <ConfirmDialog
+          testId="push-dialog"
+          title={`Send ${pushFields.length > 0 ? pushFields.join(' and ') : 'nothing'} to this channel?`}
+          consequence={
+            'This contacts the marketplace and is recorded as its own operation. '
+            + (localOnlyChanged
+              ? 'Your other edits are not sent and stay as a local draft on this Listing.'
+              : 'Saving alone would not have sent anything.')
+          }
+          confirmLabel={pushing ? 'Sending…' : 'Push price/stock'}
+          busy={pushing}
+          error={pushError}
+          onConfirm={() => void push()}
+          onCancel={() => { setPushOpen(false); setPushError(null); }}
+        >
+          <ul data-testid="push-fields" style={{ margin: '4px 0 0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {pushFields.map((name) => (
+              <li key={name} style={{ fontSize: '12.5px', color: 'var(--color-text-primary)' }}>
+                {name}
+              </li>
+            ))}
+          </ul>
+        </ConfirmDialog>
+      )}
 
       {mappingOpen && editing && mode.existing && (
         <MappingModal
@@ -2096,6 +2255,19 @@ const label: React.CSSProperties = {
   fontWeight: 600,
   marginBottom: '5px',
 };
+/**
+ * The push-supported field names, read from the declaration rather than assumed.
+ *
+ * <p>🔴 `LSC-062` — NEVER A FIXED STRING. What a channel accepts is its own statement, and a
+ * hardcoded list is correct only until that statement changes.
+ */
+function pushableNames(price: boolean, stock: boolean): string {
+  if (price && stock) return 'Sale Price and Listing stock';
+  if (price) return 'Sale Price';
+  if (stock) return 'Listing stock';
+  return 'no fields';
+}
+
 const note: React.CSSProperties = {
   fontSize: '11.5px',
   color: 'var(--color-text-demoted)',
@@ -2184,4 +2356,5 @@ const headerSecondary: React.CSSProperties = { ...buttonStyle('secondary', 'page
 const headerPrimary: React.CSSProperties = { ...buttonStyle('primary', 'page-header'), gap: 'var(--space-2)' };
 const secondaryButton: React.CSSProperties = { ...buttonStyle('secondary', 'button'), textDecoration: 'none', display: 'inline-flex' };
 const smallSecondary: React.CSSProperties = { ...buttonStyle('secondary', 'row-action'), fontSize: '11.5px' };
+const sidebarSecondary: React.CSSProperties = { ...buttonStyle('secondary', 'button'), width: '100%' };
 const sidebarPrimary: React.CSSProperties = { ...buttonStyle('primary', 'button'), width: '100%', justifyContent: 'center' };
