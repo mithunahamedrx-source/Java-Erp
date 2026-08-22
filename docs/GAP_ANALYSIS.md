@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.64.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.65.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2185,6 +2185,24 @@ reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays u
 > ⚠ **THE WEBHOOK SECTION IS THE NEXT EVIDENCE PATH.** **A `Webhook` section exists in the Daraz Developer Guide and was NOT rendered; it bears directly on `BD-159`** (`DZC-050.g`).
 >
 > 🔴 **NO SCHEMA, NO MIGRATION AND NO MIGRATION NUMBER.** **The `V15` production contradiction stands** ([`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4, `OSC-060`, `DEP-070.b`).
+
+**✅ UPDATE 2026-08-23 (second) — THE NOTIFICATION HALF IS DOCUMENTED. STILL PARTIALLY ADDRESSED.**
+
+> ✅ **`DARAZ_PROVIDER_CONTRACT.md` v1.12.0 `§13`, `DZC-051`–`DZC-056`** — **the order notification protocol, rendered from the Daraz Developer Guide's *Daraz Webhook Onboarding*, the only webhook document the guide exposes.** 🔴 **No credential, App Console session or seller datum was used and no seller API was called.**
+>
+> ✅ **A WEBHOOK EXISTS AND CARRIES ORDER MESSAGES** — **the *Dazop Message Service*, in two kinds: trade order (every order action except return and refund) and reverse order (return and refund).** ✅ **Transport, payload, HMAC-SHA256 signature, the 500 ms acknowledgement budget, the 30-minute × 12 retry ladder, the abort-on-lapsed-authorisation rule and the console subscription flow are all documented.**
+>
+> ✅ **THE TWO PROTOCOLS JOIN CLEANLY.** **`trade_order_id` is published as mapping to the API's `order_id`** — **the key `DZC-049.b` had already fixed as the external idempotency key.** ⚠ **That is what lets a push-triggered read and a poll-triggered read be recognised as the same order rather than duplicated** (`SYS-045`, `API-024`, `EVA-016`).
+>
+> 🔴 **`BD-159` IS PARTIALLY ANSWERED, AND ONLY ON THE PROVIDER SIDE.** ✅ **A notification mechanism genuinely exists and carries order messages, so the question's premise is sound.** 🔴 **Whether a push announces a NEW order is UNESTABLISHED** — **the published trigger wording does not plainly include creation, the worked sample is a fulfilment update, and the `message_type` enumeration is not published** (`DZC-052.b`, `DZC-055.z.a`). 🔴 **What the LEGACY Trioloo system actually does is a DISCOVERY question that no provider document can answer, and it remains open.**
+>
+> 🔴 **THE CADENCE QUESTION IS NOT SETTLED, AND THIS DISCOVERY DOES NOT SETTLE IT.** ⚠ **A webhook CANNOT replace the read: the payload carries identifiers and a fulfilment status, with no lines, buyer, address or money.** **Three published facts each independently force periodic reconciliation — a message abandoned after twelve failures is never resent, pushes stop entirely while an authorisation is revoked or expired, and no ordering or at-most-once guarantee exists** (`DZC-056.c`). ✅ ***"Webhook instead of polling" is therefore not an available option***, so discovering the webhook removes no scheduler decision.
+>
+> 🔴 **ELEVEN FURTHER PROTOCOL FACTS ARE NOT PUBLISHED** (`DZC-055.z`), **of which two are first-order:** **the entire `message_type` enumeration**, without which no subscription can be chosen; **and whether the webhook is available on the BANGLADESH venture at all** — ⚠ **the only published sample carries `"site": "daraz_pk"`, and no per-venture availability table appears, unlike `§12` where every order page printed the Bangladesh endpoint.**
+>
+> 🔴 **EVERY BUSINESS QUESTION IN THIS GAP REMAINS OPEN** — **backfill window, cadence, shop fan-out, retry-and-recovery policy, whether Trioloo subscribes at all, and which message types.** 🔴 **No callback endpoint is authorised and none exists.**
+>
+> 🔴 **STILL NO SCHEMA, NO MIGRATION AND NO MIGRATION NUMBER.** **The `V15` contradiction is unchanged.**
 
 
 ---

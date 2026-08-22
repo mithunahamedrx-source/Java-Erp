@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.11.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.12.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-051`–`DZC-056` — §13 the ORDER NOTIFICATION protocol; a webhook exists and CANNOT replace the read, so periodic reconciliation remains necessary) · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -1362,10 +1362,205 @@ per-API route, which is why the category had to be opened inside the Daraz refer
 
 ---
 
+# §13 The order notification protocol — `DZC-051`–`DZC-056`
+
+> 🔴 **RECORDED FROM THE DARAZ-PUBLISHED DEVELOPER GUIDE ON 2026-08-23, BEFORE ANY IMPLEMENTATION.**
+> **Provider page last updated 2025-08-04.**
+>
+> 🔴 **NOTHING WAS IMPLEMENTED.** **No callback endpoint exists, no subscription was made, no App Console was
+> opened, no credential or seller datum was used, and no seller API was called.**
+>
+> 🔴 **THIS IS A SEPARATE CONTRACT FROM `§12`, NOT AN EXTENSION OF IT.** ⚠ **`§12` is a REQUEST-RESPONSE read
+> Trioloo initiates; `§13` is an INBOUND push Daraz initiates, with its own transport, authentication scheme,
+> subscription flow and failure model.** ✅ **Kept apart for the same reason `§9` and `§11` are.**
+
+## `DZC-051` — The mechanism, and that it is Daraz's own
+
+> ✅ **DARAZ PUBLISHES A WEBHOOK, AND NAMES IT.** **The service is the *Dazop Message Service*; the feature is
+> *Daraz Webhook*.** **Published definition:** *"Daraz webhook is a notification message that is sent
+> automatically from the Daraz seller center to your desired interface such as an ISV or ERP system whenever a
+> designated event occurs."*
+>
+> **a.** 🔴 **NO LAZADA DOCUMENT WAS USED FOR `§13`.** ⚠ **`§12` could take Lazada pages as corroboration
+> because Daraz publishes the same REST catalogue; the webhook is named *Dazop*, and **Daraz nowhere states
+> that it shares Lazada's push mechanism**.** ✅ **Corroboration was therefore withheld, not merely unavailable.**
+> **b.** ✅ **THE GUIDE EXPOSES EXACTLY ONE WEBHOOK DOCUMENT** — *Daraz Webhook Onboarding*, the sole child of
+> the `Webhook` node. 🔴 **There is no second page and no message-type reference** (`DZC-055.a`).
+
+## `DZC-052` — Order messages, and the two kinds
+
+> ✅ **ORDER EVENTS ARE CARRIED.** **Published:** *"Order msg have two types of messages : trade order message
+> and reverse order message."*
+>
+> | Kind | Published trigger |
+> |---|---|
+> | **Trade order message** | *"triggered when trade order actions happens. trade order actions includes all you can do to a order except return and refund"* |
+> | **Reverse order message** | *"When customer decide to return, refund, a reverse order message will be sent"* |
+>
+> **a.** 🔴 **THE BOUNDARY IS RETURN AND REFUND, AND IT MAPS TO NOTHING IN TRIOLOO AUTOMATICALLY.** ⚠ **A
+> reverse order message is the CHANNEL's notion of return/refund; whether it corresponds to `SM-8`, `SM-9`,
+> `SM-10` or to nothing is ADAPTER MAPPING and is not decided here** (`BR-005`, `BR-171`).
+> **b.** 🔴 **WHETHER ORDER CREATION RAISES A TRADE ORDER MESSAGE IS NOT ESTABLISHED.** ⚠ **The phrase *"all
+> you can do to a order"* does not plainly include bringing one into existence; the worked sample is a
+> FULFILMENT update; and the guide's closing prose names *"the Order Fulfilment Update webhook"* specifically.**
+> 🔴 **NOT PUBLISHED — DO NOT ASSUME that a webhook announces a new order** (`DZC-055.b`).
+
+## `DZC-053` — The push: transport, payload and identity
+
+> ✅ **AN HTTP `POST` OF JSON TO THE SELLER'S OWN CALLBACK URL**, `Content-Type: application/json`, with
+> `Content-Length` and an `Authorization` header.
+>
+> **a.** ✅ **TOP-LEVEL FIELDS, AS PUBLISHED:** **`seller_id`** *(seller id)* · **`message_type`** *(numeric)* ·
+> **`data`** *(object)* · **`timestamp`** *(timestamp of push)* · **`site`** *(site info; the sample carries
+> `"daraz_pk"`)*.
+>
+> **b.** ✅ **`data` FIELDS IN THE PUBLISHED SAMPLE:** **`trade_order_id`** · **`buyer_id`** ·
+> **`fulfillment_package_id`** · **`status`** *(sample `"DELIVERED"`, annotated "fulfilment status")* ·
+> **`status_update_time`**.
+> ⚠ **THIS IS ONE SAMPLE OF ONE MESSAGE TYPE, NOT A SCHEMA** (`DZC-055.d`).
+>
+> **c.** 🔴 **THE JOIN KEY IS ALREADY OURS.** **`trade_order_id` is annotated *"trade order id which mapping to
+> the order_id in API"*.** ✅ **That is the SAME `order_id` `DZC-049.b` fixed as the external idempotency key
+> — the Seller-Center-assigned identifier, and the only identifier `/order/get` and `/order/items/get`
+> accept.** ⚠ **THIS IS THE SINGLE MOST LOAD-BEARING FACT IN `§13`:** **it is what lets a push-triggered read
+> and a poll-triggered read be recognised as the same order rather than duplicated** (`SYS-045`, `API-024`,
+> `EVA-016`).
+>
+> **d.** ⚠ **`fulfillment_package_id`'S MAPPING IS UNKNOWN BECAUSE THE PROVIDER'S SENTENCE IS UNFINISHED.**
+> **The published annotation reads *"fulfilment id which maps to (NEED HELP HERE)"*.** 🔴 **Recorded as a
+> DEFECT IN THE PROVIDER'S OWN DOCUMENTATION, not paraphrased into a guess** (`DZC-055.k`).
+
+## `DZC-054` — Authentication, acknowledgement and retry
+
+> **a.** ✅ **THE `Authorization` HEADER IS THE SIGNATURE, AND IT IS HEX-ENCODED HMAC-SHA256, LOWER-CASE.**
+> **Published construction:** **`Base = {app_key} + {message_body_you_received}`**, **`Secret = {app_secret}`**,
+> **`Authorization = HEX_ENCODE(HMAC-SHA256(Base, Secret))`**. **The provider's own helper lower-cases the hex
+> output.**
+> **a.i.** 🔴 **THE BASE IS THE RAW RECEIVED BODY, CONCATENATED AFTER THE APP KEY.** ⚠ **It is NOT the
+> `§5` request-signing scheme, which sorts and concatenates parameters against an API path — the two must not
+> be conflated.**
+> **a.ii.** 🔴 **VERIFICATION IS THE ONLY ORIGIN CHECK OFFERED.** **Published FAQ:** *"Dazop recommends to use
+> signature on authorization header to check the origin of pushes. No further supports on IPs from Dazop."*
+> ✅ **IP ALLOW-LISTING IS EXPLICITLY UNSUPPORTED.**
+>
+> **b.** 🔴 **THE ACKNOWLEDGEMENT BUDGET IS 500 MILLISECONDS.** **Published:** *"You need to ack with Http
+> status code 200 with in 500ms."* ⚠ **A receiver that does real work before answering will miss it.**
+>
+> **c.** ✅ **THE RETRY LADDER IS PUBLISHED IN FULL.** *"If you fail to do 1, server will retry sending the
+> message after 30 mins. If retry fails again, server will retry in another 30 mins. If you fail more than 12
+> times or you successfully do 1 before 12 times, server will stop retrying."*
+> **c.i.** ⚠ **THE CONSEQUENCE IS A WORST-CASE DELIVERY TAIL OF ABOUT SIX HOURS, AND THEN SILENCE.** 🔴 **After
+> the twelfth failure the message is ABANDONED and Daraz never sends it again.**
+> **c.ii.** 🔴 **A WEBHOOK IS THEREFORE NOT A DELIVERY GUARANTEE.** ✅ **This is the protocol fact from which
+> `DZC-056.c` follows.**
+>
+> **d.** 🔴 **PUSHES STOP WHEN THE SELLER AUTHORISATION LAPSES.** **Published FAQ:** *"Server will check the
+> authorization between sellerId and appkey. If the auth is revoked or expired, server will abort the
+> pushing."* ⚠ **A shop in `REAUTH_REQUIRED` silently stops producing notifications** — **the same
+> authorisation state `§3`/`§4` and `SCS-`/`API-069` already govern.**
+
+## `DZC-055` — Subscription, and what it requires of Trioloo
+
+> ✅ **FOUR PUBLISHED STEPS.**
+>
+> **1.** ✅ **A CALLBACK URL WITH A REAL CERTIFICATE.** *"It must be a https with CA certs… Self-signed certs
+> are not acceptable. Certs must be OV or EV. DV is not working."* 🔴 **A Let's-Encrypt-class DV certificate
+> is explicitly rejected.** ⚠ **Trioloo's production origin terminates behind Cloudflare** (`DEP-001`,
+> `DEP-020`); **whether the presented certificate satisfies OV/EV is a DEPLOYMENT question this document does
+> not answer and must not assume.**
+> **2.** ✅ **IMPLEMENT THE PUSH CONTRACT** — `DZC-053`, `DZC-054`.
+> **3.** ✅ **VERIFY IN THE APP CONSOLE.** **Sign in at `open.daraz.com`, open the *Message Service* tab, enter
+> the callback address and click *Verify*, which *"will automatically send a test message to the filled
+> address"*.**
+> **4.** ✅ **SELECT THE MESSAGE TYPES AND SAVE.** **Deliveries are then visible in the *API Push Log* tab.**
+>
+> 🔴 **SUBSCRIPTION IS A CONSOLE ACT BY A SIGNED-IN HUMAN, NOT AN API CALL.** ⚠ **It is therefore an
+> operational, credentialed step outside anything this contract can perform, and it is per seller account.**
+> ✅ **`API-071.a`'s one-instance scoping holds naturally: a subscription belongs to one seller's app
+> authorisation.**
+
+> **`DZC-055.z` — 🔴 WHAT IS NOT PUBLISHED. UNSTATED IS NOT THE SAME AS ABSENT, AND NEITHER IS PERMITTED.**
+>
+> **a.** 🔴 **THE `message_type` ENUMERATION IS NOT PUBLISHED ANYWHERE.** **The sample carries `14` and a code
+> comment carries `0`; no list maps a number to a meaning.** ⚠ **The subscribable set is visible only inside
+> the App Console, which requires a sign-in.** 🔴 **NOT PUBLISHED — DO NOT ASSUME a mapping.**
+> **b.** 🔴 **WHICH MESSAGE TYPE, IF ANY, COVERS ORDER CREATION** (`DZC-052.b`).
+> **c.** 🔴 **THE FULL `status` ENUMERATION.** **Only `DELIVERED` appears.** ⚠ **It is a FULFILMENT status and
+> is not the `§12` order status set of `DZC-045.c`.**
+> **d.** 🔴 **THE COMPLETE `data` SHAPE PER MESSAGE TYPE.** **One sample is published; no per-type schema is.**
+> **e.** 🔴 **HOW A REVERSE ORDER PAYLOAD DIFFERS from a trade order payload.**
+> **f.** 🔴 **ORDERING GUARANTEES.** **Nothing states that pushes arrive in the order events occurred.**
+> **g.** 🔴 **DE-DUPLICATION GUARANTEES ACROSS PUSHES.** **Nothing states a message is delivered at most once.**
+> ⚠ **The retry ladder makes REPEAT delivery an expected condition** (`DZC-054.c`).
+> **h.** 🔴 **ANY LATENCY TARGET FOR A SUCCESSFUL PUSH.** **The 500 ms budget binds the RECEIVER, not Daraz.**
+> **i.** 🔴 **ANY RATE, VOLUME OR BURST CEILING.**
+> **j.** 🔴 **WHETHER THE WEBHOOK IS AVAILABLE ON THE BANGLADESH VENTURE.** ⚠ **The only published sample
+> carries `"site": "daraz_pk"`, and no per-venture availability table appears** — **unlike `§12`, where every
+> order page printed the Bangladesh endpoint.** 🔴 **This is a first-order unknown, not a detail.**
+> **k.** 🔴 **`fulfillment_package_id`'S MAPPING** (`DZC-053.d`).
+
+## `DZC-056` — What follows for implementation, and what does not
+
+> ✅ **STATED AS CONSEQUENCE OF THE PROTOCOL. 🔴 NONE OF IT RATIFIES A BUSINESS DECISION.**
+>
+> **a.** 🔴 **A WEBHOOK CANNOT REPLACE THE ORDER READ, BECAUSE THE PAYLOAD IS NOT THE ORDER.** **The published
+> sample carries identifiers, a fulfilment status and two timestamps — no lines, no buyer, no address, no
+> money, no channel content.** ✅ **Anything acted on must still be read through `§12`.**
+>
+> **b.** ✅ **A PUSH IS A TRIGGER, AND THE READ IS THE TRUTH.** **A webhook-driven import calls `/order/get`
+> and `/order/items/get`** (`DZC-046`, `DZC-047`) **for the `order_id` the push named** (`DZC-053.c`).
+>
+> **c.** 🔴 **PERIODIC RECONCILIATION REMAINS NECESSARY REGARDLESS.** ⚠ **Three published facts force it, and
+> each alone would be enough:** **a message abandoned after twelve failures is never resent** (`DZC-054.c.i`) ·
+> **pushes stop entirely while an authorisation is revoked or expired** (`DZC-054.d`) · **no ordering or
+> at-most-once guarantee exists** (`DZC-055.z.f`, `.g`). 🔴 **"WEBHOOK INSTEAD OF POLLING" IS THEREFORE NOT
+> AN AVAILABLE OPTION**, and `§12`'s incremental read stays the reconciling mechanism.
+>
+> **d.** 🔴 **BOTH PATHS MUST DEDUPLICATE ON `order_id`.** **A push-triggered read and a poll-triggered read
+> can address the same order, and the retry ladder can deliver one message repeatedly.** ✅ **`DZC-049.b`'s key
+> serves both, which is what `SYS-045`, `API-024` and `EVA-016` require.**
+>
+> **e.** 🔴 **THE WEBHOOK DOES NOT SETTLE THE CADENCE QUESTION, AND MUST NOT BE READ AS SETTLING IT.**
+> ⚠ **Because `c` keeps a reconciling read necessary, discovering a webhook REMOVES no scheduler decision.**
+> **`BD-018`'s ~5 minutes remains a LEGACY observation and `OM §7.8` remains an arrival-latency statement;
+> `API-071.d` still defers schedulers, cursors and checkpoints to their own contract.**
+>
+> **f.** ⚠ **`BD-159` IS PARTIALLY ANSWERED ON THE PROVIDER SIDE, AND ONLY THERE.** ✅ **A notification
+> mechanism genuinely exists and carries order messages, so the question's premise is sound.** 🔴 **Whether a
+> push announces a NEW order is unestablished** (`DZC-052.b`), **and what the LEGACY Trioloo system actually
+> does is a discovery question no provider document can answer.**
+
+> **`DZC-056.g` — 🔴 WHAT `§13` DELIBERATELY DOES NOT DECIDE.**
+>
+> | Question | State |
+> |---|---|
+> | **Whether Trioloo subscribes to the webhook at all** | 🔴 **UNDECIDED — a business decision** |
+> | **Which message types to subscribe** | 🔴 **UNDECIDED, and currently unknowable** (`DZC-055.z.a`) |
+> | **Whether a callback endpoint is built** | 🔴 **NOT AUTHORISED. No endpoint, route or handler is created by this section** |
+> | **The poll cadence** | 🔴 **UNDECIDED** (`.e`) |
+> | **Backfill window · shop fan-out · retry-and-recovery policy** | 🔴 **UNDECIDED — `GAP-137`'s open list is unchanged** |
+> | **Any schema or migration** | 🔴 **NONE PROPOSED.** ⚠ **No migration number may be assigned while the `V15` production contradiction stands** ([`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4, `OSC-060`, `DEP-070.b`) |
+
+## Sources — §13
+
+**Rendered in a headless browser on 2026-08-23. 🔴 No credential, token, App Console session or seller datum
+was used, and no seller API was called.**
+
+- [Daraz Open Platform — Developer Guide](https://open.daraz.com/doc/doc.htm) → **Webhook** → **Daraz Webhook
+  Onboarding** — 🔴 **THE SOLE AUTHORITY for `§13`.** **Provider page last updated 2025-08-04.** ✅ **It is the
+  only webhook document the guide exposes.**
+
+🔴 **NO LAZADA SOURCE WAS USED.** ⚠ **Daraz names its own service *Dazop Message Service* and does not state
+that it shares Lazada's push mechanism, so the corroboration licence `DZC-043.a` grants for `§12` does NOT
+extend to `§13`** (`DZC-051.a`).
+
+---
+
 ## Version history
 
 | Version | Date | Change |
 |---|---|---|
+| **1.12.0** | **2026-08-23** | ✅ **§13 ADDED — `DZC-051`–`DZC-056`, THE ORDER NOTIFICATION PROTOCOL, RECORDED FROM THE DARAZ DEVELOPER GUIDE BEFORE ANY IMPLEMENTATION.** ✅ **Daraz publishes a webhook — the *Dazop Message Service* — carrying ORDER MESSAGES in two kinds: trade order (every order action except return and refund) and reverse order (return and refund).** ✅ **The push is a JSON `POST` to a seller-supplied HTTPS callback carrying `seller_id`, `message_type`, `data`, `timestamp` and `site`; authentication is a hex lower-case HMAC-SHA256 `Authorization` header over `app_key` + the raw body, and IP allow-listing is explicitly unsupported.** 🔴 **THE JOIN KEY IS ALREADY OURS: `trade_order_id` is published as mapping to the API's `order_id`, which `DZC-049.b` had already fixed as the external idempotency key — that is what lets a pushed and a polled read be recognised as the same order.** ✅ **Acknowledgement is HTTP 200 within 500 ms; retries are 30 minutes apart and STOP after more than twelve, so a message can be abandoned after a ~6-hour tail, and pushes abort entirely while a seller authorisation is revoked or expired.** ✅ **Subscription is a CONSOLE act by a signed-in human — an OV or EV certificate is required and DV is explicitly rejected.** 🔴 **THE DECISIVE CONSEQUENCE: the payload is NOT the order — no lines, buyer, address or money — so a webhook cannot replace `§12`'s read, and abandonment, authorisation lapse and the absence of ordering or at-most-once guarantees each independently force PERIODIC RECONCILIATION. "Webhook instead of polling" is not an available option, and the cadence question is therefore NOT settled by this discovery.** 🔴 **Eleven facts recorded NOT PUBLISHED, including the entire `message_type` enumeration, which type covers order CREATION, and whether the webhook is available on the BANGLADESH venture at all — the only published sample carries `daraz_pk`.** ⚠ **`BD-159` is partially answered on the provider side only: a mechanism exists, but the creation trigger is unestablished and legacy Trioloo behaviour is a discovery question no provider document can answer.** 🔴 **No Lazada source was used — Daraz names its own service and does not state that it shares Lazada's push mechanism, so `§12`'s corroboration licence does not extend here.** ⚠ **Documentation only — nothing implemented, no callback endpoint, no subscription, no App Console, no credential, no seller API call.** |
 | **1.11.0** | **2026-08-23** | ✅ **§12 ADDED — `DZC-043`–`DZC-050`, THE ORDER READ PROTOCOL, RECORDED FROM THE DARAZ-PUBLISHED REFERENCE BEFORE ANY IMPLEMENTATION.** 🔴 **THE DARAZ TREE IS THE AUTHORITY AND IS NOT THE LAZADA SET** — **Lazada publishes `GetOVOOrders` and `OrderCancelValidate` which Daraz does not; Daraz publishes `GetOrderLogisticDetail` and `GetOrderTrace` which Lazada does not.** ✅ **This closes the equivalence doubt `GAP-137` raised: the order paths are read from Daraz's own reference, not inferred from a product migration guide, and every order page prints the Bangladesh endpoint.** ✅ **Eight endpoints registered; four READS specified — `/orders/get`, `/order/get`, `/order/items/get`, `/orders/items/get`.** 🔴 **`SetInvoiceNumber` is the category's only WRITE, is named and unspecified, and NOTHING here authorises an order write.** ✅ **`/orders/get` records the conditional rule that one of `update_after` / `created_after` is mandatory, offset paging capped at 100, `created_at`/`updated_at` sorting, the DARAZ status set (`unpaid, pending, canceled, ready_to_ship, delivered, returned, shipped, failed`, with `topack`/`toship` published for white-list sellers only), the Daraz-only `mp3_Order`, the `data{countTotal,count,orders[]}` envelope, the order, buyer, billing/shipping-address and payment fields, and six error codes.** ✅ **The item fields, five published enumerations and four batch error codes are recorded from `/order/items/get` and `/orders/items/get`.** ✅ **`DZC-049` records what the protocol SUPPORTS — per-shop scoping by construction, `order_id` as the external idempotency key, incremental reading by `update_after` + `updated_at`, and 🔴 that with NO opaque cursor a checkpoint can only be a timestamp watermark that must be OVERLAPPED and deduplicated by `order_id`.** 🔴 **`DZC-050` records NINE things NOT PUBLISHED — no retention limit, no rate limit or throttle signal, no `E038` batch maximum, the provider's own `limt`/`limit` contradiction, unstated `update_after` inclusivity and timezone, unknowable white-list membership, unrendered webhook behaviour, the unpublished `sales_order_reason` table, and nothing about order writes.** 🔴 **NO BUSINESS DECISION IS RATIFIED: backfill window, poll cadence, shop fan-out, notification participation and retry all stay OPEN, and no migration number is proposed while the `V15` contradiction stands.** ⚠ **Documentation only — no code, no seller API call, no credential, no seller data.** |
 | **1.10.0** | **2026-08-21** | ✅ **`DZC-042` ADDED — THE LIVE PROBE WAS RUN ONCE AND ACCEPTED (`code` `0`).** ✅ **`ItemId` + `SellerSku` addresses a SKU for price and quantity — `DZC-039.e` answered YES, so price and stock need no `SkuId` and no schema change; deactivate and remove still do.** ✅ **A plain `<Quantity>` is accepted — `DZC-039.b` answered YES for this seller, with no `WarehouseCode`.** 🔴 **`DZC-035.e` AMENDED — the live success envelope carries `code`, `request_id` and `_trace_id_` and NO `data` node at all; `code` `0` is success whether or not `data` is present, and an envelope reader must tolerate unknown fields.** ⚠ **Observed from ONE call on ONE account, not a documented promise; `901` remains untested.** |
 | **1.9.0** | **2026-08-21** | ✅ **`DZC-041` ADDED — THE CONTROLLED SAME-VALUE PROBE IS BUILT AND HAS NOT BEEN RUN.** **One server-side command sends one same-value price and quantity update for one listing, so `DZC-039.b` and `DZC-039.e` can be answered by asking.** 🔴 **Same value, therefore no business change — the figures come from the stored reported side, and an unreadable figure is a refusal rather than a guess.** 🔴 **Gated twice: a command name selects it and a separate confirmation authorises it; a dry run prints the payload and contacts nothing.** 🔴 **It is not `pushUpdate` — it writes nothing to Trioloo and its scoped context names no bean that could mutate a listing, product or inventory row.** 🔴 **Promotion is absent by name and `<Quantity>` is sent plain, because that is the question.** ✅ **It reports metadata only, never a value, a token, a signature or the provider's own message.** ⚠ **A transport failure is reported as an UNKNOWN outcome, never as a failure to write.** |
