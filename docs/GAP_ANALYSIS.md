@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.63.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.64.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2167,6 +2167,24 @@ reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays u
 **What resolution requires.** ✅ **The `§9` and `§11` procedure, unchanged:** **render the official Daraz Order API reference, record paths, parameters, window rules, pagination, status values, retention, field lists, error codes and throttling as `DZC §12` BEFORE any adapter code**, **and confirm the Daraz-side path mapping from a Daraz-published source.** ⚠ **Then, and only then, the backfill window and cadence become a business decision taken on evidence rather than on recollection** — the sequence `GAP-136` describes as letting a first slice be *"PROPOSED on evidence rather than guessed."*
 
 **Status.** 🔴 **OPEN — NOT ADDRESSED.** ⚠ **No protocol documentation was produced, so no part of this gap is discharged.** **`DARAZ_PROVIDER_CONTRACT.md` is UNCHANGED at v1.10.0 and gains no `§12`.**
+
+**✅ UPDATE 2026-08-23 — PARTIALLY ADDRESSED. THE READ PROTOCOL IS DOCUMENTED.**
+
+> ✅ **THE OFFICIAL DARAZ REFERENCE WAS RENDERED AND `§12` IS WRITTEN** — **`DARAZ_PROVIDER_CONTRACT.md` v1.11.0, `DZC-043`–`DZC-050`.** **The blocker was a rendering limit, not an absence: `open.daraz.com/doc/api.htm` is a client-side application, and opening its `Order` category in a headless browser produced the whole protocol.** 🔴 **No credential, token or seller datum was used and no seller API was called.**
+>
+> ✅ **THE EQUIVALENCE DOUBT THIS GAP RAISED IS CLOSED.** **The order paths are read from DARAZ's own reference rather than inferred from a product migration guide, and every order page prints the Bangladesh endpoint.** 🔴 **The Daraz set is NOT the Lazada set** — **Lazada publishes `GetOVOOrders` and `OrderCancelValidate` which Daraz does not; Daraz publishes `GetOrderLogisticDetail` and `GetOrderTrace` which Lazada does not** (`DZC-043.a`).
+>
+> ✅ **WHAT IS NOW DOCUMENTED:** **eight endpoints, four reads specified in full** — paths, methods, required and optional parameters, the conditional *"either `UpdatedAfter` or `CreatedAfter` is mandatory"* rule, offset paging capped at 100, sorting, the Daraz status set, the response envelope, and the order, buyer, address, payment, item, SKU and fulfilment field lists with their published enumerations and error codes (`DZC-044`–`DZC-048`).
+>
+> ✅ **FOUR OF THE FIVE IMPLEMENTATION QUESTIONS ARE ANSWERED** (`DZC-049`): **a request is scoped to one seller by construction** · **`order_id` is the external idempotency key, and `order_number` is a display fact** · **incremental reading is expressible via `update_after` + `sort_by=updated_at`** · 🔴 **no opaque cursor exists, so a checkpoint can only be a timestamp watermark that must be OVERLAPPED and deduplicated by `order_id`.**
+>
+> 🔴 **THE GAP IS NOT CLOSED. NINE PROTOCOL FACTS ARE NOT PUBLISHED** (`DZC-050`): **no retention or history limit** — ⚠ **the one fact a backfill decision most needs** — **no rate limit or throttling signal, no `E038` batch maximum, the provider's own `limt` / `limit` contradiction, unstated `update_after` inclusivity and timezone, unknowable white-list membership for `topack`/`toship`, unrendered webhook behaviour, the unpublished `sales_order_reason` table, and nothing about order writes.**
+>
+> 🔴 **EVERY BUSINESS QUESTION IN THIS GAP REMAINS OPEN AND UNDECIDED** — **shop fan-out, the backfill window, the scheduler cadence, whether notifications participate (`BD-159`), and retry after a failed import (`BD-158`).** ✅ **What changed is that they can now be decided ON EVIDENCE rather than on recollection** — the sequence `GAP-136` describes.
+>
+> ⚠ **THE WEBHOOK SECTION IS THE NEXT EVIDENCE PATH.** **A `Webhook` section exists in the Daraz Developer Guide and was NOT rendered; it bears directly on `BD-159`** (`DZC-050.g`).
+>
+> 🔴 **NO SCHEMA, NO MIGRATION AND NO MIGRATION NUMBER.** **The `V15` production contradiction stands** ([`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4, `OSC-060`, `DEP-070.b`).
 
 
 ---
