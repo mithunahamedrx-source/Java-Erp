@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.62.1 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.63.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2113,6 +2113,60 @@ whether the `/image/upload` file is signed, the numeric limits behind `E204` and
 timezone of a date-only promotion window.** 🔴 **Title, description, attributes, category, media,
 orderable SKUs, publication state, deactivate and remove all remain BLOCKED**, **each by a named
 reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays unratified.**
+
+
+---
+
+## GAP-137 — registered 2026-08-23
+
+**Category:** Order Management · Marketplace Integration · **Severity:** 🟠 High · **Class:** **C — third-party protocol undocumented; implementation blocked on it**
+**Source:** Daraz Order Pull requirements verification audit, 2026-08-23
+
+**Problem.** 🔴 **THE ARCHITECTURE RATIFIES THAT ORDERS ARRIVE FROM DARAZ THROUGH THE API, AND NO DARAZ ORDER API IS DOCUMENTED ANYWHERE IN THE CORPUS.**
+
+**`OM §4.3` routes `Daraz Shop A` and `Daraz Shop B` through a Channel Adapter into the canonical order; `OM §7.8` states that marketplace orders arrive through the Daraz API and land in `PENDING_VERIFICATION`; `EVT-002 Order.Imported` names the Channel Adapter as its source.** ⚠ **[`DARAZ_PROVIDER_CONTRACT.md`](DARAZ_PROVIDER_CONTRACT.md) covers service addresses, OAuth, tokens, signing, seller identity, the response envelope, `§9` listing read, `§10` product review and `§11` listing write — and NO Order API at all.**
+
+✅ **THE DOCUMENT ITSELF ALREADY NOTICED THE OMISSION.** **`DZC-032` records, while ruling out other Seller Centre metrics, that *"order counts are derivable from the Order API only, and that is a different fact."*** 🔴 **That Order API was never documented, and no gap recorded its absence until now.**
+
+**What is NOT in question, so the gap stays scoped.** ✅ **Four requirements are already fully ratified and this gap does not reopen them:** **API-based ingestion** (`OM §4.3`, `OM §7.8`, `EVT-002`, `BR-005`) · **inbound-first, mirror-then-owner** (`OM §3.5`, `BR-168`, `INV-31.8`) · **idempotency** (`SYS-045`, `API-024`, `EVA-016`, `OM §4.3`) · **no product, inventory or settlement side effect on import** (`EVT-002` data-affected list, `BR-096` reserve-at-confirmation, `OM §18.3` coupling matrix, `BR-004`).
+
+**What the gap blocks.**
+
+| Blocked | Why it cannot be guessed |
+|---|---|
+| **Order list / search endpoint** — path, method, required and optional parameters | A wrong path fails loudly; a wrong PARAMETER SEMANTIC silently pulls the wrong window |
+| **Date/time window rules** | ⚠ **The review API taught this exact lesson** — `DZC-032` found 90-day retention and a 7-day maximum window that made a naive request impossible. **An order window may carry its own limits** |
+| **Pagination — offset, cursor, page size, maximum** | Determines whether a backfill is one job or thousands of calls |
+| **Status filter values and sort rules** | Determines whether an incremental poll can be expressed at all |
+| **Retention limit, if published** | 🔴 **Decides whether a 3-month backfill is even POSSIBLE** |
+| **Order detail and item endpoints — identifier, envelope, field lists** | The mapping surface for `E-031` and `E-032` |
+| **Error codes for polling and backfill; throttling signals** | `DZC-038.e` already establishes that a throttle is not a refusal; the order-side codes are unread |
+
+**What was attempted, and why it did not close.** ⚠ **RECORDED RATHER THAN HIDDEN, exactly as `LSC-002` recorded an MCP read cap and `DZC §8` records what the provider does not publish.**
+
+> **Every official surface was requested on 2026-08-23 and every one returned a JavaScript shell with no documentation content:** `open.lazada.com/apps/doc/api?path=/orders/get` · `…?path=/orders/items/get` · `…?path=/order/get` · `open.lazada.com/apps/doc/doc?nodeId=10543&docId=108139` (the legacy-to-REST mapping) · `open.daraz.com/doc/api.htm` · `open.daraz.com/doc/doc.htm`. **`developer.alibaba.com` refused the connection.**
+>
+> 🔴 **UNREADABLE IS NOT UNPUBLISHED, AND THE TWO ARE NEVER MERGED** (`DZC §8`). **Daraz almost certainly publishes this protocol; this session could not render it.**
+>
+> 🔴 **NOTHING WAS WRITTEN FROM MEMORY.** ⚠ **A protocol section reconstructed from recollection would look compliant, contradict nothing visible, and diverge permanently from what the provider actually publishes** — **the precise failure `DOC-030` exists to prevent.** ✅ **`§9` and `§11` were each written from a rendered official reference before any code; this gap holds Orders to the same standard.**
+
+**The one fact the official surfaces did yield.** ⚠ **The official reference's OWN documentation routing exposes three order paths — `/orders/get`, `/orders/items/get` and `/order/get`.** 🔴 **THIS IS EVIDENCE OF EXISTENCE ONLY.** **No method, parameter, window rule, page size, status value, field or error code is established by it, and none may be inferred from the path name.** ⚠ **NOT PUBLISHED — DO NOT MAP applies to every other aspect.**
+
+**A second unverified link, recorded so it is not assumed.** ⚠ **`§9` could assert Daraz↔platform path equivalence for products because a DARAZ-PUBLISHED migration guide maps `GetProducts` to `/products/get`.** 🔴 **No equivalent mapping was readable for orders**, so **whether the Daraz Bangladesh venture exposes these same order paths is UNVERIFIED** and must be confirmed from a Daraz-published source before implementation.
+
+**Business questions this gap does NOT decide.** 🔴 **Each is recorded and left to its owner** (`DOC-024`, `CLAUDE.md` §5).
+
+| Question | State |
+|---|---|
+| **Whether one job fans out over all connected Daraz shops** | 🔴 **UNDECIDED.** `API-071.a`/`.d` require every pull to be scoped to ONE explicit channel instance and forbid an ambient current-shop context; ⚠ **`PRD-189.b` ratifies the OPPOSITE for Listings sync — one channel per manual run** |
+| **Whether the initial backfill is exactly 3 months, or whatever the API permits** | 🔴 **UNDECIDED and currently unanswerable** — the retention limit is unread |
+| **Whether the scheduler cadence is 5 minutes or another value** | 🔴 **UNDECIDED.** `BD-018` records ~5 minutes as LEGACY behaviour and `OM §7.8` restates it as arrival LATENCY carrying no rule number; 🔴 **`API-071.d` explicitly defers polling frequency, schedulers, cursors, webhooks, batching, checkpoints and retry to later contracts, and NO SCHEDULER EXISTS anywhere** (`LSC-054.d`) |
+| **Whether Daraz notifications participate** | 🔴 **UNDECIDED — `BD-159` is UNANSWERED**: *"Does the notification trigger anything on its own, or is the 5-minute import the only way orders actually arrive?"* |
+| **Retry behaviour after a failed import** | 🔴 **UNDECIDED — `BD-158` is UNANSWERED**: what happens if the automatic import fails or Daraz cannot be reached |
+
+**What resolution requires.** ✅ **The `§9` and `§11` procedure, unchanged:** **render the official Daraz Order API reference, record paths, parameters, window rules, pagination, status values, retention, field lists, error codes and throttling as `DZC §12` BEFORE any adapter code**, **and confirm the Daraz-side path mapping from a Daraz-published source.** ⚠ **Then, and only then, the backfill window and cadence become a business decision taken on evidence rather than on recollection** — the sequence `GAP-136` describes as letting a first slice be *"PROPOSED on evidence rather than guessed."*
+
+**Status.** 🔴 **OPEN — NOT ADDRESSED.** ⚠ **No protocol documentation was produced, so no part of this gap is discharged.** **`DARAZ_PROVIDER_CONTRACT.md` is UNCHANGED at v1.10.0 and gains no `§12`.**
 
 
 ---
