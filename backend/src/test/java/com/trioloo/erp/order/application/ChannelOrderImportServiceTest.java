@@ -3,6 +3,7 @@ package com.trioloo.erp.order.application;
 import com.trioloo.erp.access.domain.AccountLifecycleState;
 import com.trioloo.erp.access.infrastructure.security.AccessUserDetails;
 import com.trioloo.erp.integration.domain.ConnectionState;
+import com.trioloo.erp.order.domain.CanonicalOrderStatus;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionEntity;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionRepository;
 import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
@@ -64,6 +65,41 @@ class ChannelOrderImportServiceTest {
                         return new Page(OFFSETS.size() - 1, 0, List.of());
                     }
                     return PAGES.get(index);
+                }
+
+                /**
+                 * The incremental read is not exercised by THIS test — it is covered by
+                 * {@code ChannelOrderPullServiceTest}, which owns the §29 window rules.
+                 */
+                @Override
+                public Page listOrdersUpdatedSince(UUID channelInstanceId, Instant updatedAfter,
+                                                   int offset, int limit) {
+                    throw new UnsupportedOperationException(
+                            "This fixture covers the creation-window read only.");
+                }
+
+                /**
+                 * The §4.3 translation step, exercised with the real Daraz vocabulary.
+                 *
+                 * <p>🔴 The mapping under test belongs to {@code DarazChannelOrderProvider}; this
+                 * stub carries only the two values these fixtures use, so the import path's
+                 * handling of a canonical status is covered without this test asserting the
+                 * adapter's own table.
+                 */
+                @Override
+                public List<CanonicalOrderStatus> canonicalStatuses(List<String> channelStatuses) {
+                    if (channelStatuses == null) {
+                        return List.of();
+                    }
+                    List<CanonicalOrderStatus> canonical = new ArrayList<>();
+                    for (String reported : channelStatuses) {
+                        if ("pending".equalsIgnoreCase(reported)) {
+                            canonical.add(CanonicalOrderStatus.PENDING_VERIFICATION);
+                        } else if ("shipped".equalsIgnoreCase(reported)) {
+                            canonical.add(CanonicalOrderStatus.DISPATCHED);
+                        }
+                    }
+                    return List.copyOf(canonical);
                 }
             };
         }
@@ -236,7 +272,7 @@ class ChannelOrderImportServiceTest {
         service.importWindow(shop, AFTER, BEFORE, 100);
 
         actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
-        var page = queries.list(new ChannelOrderQueryService.Filter(shop, "pending", "ORD-O-600"),
+        var page = queries.list(new ChannelOrderQueryService.Filter(shop, null, CanonicalOrderStatus.PENDING_VERIFICATION.name(), "ORD-O-600", null),
                 PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
@@ -255,11 +291,108 @@ class ChannelOrderImportServiceTest {
 
         actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
         ChannelOrderQueryService.Summary summary =
-                queries.summary(new ChannelOrderQueryService.Filter(shop, null, null));
+                queries.summary(new ChannelOrderQueryService.Filter(shop, null, null, null, null));
 
         assertThat(summary.totalOrders()).isEqualTo(2);
-        assertThat(summary.pendingOrders()).isEqualTo(2);
         assertThat(summary.totalItems()).isEqualTo(2);
+
+        // Imported in this run, so both fall on today's Asia/Dhaka business date (TEC-050).
+        assertThat(summary.todaysOrders()).isEqualTo(2);
+
+        // 🔴 Neither fixture reports `shipped`, so nothing was ever observed as DISPATCHED and
+        // the figure is a REAL zero — not an absence dressed as one.
+        assertThat(summary.todaysDispatched()).isZero();
+
+        // 🔴 BR-033 / INV-32.5 — the obligation follows DELIVERED goods. Neither order is
+        // delivered, so nothing is collectable, and an undelivered order contributes nothing
+        // however large its price.
+        assertThat(summary.totalCollectable()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("collects only delivered orders and stamps dispatch observation once")
+    void collectableFollowsDeliveredGoodsAndDispatchIsObservedOnce() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-710", "OI-710", "shipped"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        Instant firstObservation = jdbc.queryForObject("""
+                SELECT dispatch_observed_at FROM channel_order WHERE external_order_id = 'O-710'
+                """, Instant.class);
+        assertThat(firstObservation).isNotNull();
+
+        // A second poll still reporting `shipped` must NOT move the moment the ERP first saw it.
+        PAGES.clear();
+        OFFSETS.clear();
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-710", "OI-710", "shipped"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        assertThat(jdbc.queryForObject("""
+                SELECT dispatch_observed_at FROM channel_order WHERE external_order_id = 'O-710'
+                """, Instant.class)).isEqualTo(firstObservation);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        ChannelOrderQueryService.Summary summary =
+                queries.summary(new ChannelOrderQueryService.Filter(shop, null, null, null, null));
+
+        assertThat(summary.todaysDispatched()).isEqualTo(1);
+        // Dispatched is not delivered, so it is not yet collectable (BR-033).
+        assertThat(summary.totalCollectable()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("offers a channel filter built from channels that actually have orders")
+    void channelFacetIsDerivedFromRealOrders() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-730", "OI-730"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        ChannelOrderQueryService.Summary summary =
+                queries.summary(new ChannelOrderQueryService.Filter(shop, null, null, null, null));
+
+        // 🔴 The channel filter is built from THIS, never from a hard-coded browser list.
+        assertThat(summary.channelTypes()).hasSize(1);
+        assertThat(summary.channelTypes().getFirst().channelType()).isEqualTo("DARAZ");
+        assertThat(summary.channelTypes().getFirst().orderCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("filters by canonical channel type and keeps the facet intact while filtered")
+    void filtersByChannelTypeWithoutErasingTheFacet() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-740", "OI-740"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        var matched = queries.list(new ChannelOrderQueryService.Filter(null, "DARAZ", null, null, null),
+                PageRequest.of(0, 20));
+        assertThat(matched.getTotalElements()).isEqualTo(1);
+
+        var unmatched = queries.list(new ChannelOrderQueryService.Filter(null, "WEBSITE", null, null, null),
+                PageRequest.of(0, 20));
+        assertThat(unmatched.getTotalElements()).isZero();
+
+        // ⚠ The facet ignores the channel filter on purpose: a control that erased its own other
+        // options the moment one was chosen would be unusable.
+        ChannelOrderQueryService.Summary filtered =
+                queries.summary(new ChannelOrderQueryService.Filter(null, "WEBSITE", null, null, null));
+        assertThat(filtered.totalOrders()).isZero();
+        assertThat(filtered.channelTypes()).extracting(ChannelOrderQueryService.ChannelTypeFacet::channelType)
+                .contains("DARAZ");
+    }
+
+    @Test
+    @DisplayName("translates the channel status into the canonical mirror without losing the raw one")
+    void keepsRawAndCanonicalStatusAsTwoFacts() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-720", "OI-720", "shipped"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        // BR-173 — the marketplace's own word survives untouched.
+        assertThat(jdbc.queryForObject("""
+                SELECT statuses_json::text FROM channel_order WHERE external_order_id = 'O-720'
+                """, String.class)).contains("shipped");
+        // §4.3 / BR-005 — and the adapter's canonical translation sits beside it, not over it.
+        assertThat(jdbc.queryForObject("""
+                SELECT canonical_statuses_json::text FROM channel_order WHERE external_order_id = 'O-720'
+                """, String.class)).contains("DISPATCHED");
     }
 
     @Test
@@ -285,13 +418,18 @@ class ChannelOrderImportServiceTest {
     void queryRequiresViewPermission() {
         actingWith(OrderPermissions.CHANNEL_ORDER_SYNC);
 
-        assertThatThrownBy(() -> queries.list(new ChannelOrderQueryService.Filter(null, null, null),
+        assertThatThrownBy(() -> queries.list(new ChannelOrderQueryService.Filter(null, null, null, null, null),
                 PageRequest.of(0, 20)))
                 .isInstanceOf(AccessDeniedByPermissionException.class)
                 .hasMessageContaining(OrderPermissions.CHANNEL_ORDER_VIEW);
     }
 
     private static ChannelOrderSnapshot order(String orderId, String itemId) {
+        return order(orderId, itemId, "pending");
+    }
+
+    /** Same fixture with an explicit channel status, so a status-sensitive case can state one. */
+    private static ChannelOrderSnapshot order(String orderId, String itemId, String channelStatus) {
         var address = new ChannelOrderSnapshot.AddressSnapshot(
                 "Rashedul", "Islam", "01700000000", null, "House 42",
                 null, null, null, null, "Dhaka", "1212", "Bangladesh");
@@ -312,7 +450,7 @@ class ChannelOrderImportServiceTest {
                 "COD",
                 null,
                 1,
-                List.of("pending"),
+                List.of(channelStatus),
                 "standard",
                 "BD-01",
                 null,

@@ -146,7 +146,14 @@ class ApplicationFoundationSmokeTest {
                 // Orders MVP - channel-mirrored order headers and items only. No canonical
                 // ERP-managed Order, inventory movement, shipment action or settlement row.
                 "channel_order",
-                "channel_order_item");
+                "channel_order_item",
+                // Managed ingestion — OM §29 (BR-178 – BR-183). 🔴 NEITHER HOLDS A BUSINESS
+                // POSITION. `channel_order_pull_state` is one ingestion cursor per shop
+                // (BR-179.c/.d, BR-178.a); `channel_order_pull_run` is the run FACT BR-182.d
+                // requires so a failure is recorded rather than merely logged. No order
+                // lifecycle, inventory, payment or settlement value lives in either.
+                "channel_order_pull_state",
+                "channel_order_pull_run");
     }
 
     /**

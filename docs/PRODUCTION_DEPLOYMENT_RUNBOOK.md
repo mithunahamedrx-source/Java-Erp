@@ -1,7 +1,7 @@
 # Production Deployment Runbook
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting operations · **Status:** Canonical
-**Version:** 1.6.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
+**Version:** 1.7.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-23 (**`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale**) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
 
 > 🔴 **THIS DOCUMENT RATIFIES INFRASTRUCTURE THAT ALREADY EXISTS. IT INVENTS NONE.** **The host, the reverse proxy, the routing model and the origin address are USER DECISIONS**, recorded here so a deployment agent never has to choose them — and never may.
 >
@@ -144,11 +144,11 @@
 
 > **`DEP-070` — 🔴 FORWARD-ONLY, IMMUTABLE, AND NEVER IMPROVISED.**
 >
-> **a.** 🔴 **AN APPLIED MIGRATION IS NEVER MODIFIED** (`PRJ-081`). **`V1`–`V12` are applied history.** ⚠ **Editing one changes its checksum and Flyway will refuse to start the application — correctly.**
+> **a.** 🔴 **AN APPLIED MIGRATION IS NEVER MODIFIED** (`PRJ-081`). **`V1`–`V18` are applied history — READ FROM PRODUCTION `flyway_schema_history` ON 2026-08-23, not assumed.** ⚠ **Editing one changes its checksum and Flyway will refuse to start the application — correctly.** ⚠ **The superseded `V1`–`V12` figure is retained in history** (`DOC-009`).
 > **b.** ✅ **PENDING MIGRATIONS ARE DETERMINED BY COMPARING SOURCE AGAINST PRODUCTION `flyway_schema_history`.** 🔴 **NEVER ASSUMED.** ⚠ **Production may be at any version; it is not necessarily behind development.**
 > **c.** 🔴 **MIGRATION SQL IS NEVER RECREATED BY HAND ON THE SERVER**, and the schema is never altered directly to "make it work".
 > **d.** 🔴 **A VALIDATION OR CHECKSUM ERROR IS A FULL STOP.** `spring.flyway.validate-on-migrate` is `true`; that is the guard working, and it is investigated, not bypassed.
-> **e.** ✅ **Current source ceiling is `V12`** — `V11__shops_and_channels.sql`, `V12__market_closed_set.sql` — ⚠ **unless disk inspection proves a later migration exists, in which case DISK WINS and it is inspected before deployment.**
+> **e.** ✅ **Current source ceiling is `V18`** — `V17__channel_order_canonical_status.sql`, `V18__channel_order_pull_state.sql` — ⚠ **unless disk inspection proves a later migration exists, in which case DISK WINS and it is inspected before deployment.** ✅ **The escape clause did its job: this figure read `V12` while the tree had reached `V18`, and DISK WON at every deployment in between.**
 > **f.** 🔴 **`spring.flyway.baseline-on-migrate` IS `false`.** ⚠ **A non-empty production database with NO history table will therefore FAIL rather than silently baseline. That is intended: it must be investigated, never "fixed" by enabling baselining.**
 
 > **`DEP-071` — 🔴 MIGRATIONS RUN IN-PROCESS, AT BACKEND STARTUP. THIS IS THE SEQUENCING FACT THAT GOVERNS THE WHOLE DEPLOYMENT.**
@@ -394,6 +394,38 @@
 ---
 
 # 15b. The `V15` position — resolved 2026-08-23
+
+> **`DEP-126` — ✅ THE ORDERS INGESTION DEPLOYMENT, PERFORMED 2026-08-23.**
+>
+> **Recorded because a deployment that leaves no record forces the next one to rediscover the
+> position** — which is exactly the failure this rule pair was written after.
+>
+> **a.** ✅ **PRE-FLIGHT PASSED, IN `DEP-031` ORDER.** Local gate green; SSH reached the origin;
+> service running with `NRestarts=0`; `nginx -t` valid; backend bound to `127.0.0.1:8080` only;
+> database reachable; `flyway_schema_history` read; 44 GB free; **no pre-existing error in 24
+> hours of log.**
+> **b.** 🔴 **THE READ CORRECTED A DOCUMENTED FACT, AND THIS IS THE ENTRY'S MOST USEFUL LINE.**
+> **`DEP-125` and [`LISTINGS_PAUSE_HANDOFF.md`](LISTINGS_PAUSE_HANDOFF.md) §4 both stated
+> production was at `V14` with `V15` UNAPPLIED.** ⚠ **It was not: `V15` and `V16` had been applied
+> at `02:12` the same day.** ✅ **`DEP-070.b` — *pending migrations are determined by reading
+> production and are NEVER ASSUMED* — is the rule that caught it, and it earned its place.**
+> **c.** ✅ **BACKUP TAKEN AND VERIFIED BEFORE MIGRATION** (`DEP-060`): exit status checked, artefact
+> non-empty, gzip integrity tested. 🔴 **The path is recorded in the deployment report and the
+> credentials are not** (`DEP-060.e`, `DEP-021.d`).
+> **d.** ✅ **`V17` AND `V18` APPLIED AT STARTUP** (`DEP-071`), **both additive — two columns and two
+> tables. `failed=0`, `NRestarts=0`, no error logged after cutover.**
+> **e.** ✅ **ROLLBACK PATH PRESERVED** — the previous jar is retained beside the deployed one.
+> **f.** 🔴 **INGESTION IS ENABLED BY SERVER CONFIGURATION, NOT BY THE ARTIFACT.**
+> **`ORDER_PULL_ENABLED` is `false` in the shipped default and the deployment set it on the
+> server**, whose env file was backed up first. ⚠ **A jar deployed without that variable polls
+> nothing, which is deliberate: no test, diagnostic launch or laptop starts reading a live seller
+> account on its own.**
+> **g.** ⚠ **THE CADENCE DEPLOYED IS `PT5M`, AND THE RATIFIED DEFAULT REMAINS `PT15M`**
+> (`BR-179.a`). **`BR-179.e` requires a tightening to rest on evidence rather than become a
+> default, and NO RATE LIMIT IS PUBLISHED** (`DZC-050.b`). 🔴 **It is configuration, reversible in
+> one line, and the code default is untouched.**
+> **h.** ✅ **FIRST LIVE RESULT: 109 orders across three shops, 0 failed runs.** ⚠ **A fourth shop
+> was excluded throughout because it is `DRAFT`, which `BR-181.a` excludes EVEN WHEN CONNECTED.**
 
 > **`DEP-125` — ✅ `V15` IS APPLIED DELIBERATELY ON THE NEXT BACKEND DEPLOYMENT, AND THE V15-FREE BRANCH IS RETIRED. Business decision, 2026-08-23.**
 >

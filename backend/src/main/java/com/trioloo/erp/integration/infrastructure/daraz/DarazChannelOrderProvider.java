@@ -4,6 +4,7 @@ import com.trioloo.erp.order.application.ChannelOrderImportException;
 import com.trioloo.erp.order.application.ChannelOrderItemSnapshot;
 import com.trioloo.erp.order.application.ChannelOrderProvider;
 import com.trioloo.erp.order.application.ChannelOrderSnapshot;
+import com.trioloo.erp.order.domain.CanonicalOrderStatus;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -54,16 +55,28 @@ public class DarazChannelOrderProvider implements ChannelOrderProvider {
     @Override
     public Page listOrders(UUID channelInstanceId, Instant createdAfter, Instant createdBefore,
                            int offset, int limit) {
+        return read(channelInstanceId, params -> {
+            params.put("created_after", createdAfter.toString());
+            params.put("created_before", createdBefore.toString());
+            params.put("sort_by", "created_at");
+            params.put("sort_direction", "ASC");
+        }, offset, limit);
+    }
+
+    /**
+     * The shared {@code /orders/get} read. Only the window parameters differ between the
+     * backfill and the incremental poll, and factoring them out is what keeps the signing,
+     * paging and item-hydration identical for both.
+     */
+    private Page read(UUID channelInstanceId, java.util.function.Consumer<Map<String, String>> window,
+                      int offset, int limit) {
         String accessToken = tokens.accessTokenFor(channelInstanceId);
         Map<String, String> params = new LinkedHashMap<>();
         params.put("app_key", properties.require().appKey());
         params.put("timestamp", Long.toString(Instant.now().toEpochMilli()));
         params.put("sign_method", DarazRequestSigner.SIGN_METHOD);
         params.put("access_token", accessToken);
-        params.put("created_after", createdAfter.toString());
-        params.put("created_before", createdBefore.toString());
-        params.put("sort_by", "created_at");
-        params.put("sort_direction", "ASC");
+        window.accept(params);
         params.put("offset", Integer.toString(offset));
         params.put(PAGE_SIZE_PARAMETER, Integer.toString(Math.min(Math.max(limit, 1), 100)));
 
@@ -80,6 +93,82 @@ public class DarazChannelOrderProvider implements ChannelOrderProvider {
         return new Page(page.countTotal(), page.count(), page.orders().stream()
                 .map(order -> withItems(order, items.getOrDefault(order.externalOrderId(), List.of())))
                 .toList());
+    }
+
+    /**
+     * The Daraz status vocabulary, translated into the canonical one.
+     *
+     * <p>🔴 THE KEYS ARE THE PROVIDER'S OWN SPELLING AND ARE NOT CORRECTED. {@code DZC-045.c}
+     * publishes the set as {@code unpaid}, {@code pending}, {@code canceled},
+     * {@code ready_to_ship}, {@code delivered}, {@code returned}, {@code shipped},
+     * {@code failed}, and {@code DZC-045.c.i} records that {@code canceled} carries ONE
+     * {@code l} — a corrected spelling would simply not match.
+     *
+     * <p>🔴 EACH ROW PAIRS MEANINGS, NOT NAMES. The canonical side is the state whose §6.2
+     * <em>Meaning</em> column says the same thing:
+     * <ul>
+     *   <li>{@code unpaid}, {@code pending} → {@code PENDING_VERIFICATION} — §7.8 states
+     *       outright that marketplace orders <em>"land in Pending Verification"</em>.</li>
+     *   <li>{@code ready_to_ship} → {@code READY_TO_SHIP} — <em>"Packed, awaiting carrier
+     *       handover"</em>; {@code SMA} §4 records that Daraz normally reaches RTS before
+     *       shipment.</li>
+     *   <li>{@code shipped} → {@code DISPATCHED} — <em>"Handed to the carrier"</em>.</li>
+     *   <li>{@code delivered} → {@code DELIVERED} — <em>"Received by the customer"</em>.</li>
+     *   <li>{@code failed} → {@code FAILED_DELIVERY} — <em>"Delivery attempted and failed"</em>.</li>
+     *   <li>{@code returned} → {@code RETURNED} — <em>"Goods came back to Trioloo"</em>.</li>
+     *   <li>{@code canceled} → {@code CANCELLED} — <em>"Terminated before delivery"</em>; §6.5
+     *       governs external cancellation.</li>
+     * </ul>
+     *
+     * <p>🔴 {@code topack} AND {@code toship} ARE DELIBERATELY ABSENT. {@code DZC-050.f} records
+     * them as white-list-seller possibilities whose availability this codebase cannot read, so
+     * they are never assumed. If one arrives it is retained raw and translated into nothing.
+     *
+     * <p>⚠ {@code CONFIRMED}, {@code RELEASED}, {@code IN_FULFILLMENT}, {@code ON_HOLD} and
+     * {@code CLOSED} have no Daraz counterpart and none is manufactured. They are reached by
+     * Trioloo's own acts, which this read-only slice does not perform.
+     */
+    private static final Map<String, CanonicalOrderStatus> DARAZ_STATUS_TO_CANONICAL = Map.of(
+            "unpaid", CanonicalOrderStatus.PENDING_VERIFICATION,
+            "pending", CanonicalOrderStatus.PENDING_VERIFICATION,
+            "ready_to_ship", CanonicalOrderStatus.READY_TO_SHIP,
+            "shipped", CanonicalOrderStatus.DISPATCHED,
+            "delivered", CanonicalOrderStatus.DELIVERED,
+            "failed", CanonicalOrderStatus.FAILED_DELIVERY,
+            "returned", CanonicalOrderStatus.RETURNED,
+            "canceled", CanonicalOrderStatus.CANCELLED);
+
+    @Override
+    public List<CanonicalOrderStatus> canonicalStatuses(List<String> channelStatuses) {
+        if (channelStatuses == null) {
+            return List.of();
+        }
+        List<CanonicalOrderStatus> canonical = new ArrayList<>();
+        for (String reported : channelStatuses) {
+            if (reported == null || reported.isBlank()) {
+                continue;
+            }
+            CanonicalOrderStatus translated =
+                    DARAZ_STATUS_TO_CANONICAL.get(reported.trim().toLowerCase(java.util.Locale.ROOT));
+            // An untranslatable value is dropped, never approximated (BR-134, SYS-034). The raw
+            // status survives untouched on the order (BR-173), so nothing is lost by declining.
+            if (translated != null && !canonical.contains(translated)) {
+                canonical.add(translated);
+            }
+        }
+        return List.copyOf(canonical);
+    }
+
+    @Override
+    public Page listOrdersUpdatedSince(UUID channelInstanceId, Instant updatedAfter, int offset, int limit) {
+        // 🔴 DZC-049.c — `update_after` with `updated_at` ordering is what the protocol offers.
+        // ⚠ Sorted ASC so paging walks forward through the window deterministically; DZC-049.d
+        // records that no opaque cursor exists, so offset paging is the only mechanism.
+        return read(channelInstanceId, params -> {
+            params.put("update_after", updatedAfter.toString());
+            params.put("sort_by", "updated_at");
+            params.put("sort_direction", "ASC");
+        }, offset, limit);
     }
 
     private Map<String, List<ChannelOrderItemSnapshot>> fetchItems(

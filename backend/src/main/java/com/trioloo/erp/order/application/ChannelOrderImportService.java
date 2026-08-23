@@ -3,6 +3,7 @@ package com.trioloo.erp.order.application;
 import com.trioloo.erp.access.application.CurrentActor;
 import com.trioloo.erp.integration.domain.ConnectionState;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionRepository;
+import com.trioloo.erp.order.domain.CanonicalOrderStatus;
 import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import com.trioloo.erp.product.domain.RecordStatus;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelInstanceEntity;
@@ -53,10 +54,64 @@ public class ChannelOrderImportService {
     public ImportOutcome importWindow(UUID channelInstanceId, Instant createdAfter, Instant createdBefore,
                                       int requestedPageSize) {
         requireSync();
+        return readCreatedWindow(channelInstanceId, createdAfter, createdBefore, requestedPageSize);
+    }
+
+    /**
+     * The creation-window read, performed by the scheduler.
+     *
+     * <p>🔴 NOT A PERMISSION BYPASS, AND NOT PUBLIC. {@code SMA §5.4} registers {@code EVT-002
+     * Order.Imported} as <em>Automatic / Scheduled</em>, performed by the <em>Channel adapter</em>;
+     * {@code PRM-091}'s capability gates what an OPERATOR may initiate. This method is
+     * package-private and is reachable only from {@link ChannelOrderPullService}, which is the
+     * one caller that attributes the run to {@code SYSTEM} ({@code AGV-001}).
+     */
+    @Transactional
+    ImportOutcome importWindowAsSystem(UUID channelInstanceId, Instant createdAfter, Instant createdBefore) {
+        return readCreatedWindow(channelInstanceId, createdAfter, createdBefore, DEFAULT_PAGE_SIZE);
+    }
+
+    /**
+     * The incremental update-watermark read ({@code BR-179.c}), performed by the scheduler.
+     *
+     * <p>⚠ The caller has already applied the {@code BR-179.d} overlap; this reads the window it
+     * is given. Duplicates the overlap produces are absorbed by the {@code order_id} upsert.
+     */
+    @Transactional
+    ImportOutcome importUpdatedSinceAsSystem(UUID channelInstanceId, Instant updatedAfter) {
+        ChannelInstanceEntity channel = requireActiveDarazShop(channelInstanceId);
+        ChannelOrderProvider provider = providerFor(channel.getChannelType());
+        if (updatedAfter == null) {
+            throw new ChannelOrderImportException("An update watermark is required.");
+        }
+        return drain(channelInstanceId, provider, DEFAULT_PAGE_SIZE,
+                (offset, size) -> provider.listOrdersUpdatedSince(channelInstanceId, updatedAfter, offset, size));
+    }
+
+    private ImportOutcome readCreatedWindow(UUID channelInstanceId, Instant createdAfter,
+                                            Instant createdBefore, int requestedPageSize) {
         ChannelInstanceEntity channel = requireActiveDarazShop(channelInstanceId);
         ChannelOrderProvider provider = providerFor(channel.getChannelType());
         Window window = window(createdAfter, createdBefore);
         int pageSize = pageSize(requestedPageSize);
+        return drain(channelInstanceId, provider, pageSize,
+                (offset, size) -> provider.listOrders(channelInstanceId, window.after(), window.before(), offset, size));
+    }
+
+    /**
+     * Pages through a provider read, absorbing each page as it arrives.
+     *
+     * <p>🔴 {@code BR-182.a} — THERE IS NO IN-JOB RETRY LOOP. Against an UNPUBLISHED rate limit
+     * ({@code DZC-050.b}), an in-job retry is the behaviour most likely to turn a transient
+     * failure into a throttle. ✅ {@code BR-182.b} — nothing is lost by waiting: the next cycle is
+     * one cadence away and the read is idempotent by {@code order_id}.
+     *
+     * <p>🔴 {@code BR-182.c} — PARTIAL SUCCESS IS RETAINED. A failed page never rolls back pages
+     * already imported ({@code INV-108.1}); discarding good pages because a later one failed would
+     * throw away work the provider may not serve again.
+     */
+    private ImportOutcome drain(UUID channelInstanceId, ChannelOrderProvider provider,
+                                int pageSize, PageReader reader) {
 
         int offset = 0;
         int pagesRead = 0;
@@ -70,7 +125,7 @@ public class ChannelOrderImportService {
         while (true) {
             ChannelOrderProvider.Page page;
             try {
-                page = provider.listOrders(channelInstanceId, window.after(), window.before(), offset, pageSize);
+                page = reader.read(offset, pageSize);
             } catch (RuntimeException e) {
                 return new ImportOutcome(false, pagesRead, ordersSeen, ordersCreated, ordersUpdated,
                         itemsSeen, itemsCreated, itemsUpdated, "Provider page failed: " + e.getClass().getSimpleName());
@@ -78,7 +133,7 @@ public class ChannelOrderImportService {
             pagesRead++;
             List<ChannelOrderSnapshot> orders = page.orders();
             for (ChannelOrderSnapshot order : orders) {
-                Upsert orderResult = upsertOrder(channelInstanceId, order);
+                Upsert orderResult = upsertOrder(channelInstanceId, order, provider);
                 ordersSeen++;
                 if (orderResult.created()) {
                     ordersCreated++;
@@ -151,14 +206,19 @@ public class ChannelOrderImportService {
         return Math.min(requested, DEFAULT_PAGE_SIZE);
     }
 
-    private Upsert upsertOrder(UUID channelInstanceId, ChannelOrderSnapshot order) {
+    private Upsert upsertOrder(UUID channelInstanceId, ChannelOrderSnapshot order,
+                               ChannelOrderProvider provider) {
         if (order == null || blank(order.externalOrderId())) {
             throw new ChannelOrderImportException("The provider returned an order with no external identity.");
         }
         Instant now = Instant.now(clock);
+        // §4.3 / BR-005 - the ADAPTER converts channel status names into canonical ones. This
+        // service never inspects a channel's vocabulary and carries no channel-conditional branch.
+        List<CanonicalOrderStatus> canonical = provider.canonicalStatuses(order.statuses());
         UUID id = Optional.ofNullable(jdbc.queryForObject("""
                 INSERT INTO channel_order (
                     channel_instance_id, external_order_id, order_number, ownership, statuses_json,
+                    canonical_statuses_json, dispatch_observed_at,
                     provider_created_at, provider_updated_at, imported_at, last_seen_at,
                     price, shipping_fee, shipping_fee_original, shipping_fee_discount_platform,
                     shipping_fee_discount_seller, voucher, voucher_platform, voucher_seller,
@@ -174,6 +234,7 @@ public class ChannelOrderImportService {
                     shipping_address5, shipping_city, shipping_post_code, shipping_country
                 ) VALUES (
                     ?, ?, ?, 'API_MANAGED', CAST(? AS jsonb),
+                    CAST(? AS jsonb), ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
@@ -183,6 +244,12 @@ public class ChannelOrderImportService {
                 ON CONFLICT (channel_instance_id, external_order_id) DO UPDATE SET
                     order_number = EXCLUDED.order_number,
                     statuses_json = EXCLUDED.statuses_json,
+                    canonical_statuses_json = EXCLUDED.canonical_statuses_json,
+                    -- Written ONCE, on the first poll that observes DISPATCHED, and never
+                    -- rewritten afterwards. COALESCE keeps the earliest observation, so a later
+                    -- cycle that still reports DISPATCHED cannot move the moment.
+                    dispatch_observed_at = COALESCE(channel_order.dispatch_observed_at,
+                                                    EXCLUDED.dispatch_observed_at),
                     provider_created_at = EXCLUDED.provider_created_at,
                     provider_updated_at = EXCLUDED.provider_updated_at,
                     last_seen_at = EXCLUDED.last_seen_at,
@@ -239,6 +306,8 @@ public class ChannelOrderImportService {
                 RETURNING id
                 """, UUID.class,
                 channelInstanceId, order.externalOrderId(), order.orderNumber(), statuses(order.statuses()),
+                canonicalStatuses(canonical),
+                canonical.contains(CanonicalOrderStatus.DISPATCHED) ? ts(now) : null,
                 ts(order.providerCreatedAt()), ts(order.providerUpdatedAt()), ts(now), ts(now),
                 order.price(), order.shippingFee(), order.shippingFeeOriginal(), order.shippingFeeDiscountPlatform(),
                 order.shippingFeeDiscountSeller(), order.voucher(), order.voucherPlatform(), order.voucherSeller(),
@@ -314,6 +383,18 @@ public class ChannelOrderImportService {
         }
     }
 
+    /** Serialises canonical statuses by NAME, so the stored value is the ratified vocabulary. */
+    private String canonicalStatuses(List<CanonicalOrderStatus> statuses) {
+        List<String> names = statuses == null
+                ? List.of()
+                : statuses.stream().map(CanonicalOrderStatus::name).toList();
+        try {
+            return json.writeValueAsString(names);
+        } catch (Exception e) {
+            throw new IllegalStateException("Canonical order status serialisation failed.");
+        }
+    }
+
     private static Timestamp ts(Instant instant) {
         return instant == null ? null : Timestamp.from(instant);
     }
@@ -334,6 +415,12 @@ public class ChannelOrderImportService {
     private static String city(ChannelOrderSnapshot.AddressSnapshot a) { return a == null ? null : a.city(); }
     private static String postCode(ChannelOrderSnapshot.AddressSnapshot a) { return a == null ? null : a.postCode(); }
     private static String country(ChannelOrderSnapshot.AddressSnapshot a) { return a == null ? null : a.country(); }
+
+    /** One page read, so the paging, absorption and failure discipline is written once. */
+    @FunctionalInterface
+    private interface PageReader {
+        ChannelOrderProvider.Page read(int offset, int limit);
+    }
 
     private record Window(Instant after, Instant before) {}
 
