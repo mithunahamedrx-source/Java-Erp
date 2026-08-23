@@ -82,6 +82,22 @@ integration:
     # must match the URI registered on the Daraz App Console exactly.
     oauth-redirect-uri: ${DARAZ_OAUTH_REDIRECT_URI:}
 
+  # Steadfast courier - STF-001 to STF-003, DLV-013.
+  #
+  # The credential is per MERCHANT ACCOUNT, not per shop: Trioloo runs four Daraz shops against
+  # one Steadfast account, so unlike a Daraz seller authorisation it does not hang off
+  # channel_instance (STF-003.d).
+  #
+  # The keys are STATIC and never expire (STF-003.a), which makes a leak worse than an OAuth
+  # token's: it stays valid until a human rotates it in the Steadfast panel. They live in the
+  # server environment only and never in this repository (DEP-021.b).
+  steadfast:
+    api-key: ${STEADFAST_API_KEY:}
+    secret-key: ${STEADFAST_SECRET_KEY:}
+    # The host is portal.packzy.com, NOT the steadfast.com.bd brand domain (STF-001). An egress
+    # rule or allow-list written against the brand will fail.
+    base-url: ${STEADFAST_BASE_URL:https://portal.packzy.com/api/v1}
+
 management:
   endpoints:
     web:
