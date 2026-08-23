@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 @ConditionalOnProperty(prefix = "integration.daraz", name = {"app-key", "app-secret"})
 public class DarazChannelOrderProvider implements ChannelOrderProvider {
 
+    private static final org.slf4j.Logger LOG =
+            org.slf4j.LoggerFactory.getLogger(DarazChannelOrderProvider.class);
+
     static final String ORDERS_GET_PATH = "/orders/get";
     static final String ORDERS_ITEMS_GET_PATH = "/orders/items/get";
     static final String PAGE_SIZE_PARAMETER = "limit";
@@ -425,16 +428,62 @@ public class DarazChannelOrderProvider implements ChannelOrderProvider {
         }
     }
 
+    /**
+     * The formats this adapter accepts for a provider timestamp.
+     *
+     * <p>🔴 {@code Instant.parse} ALONE WAS THE DEFECT. It accepts only the strict
+     * {@code 2026-08-21T10:26:00Z} form, and Daraz returns an offset timestamp — so every
+     * {@code created_at} and {@code updated_at} threw, was swallowed by a bare {@code catch},
+     * and landed as {@code NULL}. 110 production orders were imported with no provider
+     * timestamp at all and nothing anywhere said so.
+     *
+     * <p>⚠ {@code DZC} does not publish the timestamp FORMAT, only the field names
+     * ({@code DZC-045.e}), so the accepted forms are widened rather than guessed at singly.
+     */
+    private static final List<java.time.format.DateTimeFormatter> PROVIDER_TIMESTAMP_FORMATS = List.of(
+            java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME,
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z"),
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssZ"),
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ"));
+
+    /** Shapes already reported, so one unknown format warns once rather than per order. */
+    private static final java.util.Set<String> REPORTED_TIMESTAMP_SHAPES =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private static Instant instant(JsonNode node, String field) {
         String text = text(node, field);
         if (text == null) {
             return null;
         }
+        String raw = text.trim();
         try {
-            return Instant.parse(text);
-        } catch (RuntimeException e) {
-            return null;
+            return Instant.parse(raw);
+        } catch (RuntimeException ignored) {
+            // Not the strict instant form; try the offset forms below.
         }
+        for (java.time.format.DateTimeFormatter format : PROVIDER_TIMESTAMP_FORMATS) {
+            try {
+                return java.time.OffsetDateTime.parse(raw, format).toInstant();
+            } catch (RuntimeException ignored) {
+                // Try the next accepted form.
+            }
+        }
+        /*
+          🔴 AN UNPARSED TIMESTAMP IS REPORTED, NOT SWALLOWED. The original bare `catch` returned
+          null silently, which is how a whole column went missing in production unnoticed. The
+          value still resolves to ABSENT (SYS-034 — absent is not zero), but the shape is named so
+          the next unknown format is found in minutes rather than by reading the database.
+
+          ⚠ Digits are masked: a timestamp is not a secret, but a report never prints provider
+          payload values by habit (DEP-021.d).
+        */
+        String shape = raw.replaceAll("[0-9]", "N");
+        if (REPORTED_TIMESTAMP_SHAPES.add(shape)) {
+            LOG.warn("Daraz field '{}' carried an unparsable timestamp of shape '{}'. It is stored "
+                    + "as ABSENT. DZC does not publish the timestamp format, so this shape belongs "
+                    + "in DZC §12 once confirmed.", field, shape);
+        }
+        return null;
     }
 
     private static int integer(JsonNode node, String field) {

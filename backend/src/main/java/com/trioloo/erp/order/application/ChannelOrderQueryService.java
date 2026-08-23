@@ -87,16 +87,24 @@ public class ChannelOrderQueryService {
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                 """ + where, args, Long.class);
 
-        // Today's orders — counted on imported_at, the moment the order entered THIS system,
-        // which is the basis the product owner chose. It is stable: a later poll of an older
-        // order does not move it into today.
+        // Today's orders — counted on the MARKETPLACE's own creation time, which is the basis the
+        // product owner chose on 2026-08-23, superseding the earlier imported_at basis.
+        //
+        // ⚠ THE EARLIER BASIS WAS NOT WRONG, IT WAS FORCED: provider_created_at was NULL on every
+        // order because the adapter silently dropped every provider timestamp. Once that defect
+        // was fixed and the stored values repaired, the marketplace's own time became available
+        // and it is the one an operator recognises — it matches what the seller panel shows.
+        //
+        // 🔴 An order whose provider time is ABSENT falls into no period bucket rather than into
+        // today's (SYS-034 — absent is not a date, and certainly not "now").
         Long todaysOrders = jdbc.queryForObject("""
                 SELECT count(*)
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                 """ + where + and(where) + """
-                 (o.imported_at AT TIME ZONE 'Asia/Dhaka')::date
-                   = (now() AT TIME ZONE 'Asia/Dhaka')::date
+                 o.provider_created_at IS NOT NULL
+                   AND (o.provider_created_at AT TIME ZONE 'Asia/Dhaka')::date
+                     = (now() AT TIME ZONE 'Asia/Dhaka')::date
                 """, args, Long.class);
 
         // Today's dispatched — counted on the ERP's own first observation of DISPATCHED.
@@ -216,8 +224,12 @@ public class ChannelOrderQueryService {
         if (period != null) {
             // 🔴 The zone is applied explicitly (TEC-052) rather than inherited from the session,
             // so the boundary does not move with the host's timezone.
-            sql.append(" AND date_trunc('").append(period.truncation())
-               .append("', o.imported_at AT TIME ZONE 'Asia/Dhaka')")
+            //
+            // 🔴 The basis is the MARKETPLACE's creation time, the same one `Today's orders`
+            // counts. Two period bases on one screen is the exact defect GAP-004 recorded.
+            sql.append(" AND o.provider_created_at IS NOT NULL")
+               .append(" AND date_trunc('").append(period.truncation())
+               .append("', o.provider_created_at AT TIME ZONE 'Asia/Dhaka')")
                .append(" = date_trunc('").append(period.truncation())
                .append("', now() AT TIME ZONE 'Asia/Dhaka')");
         }
@@ -370,8 +382,8 @@ public class ChannelOrderQueryService {
     /**
      * The period filter.
      *
-     * <p>🔴 IT FILTERS ON THE SAME TIMESTAMP THE `Today's orders` CARD COUNTS — the moment the
-     * order entered THIS system. ⚠ Two period bases on one screen is precisely the defect
+     * <p>🔴 IT FILTERS ON THE SAME TIMESTAMP THE `Today's orders` CARD COUNTS — the MARKETPLACE's
+     * own creation time. ⚠ Two period bases on one screen is precisely the defect
      * {@code GAP-004} recorded when it asked what period boundary the shipped `This month` KPI
      * used and found no answer.
      *

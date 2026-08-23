@@ -331,7 +331,7 @@ function SummaryStrip({
   return (
     <div style={summaryStripStyle} data-testid="order-summary-strip">
       <SummaryCard label="Total orders" value={figure(summary?.totalOrders)} />
-      <SummaryCard label="Today's orders" value={figure(summary?.todaysOrders)} note="Imported today · Asia/Dhaka" />
+      <SummaryCard label="Today's orders" value={figure(summary?.todaysOrders)} note="Placed today · Asia/Dhaka" />
       <SummaryCard
         label="Today's dispatched"
         value={figure(summary?.todaysDispatched)}

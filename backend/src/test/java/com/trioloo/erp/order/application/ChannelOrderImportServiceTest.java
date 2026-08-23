@@ -296,8 +296,11 @@ class ChannelOrderImportServiceTest {
         assertThat(summary.totalOrders()).isEqualTo(2);
         assertThat(summary.totalItems()).isEqualTo(2);
 
-        // Imported in this run, so both fall on today's Asia/Dhaka business date (TEC-050).
-        assertThat(summary.todaysOrders()).isEqualTo(2);
+        // 🔴 The fixture's provider_created_at is 2026-08-03, NOT today — and `Today's orders`
+        // counts the MARKETPLACE's creation time, not the import time. An order imported today
+        // but placed weeks ago is not one of today's orders, which is the whole point of the
+        // basis the product owner chose.
+        assertThat(summary.todaysOrders()).isZero();
 
         // 🔴 Neither fixture reports `shipped`, so nothing was ever observed as DISPATCHED and
         // the figure is a REAL zero — not an absence dressed as one.

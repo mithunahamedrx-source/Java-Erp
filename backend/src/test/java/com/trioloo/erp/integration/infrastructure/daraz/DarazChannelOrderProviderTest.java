@@ -96,6 +96,54 @@ class DarazChannelOrderProviderTest {
         return new DarazChannelOrderProvider(properties, new DarazRequestSigner(), transport, tokens);
     }
 
+    /**
+     * 🔴 THE DEFECT THIS LOCKS. The original fixture used {@code 2026-08-01T10:00:00Z} — the one
+     * form {@code Instant.parse} accepts — so the mapper passed every test while, in production,
+     * EVERY {@code created_at} and {@code updated_at} threw, was swallowed by a bare
+     * {@code catch}, and was stored as NULL across 110 real orders.
+     *
+     * <p>⚠ This is {@code OSC-070.i} exactly: a surface proven against an imaginary payload
+     * proves nothing about the real one. The offset forms below are the ones a marketplace
+     * actually emits.
+     */
+    @Test
+    @DisplayName("parses provider timestamps in offset forms, not only the strict instant form")
+    void parsesOffsetTimestampForms() {
+        for (String stamp : List.of(
+                "2026-08-01T10:00:00Z",
+                "2026-08-01T16:00:00+06:00",
+                "2026-08-01 16:00:00 +0600",
+                "2026-08-01T16:00:00+0600")) {
+            DarazChannelOrderProvider provider = provider(orderResponseWith(stamp), itemResponse());
+
+            var page = provider.listOrders(UUID.randomUUID(), Instant.parse("2026-08-01T00:00:00Z"),
+                    Instant.parse("2026-08-02T00:00:00Z"), 0, 10);
+
+            assertThat(page.orders().getFirst().providerCreatedAt())
+                    .as("timestamp %s must parse", stamp)
+                    .isEqualTo(Instant.parse("2026-08-01T10:00:00Z"));
+        }
+    }
+
+    @Test
+    @DisplayName("an unparsable timestamp resolves to ABSENT and is never a fabricated date")
+    void unparsableTimestampIsAbsent() {
+        DarazChannelOrderProvider provider = provider(orderResponseWith("not-a-timestamp"), itemResponse());
+
+        var page = provider.listOrders(UUID.randomUUID(), Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-02T00:00:00Z"), 0, 10);
+
+        // SYS-034 — absent is not zero, and it is certainly not "now".
+        assertThat(page.orders().getFirst().providerCreatedAt()).isNull();
+        // 🔴 The order itself still imports. A bad timestamp never costs the order.
+        assertThat(page.orders().getFirst().externalOrderId()).isEqualTo("57244869716603");
+    }
+
+    private static String orderResponseWith(String createdAt) {
+        return orderResponse().replace("\"created_at\": \"2026-08-01T10:00:00Z\"",
+                "\"created_at\": \"" + createdAt + "\"");
+    }
+
     private static String orderResponse() {
         return """
                 {
