@@ -193,8 +193,17 @@ public class ChannelOrderPullService {
         // window is ever attempted twice here.
         Instant floor = state.backfillFloor() == null ? now.minus(BACKFILL_CAP) : state.backfillFloor();
         Instant chunkTo = state.backfillCursor();
-        ChannelOrderImportService.ImportOutcome last = null;
         int chunks = 0;
+        /*
+          🔴 THE WALK'S TOTALS ARE ACCUMULATED, NOT TAKEN FROM THE LAST CHUNK.
+
+          ⚠ The first production run exposed exactly this defect: a shop imported 103 orders
+          across thirteen chunks and the summary reported `seen=0`, because the OLDEST window —
+          the last one walked — happened to be empty. The per-chunk run records were correct
+          throughout; only the roll-up lied, which is the more dangerous failure because it is
+          the line an operator actually reads (SYS-034 — a figure must not misstate what happened).
+        */
+        Accumulator totals = new Accumulator();
 
         while (chunkTo.isAfter(floor)) {
             Instant chunkFrom = chunkTo.minus(BACKFILL_CHUNK);
@@ -206,7 +215,7 @@ public class ChannelOrderPullService {
             ChannelOrderImportService.ImportOutcome outcome =
                     imports.importWindowAsSystem(channelInstanceId, chunkFrom, chunkTo);
             finish(run, outcome);
-            last = outcome;
+            totals.add(outcome);
             chunks++;
 
             if (!outcome.complete()) {
@@ -217,7 +226,8 @@ public class ChannelOrderPullService {
                          WHERE channel_instance_id = ?
                         """, ts(chunkTo), channelInstanceId);
                 recordRefusal(channelInstanceId, chunkFrom, outcome.failureDetail(), now);
-                return new PullOutcome(Kind.BACKFILL_CHUNK, false, outcome,
+                return new PullOutcome(Kind.BACKFILL_CHUNK, false,
+                        totals.toOutcome(false, outcome.failureDetail()),
                         "Backfill walked " + chunks + " chunk(s) and stopped at " + chunkFrom
                                 + ". The refusal is recorded, not retried.");
             }
@@ -237,9 +247,7 @@ public class ChannelOrderPullService {
                  WHERE channel_instance_id = ?
                 """, ts(now), ts(now), channelInstanceId);
 
-        return new PullOutcome(Kind.BACKFILL_CHUNK, true,
-                last == null ? new ChannelOrderImportService.ImportOutcome(
-                        true, 0, 0, 0, 0, 0, 0, 0, null) : last,
+        return new PullOutcome(Kind.BACKFILL_CHUNK, true, totals.toOutcome(true, null),
                 "Backfill complete to the three-month cap after " + chunks
                         + " chunk(s). Incremental polling takes over.");
     }
@@ -368,6 +376,28 @@ public class ChannelOrderPullService {
     enum Initiator { SYSTEM, OPERATOR }
 
     record Run(UUID id) {}
+
+    /** Sums a multi-chunk walk so the roll-up describes the WALK, not its final window. */
+    private static final class Accumulator {
+        private int pages;
+        private int seen;
+        private int created;
+        private int updated;
+        private int items;
+
+        void add(ChannelOrderImportService.ImportOutcome outcome) {
+            pages += outcome.pagesRead();
+            seen += outcome.ordersSeen();
+            created += outcome.ordersCreated();
+            updated += outcome.ordersUpdated();
+            items += outcome.itemsSeen();
+        }
+
+        ChannelOrderImportService.ImportOutcome toOutcome(boolean complete, String failureDetail) {
+            return new ChannelOrderImportService.ImportOutcome(
+                    complete, pages, seen, created, updated, items, 0, 0, failureDetail);
+        }
+    }
 
     record State(Instant updateWatermark, Instant backfillFloor, Instant backfillCursor,
                  boolean backfillComplete) {}

@@ -45,6 +45,8 @@ class ChannelOrderPullServiceTest {
     /** Every update watermark the service asked for, in order. */
     private static final List<Instant> UPDATE_WINDOWS = new ArrayList<>();
     private static boolean refuse;
+    /** How many orders the FIRST creation-window read returns; later ones return none. */
+    private static int ordersOnFirstChunkOnly;
 
     record Window(Instant after, Instant before) {}
 
@@ -64,6 +66,14 @@ class ChannelOrderPullServiceTest {
                     CREATED_WINDOWS.add(new Window(createdAfter, createdBefore));
                     if (refuse) {
                         throw new ChannelOrderImportException("Provider refused the window.");
+                    }
+                    // The probe is call 1; the walk's first chunk is call 2.
+                    if (ordersOnFirstChunkOnly > 0 && CREATED_WINDOWS.size() == 2) {
+                        List<ChannelOrderSnapshot> orders = new ArrayList<>();
+                        for (int i = 0; i < ordersOnFirstChunkOnly; i++) {
+                            orders.add(order("WALK-" + i));
+                        }
+                        return new Page(orders.size(), orders.size(), orders);
                     }
                     return new Page(0, 0, List.of());
                 }
@@ -99,6 +109,7 @@ class ChannelOrderPullServiceTest {
         CREATED_WINDOWS.clear();
         UPDATE_WINDOWS.clear();
         refuse = false;
+        ordersOnFirstChunkOnly = 0;
         actingWith(OrderPermissions.CHANNEL_ORDER_SYNC, OrderPermissions.CHANNEL_ORDER_VIEW);
         shop = insertShop("ORDER-PULL-A", "ACTIVE");
         connections.save(ChannelConnectionEntity.observed(shop, ConnectionState.CONNECTED, Instant.now()));
@@ -164,6 +175,24 @@ class ChannelOrderPullServiceTest {
         // And the next invocation is incremental, not another backfill.
         assertThat(pulls.pullAsOperator(shop).kind())
                 .isEqualTo(ChannelOrderPullService.Kind.INCREMENTAL);
+    }
+
+    @Test
+    @DisplayName("the walk's roll-up sums every chunk, not just the last one")
+    void backfillRollUpSumsTheWholeWalk() {
+        // 🔴 The defect this locks: the first production run imported 103 orders across thirteen
+        // chunks and reported `seen=0`, because the OLDEST window — walked last — was empty.
+        // Here the FIRST chunk carries orders and the rest are empty, reproducing that shape.
+        ordersOnFirstChunkOnly = 3;
+
+        pulls.pullAsOperator(shop);                                  // boundary probe
+        ChannelOrderPullService.PullOutcome walk = pulls.pullAsOperator(shop);
+
+        assertThat(walk.complete()).isTrue();
+        assertThat(walk.imported().ordersSeen()).isEqualTo(3);
+        assertThat(walk.imported().ordersCreated()).isEqualTo(3);
+        // The roll-up must also describe the whole walk's paging, not one window's.
+        assertThat(walk.imported().pagesRead()).isGreaterThanOrEqualTo(13);
     }
 
     @Test
@@ -279,6 +308,21 @@ class ChannelOrderPullServiceTest {
         assertThat(state.recentRuns()).isEmpty();
     }
 
+    /** The minimum a snapshot needs: an identity and a status. Everything else is absent. */
+    private static ChannelOrderSnapshot order(String externalId) {
+        return new ChannelOrderSnapshot(
+                externalId, "ORD-" + externalId,      // identity
+                null, null,                            // provider created / updated
+                null, null, null, null, null,          // price + shipping money
+                null, null, null, null,                // vouchers, cash payment fee
+                null, null, 1,                         // payment method, voucher code, items count
+                List.of("pending"),                    // statuses
+                null, null, null, null, null,          // promised, warehouse, delivery, notes
+                null, null, null, null, null, null,    // gift, regional, extra
+                null, null,                            // customer names
+                null, null, List.of());                // addresses, items
+    }
+
     /** Drives the backfill to completion so the incremental path is reachable. */
     private void completeBackfill() {
         for (int i = 0; i < 5; i++) {
@@ -309,6 +353,16 @@ class ChannelOrderPullServiceTest {
     }
 
     private void clean() {
+        // The roll-up test imports real snapshots, so orders must go before their shop.
+        jdbc.update("""
+                DELETE FROM channel_order_item WHERE channel_order_id IN (
+                    SELECT id FROM channel_order WHERE channel_instance_id IN (
+                        SELECT id FROM channel_instance WHERE code LIKE 'ORDER-PULL-%'))
+                """);
+        jdbc.update("""
+                DELETE FROM channel_order WHERE channel_instance_id IN (
+                    SELECT id FROM channel_instance WHERE code LIKE 'ORDER-PULL-%')
+                """);
         jdbc.update("""
                 DELETE FROM channel_order_pull_run WHERE channel_instance_id IN (
                     SELECT id FROM channel_instance WHERE code LIKE 'ORDER-PULL-%')
