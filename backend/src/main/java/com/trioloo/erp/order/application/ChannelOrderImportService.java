@@ -36,18 +36,25 @@ public class ChannelOrderImportService {
     private final ObjectMapper json = new ObjectMapper();
     private final Clock clock;
 
+    /** {@code BR-181.c} — admitting {@code DRAFT} shops, off by default. See the gate below. */
+    private final boolean admitDraftShops;
+
     public ChannelOrderImportService(JdbcTemplate jdbc,
                                      ChannelInstanceRepository channels,
                                      ChannelConnectionRepository connections,
                                      List<ChannelOrderProvider> providers,
                                      CurrentActor currentActor,
-                                     Clock clock) {
+                                     Clock clock,
+                                     @org.springframework.beans.factory.annotation.Value(
+                                             "${trioloo.order.pull.admit-draft-shops:false}")
+                                     boolean admitDraftShops) {
         this.jdbc = jdbc;
         this.channels = channels;
         this.connections = connections;
         this.providers = providers == null ? List.of() : List.copyOf(providers);
         this.currentActor = currentActor;
         this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.admitDraftShops = admitDraftShops;
     }
 
     @Transactional
@@ -174,7 +181,19 @@ public class ChannelOrderImportService {
         if (!DARAZ.equalsIgnoreCase(channel.getChannelType())) {
             throw new ChannelOrderImportException("This shop is not Daraz.");
         }
-        if (channel.getRecordStatus() != RecordStatus.ACTIVE) {
+        /*
+          🔴 THE SAME BR-181 GATE THE SCHEDULER APPLIES, ENFORCED AGAIN HERE.
+
+          ⚠ It is not redundant. The scheduler decides WHICH shops to sweep; this service is also
+          reachable directly by an operator, and a gate that lives only in the caller is not a gate.
+
+          ✅ Both read ONE configuration value, so the rule cannot be open in one path and closed in
+          the other — which is exactly the defect this comment was written after: widening the
+          scheduler alone left this check refusing every DRAFT shop, and the sweep failed on a
+          two-minute loop until it was found.
+        */
+        if (channel.getRecordStatus() != RecordStatus.ACTIVE
+                && !(admitDraftShops && channel.getRecordStatus() == RecordStatus.DRAFT)) {
             throw new ChannelOrderImportException("This Daraz shop is not ACTIVE.");
         }
         ConnectionState state = connections.findByChannelInstanceIdIn(List.of(channelInstanceId))

@@ -119,3 +119,12 @@ trioloo:
       enabled: ${ORDER_PULL_ENABLED:false}
       interval: ${ORDER_PULL_INTERVAL:PT15M}
       initial-delay: ${ORDER_PULL_INITIAL_DELAY:PT1M}
+
+      # 🔴 BR-181 admits ACTIVE Daraz shops ONLY, and that is the shipped default.
+      # BR-181.b gives the reason: importing live customer orders from a shop whose
+      # configuration is still a DRAFT is a DECISION, not a default. BR-181.c reserves that
+      # decision for the business.
+      # ⚠ Setting this true is that decision being taken. It admits DRAFT shops to INGESTION
+      # ONLY - it activates nothing, writes no lifecycle transition, and CONNECTION is still
+      # required either way.
+      admit-draft-shops: ${ORDER_PULL_ADMIT_DRAFT_SHOPS:false}

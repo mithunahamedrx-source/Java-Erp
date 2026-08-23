@@ -66,16 +66,27 @@ public class ChannelOrderPullService {
     private final CurrentActor currentActor;
     private final Clock clock;
 
+    /**
+     * Whether ingestion admits `DRAFT` shops — the {@code BR-181.c} business decision.
+     *
+     * <p>🔴 FALSE BY DEFAULT, so the shipped behaviour is exactly {@code BR-181}.
+     */
+    private final boolean admitDraftShops;
+
     public ChannelOrderPullService(JdbcTemplate jdbc,
                                    ChannelOrderImportService imports,
                                    ChannelConnectionRepository connections,
                                    CurrentActor currentActor,
-                                   Clock clock) {
+                                   Clock clock,
+                                   @org.springframework.beans.factory.annotation.Value(
+                                           "${trioloo.order.pull.admit-draft-shops:false}")
+                                   boolean admitDraftShops) {
         this.jdbc = jdbc;
         this.imports = imports;
         this.connections = connections;
         this.currentActor = currentActor;
         this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.admitDraftShops = admitDraftShops;
     }
 
     /**
@@ -91,13 +102,37 @@ public class ChannelOrderPullService {
      */
     @Transactional(readOnly = true)
     public List<UUID> eligibleShops() {
-        List<UUID> active = jdbc.queryForList("""
+        /*
+          🔴 BR-181 ADMITS `ACTIVE` DARAZ SHOPS ONLY, AND THAT REMAINS THE DEFAULT HERE.
+          BR-181.a excludes a `DRAFT` instance EVEN WHERE ITS CONNECTION IS `CONNECTED`, because
+          configuration and authorisation are independent facts (SYS-108).
+
+          ✅ BR-181.b states the REASON the exclusion exists: "Importing live customer orders from
+          a shop whose configuration is still a draft is a DECISION, not a default." BR-181.c then
+          reserves that decision for the business — "ADMITTING `DRAFT` SHOPS IS A SEPARATE BUSINESS
+          DECISION AND IS NOT TAKEN HERE."
+
+          ⚠ THE PRODUCT OWNER TOOK IT ON 2026-08-24: every shop's orders are wanted. It is
+          expressed as CONFIGURATION, off by default, so the ratified rule remains the shipped
+          behaviour and the decision is visible and reversible in one line — the same shape
+          BR-179.a already uses for the cadence.
+
+          🔴 A DRAFT shop is admitted to INGESTION ONLY. Nothing here activates a shop, and no
+          lifecycle transition is written: `SCS-051` owns activation, it records WHO activated and
+          WHEN (AGV-001), and a background job has no actor to record.
+        */
+        String configurationFilter = admitDraftShops
+                ? " AND upper(record_status) IN ('ACTIVE', 'DRAFT')"
+                : " AND upper(record_status) = 'ACTIVE'";
+        List<UUID> candidates = jdbc.queryForList("""
                 SELECT id FROM channel_instance
                  WHERE upper(channel_type) = 'DARAZ'
-                   AND upper(record_status) = 'ACTIVE'
+                """ + configurationFilter + """
                  ORDER BY code ASC
                 """, UUID.class);
-        return active.stream().filter(this::isConnected).toList();
+        // 🔴 CONNECTION IS STILL REQUIRED EITHER WAY. An unauthorised shop has no credential to
+        // read with, and admitting DRAFT never implies admitting NOT_CONNECTED.
+        return candidates.stream().filter(this::isConnected).toList();
     }
 
     private boolean isConnected(UUID channelInstanceId) {

@@ -266,6 +266,18 @@ class ChannelOrderPullServiceTest {
     }
 
     @Test
+    @DisplayName("BR-181.c - admitting DRAFT shops is OFF by default, so the rule is the shipped behaviour")
+    void draftAdmissionIsOffByDefault() {
+        UUID draft = insertShop("ORDER-PULL-DRAFT2", "DRAFT");
+        connections.save(ChannelConnectionEntity.observed(draft, ConnectionState.CONNECTED, Instant.now()));
+
+        // 🔴 The default property is false, so this service instance behaves exactly as BR-181
+        // specifies. Admitting DRAFT is a business decision expressed as configuration, never a
+        // silent widening.
+        assertThat(pulls.eligibleShops()).doesNotContain(draft);
+    }
+
+    @Test
     @DisplayName("BR-181 - an ACTIVE shop that is not CONNECTED is not eligible either")
     void unconnectedShopIsNotEligible() {
         UUID unconnected = insertShop("ORDER-PULL-UNCONNECTED", "ACTIVE");
