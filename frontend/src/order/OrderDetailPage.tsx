@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { Card, EmptyState } from '../ui/primitives';
+import { Card, EmptyState, StatusPill } from '../ui/primitives';
 import { fetchChannelOrder } from './orderApi';
 import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow } from './orderApi';
-import { StatusBadge, toneForStatus } from './OrderBadges';
+import { StatusBadge } from './OrderBadges';
+import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
+  canonicalStatus,
+  canonicalStatusLabel,
   addressLines,
   customerName,
   detailMeta,
@@ -68,7 +71,13 @@ export default function OrderDetailPage(): React.JSX.Element {
     );
   }
 
-  const status = primaryStatus(order.statuses);
+  /*
+    🔴 TWO STATUSES, TWO OWNERS (`BR-171`, `UX-182`, `OSC-036`). `canonical` is the ERP-vocabulary
+    mirror the adapter produced; `reported` is the marketplace's own word. The surface renders
+    both and never presents the second as the order's lifecycle state.
+  */
+  const canonical = canonicalStatus(order.canonicalStatuses);
+  const reported = primaryStatus(order.statuses);
   return (
     <>
       <PageHeader
@@ -82,7 +91,14 @@ export default function OrderDetailPage(): React.JSX.Element {
         <Link to="/sales/orders" style={{ color: 'var(--color-text-muted)' }}>Orders</Link>
         <span>/</span>
         <strong>{orderTitle(order)}</strong>
-        <StatusBadge tone={toneForStatus(status)}>{displayStatus(status)}</StatusBadge>
+        {canonical ? (
+          <StatusPill tone={semanticRoleOf(ORDER_LIFECYCLE_ROLE, canonical)}>
+            {canonicalStatusLabel(canonical)}
+          </StatusPill>
+        ) : (
+          <StatusBadge>Status not translated</StatusBadge>
+        )}
+        <StatusBadge>Marketplace · {reported}</StatusBadge>
         <StatusBadge>{ownershipLabel(order.ownership)}</StatusBadge>
       </div>
 
@@ -137,7 +153,10 @@ export default function OrderDetailPage(): React.JSX.Element {
 
         <aside style={rightRailStyle}>
           <RailCard title="Status">
-            <StatusLine label="Order" value={displayStatus(status)} tone={toneForStatus(status)} />
+            <StatusLine
+              label="Order"
+              value={canonical ? canonicalStatusLabel(canonical) : 'Status not translated'}
+            />
             <StatusLine label="Verification" value="Pending verification" tone="pending" />
             <StatusLine label="Fulfilment" value="Not started" />
             <StatusLine label="Shipment" value={firstRecorded(order.items, (item) => item.trackingCode) ? 'Tracking recorded' : 'Not created'} />

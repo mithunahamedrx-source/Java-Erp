@@ -496,7 +496,25 @@ export function SegmentedControl({
   value,
   onChange,
 }: {
-  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+    /**
+     * An optional count, rendered as a superscript beside the label.
+     *
+     * ⚠ `undefined` means NO COUNT IS KNOWN and nothing renders; `0` is a real zero and renders
+     * as `0` (`SYS-034`, `OSC-045`). The two must not look alike.
+     */
+    readonly count?: number;
+    /**
+     * The semantic role of the state this segment names (`RULE 3.3.d`).
+     *
+     * 🔴 Supplied by the caller from `semanticRole.ts`, never derived here from the label. A
+     * component that coloured a state by inspecting its own text would be doing exactly the
+     * resemblance matching `RULE 3.14.a.a` prohibits.
+     */
+    readonly countTone?: SemanticTone;
+  }[];
   readonly value: string;
   readonly onChange: (value: string) => void;
 }): React.JSX.Element {
@@ -535,6 +553,31 @@ export function SegmentedControl({
             }}
           >
             {option.label}
+            {option.count !== undefined && (
+              /*
+                🔴 `RULE 8.4` — the count is a SUPPORTING cue and never the only signal. The
+                segment's own label names the state in words, so the colour reinforces a
+                meaning that is already legible in monochrome and to a screen reader.
+
+                🔴 ON THE ACTIVE SEGMENT THE COUNT TAKES THE SURFACE COLOUR, NOT ITS SEMANTIC
+                ONE. The active fill is ink (`RULE 8.6.c`), and a soft semantic foreground on
+                near-black would fail contrast — so the ink fill carries the selection and the
+                word still carries the state.
+              */
+              <sup
+                style={{
+                  marginLeft: '4px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: active
+                    ? 'var(--color-surface)'
+                    : `var(--color-semantic-${option.countTone ?? 'neutral'}-fg)`,
+                }}
+              >
+                {option.count}
+              </sup>
+            )}
           </button>
         );
       })}

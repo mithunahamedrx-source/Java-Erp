@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.4.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.5.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (**KPI ROW AND STATUS TABS RATIFIED** — `OSC-053` names the four summary figures the product owner chose, closing `GAP-004` for this workspace and WITHDRAWING the shipped `Total Revenue`/`Total Margin` pair; `OSC-054` records that the tabs are `SM-1` states filled by the §4.3 adapter translation, so `GAP-017`'s legacy-label mapping stays blocked without blocking the tab set; `OSC-030.a` gains `Returned`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -141,19 +141,26 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 |---|---|
 | **Required visible data** | Order number (`INV-31.6`, stable, never reused, monospace) · customer name from the ORDER'S OWN SNAPSHOT (`INV-31.7`) · channel type **and instance** (`BR-002`, `INV-31.4`) · external references with their issuing party (`DB-013`) · authority state `API_MANAGED` / `ERP_MANAGED` (`BR-168`, `INV-31.8`) · line count and quantity · demoted `Cost · Charges · Received`, divided from primary `Sale · Margin` (`§3.15`) · **one chip per lifecycle, never merged** (`BR-065`, `BR-066`) · a captured/most-relevant timestamp · invoice reference or an explicit absence |
 | **Allowed actions** | `View` · `More` (row action, `UX-045` level 3) · `New order` (`EVT-001`) · `Export` (`API-057` CSV, the only V1 bulk format) · status-tab filtering · channel, search and captured-date filters (level 2) |
-| **Unavailable / blocked** | 🔴 **KPI row — BLOCKED (`GAP-004`)** · 🔴 **legacy tab labels — BLOCKED (`GAP-017`)** · 🔴 **ageing or SLA badges — BLOCKED (`GAP-024`)** · ⚠ **bulk transitions are NOT drawn**: `PRM-025` requires each record authorised individually with per-record results (`SYS-073`), and no permitted-bulk-transition inventory exists (`GAP-034`) |
+| **Unavailable / blocked** | ✅ **KPI row — RESOLVED (`OSC-053`)** · ✅ **status tabs — RESOLVED (`OSC-054`)**, though 🔴 **the legacy LABEL mapping stays BLOCKED (`GAP-017`)** · 🔴 **ageing or SLA badges — BLOCKED (`GAP-024`)** · ⚠ **bulk transitions are NOT drawn**: `PRM-025` requires each record authorised individually with per-record results (`SYS-073`), and no permitted-bulk-transition inventory exists (`GAP-034`) |
 | **Canonical dependencies** | `BR-002` · `BR-065`/`BR-066` · `BR-168` · `E-031`, `E-032` · `INV-31.4`, `INV-31.6`, `INV-31.7`, `INV-31.8` · `SM-1` · `UX-187`, `UX-045` · `RULE 3.13`, `RULE 3.15`, `RULE 3.16` |
 | **Coverage owed** | Frame-tag traceability · card renders every required datum · a missing invoice renders an explicit absence, never `—` standing for zero · the three lifecycle chips never collapse to one · tab set matches the ratified `SM-1` state names · blocked regions render their marker rather than a figure |
 
 > **a.** 🔴 **THE STATUS TABS ARE NAMED FOR RATIFIED `SM-1` STATES.** ✅ **`All · Pending verification ·
-> Confirmed · Released · In fulfilment · Ready to ship · Dispatched · Delivered · Failed delivery · On hold ·
-> Cancelled · Closed`** — every one a state `OM §6.2` ratifies.
-> **b.** 🔴 **BLOCKED — MISSING CANONICAL BUSINESS RULE.** **The shipped labels `Shipped`, `RTS`, `Pending`
+> Confirmed · Released · In fulfilment · Ready to ship · Dispatched · Delivered · Failed delivery · Returned ·
+> On hold · Cancelled · Closed`** — every one a state `OM §6.2` ratifies.
+>
+> ✅ **`Returned` ADDED 2026-08-23.** ⚠ **The v1.0.0 list omitted it, and the omission was an oversight rather than a
+> decision: `OM §6.2` and `SMA §5.2` both ratify `RETURNED` as an `SM-1` state, `§6.3`'s own diagram draws
+> `FAILED_DELIVERY → RETURNED` and `DELIVERED → RETURNED`, and the channel reports `returned` as one of its eight
+> published values** (`DZC-045.c`). 🔴 **Nothing else is added: `DRAFT` stays out under `GAP-023`.**
+> **b.** 🔴 **STILL BLOCKED, AND NARROWER THAN IT WAS.** **The shipped labels `Shipped`, `RTS`, `Pending`
 > and `B2C Pending` have NO canonical state set** (`GAP-017`, 🔴 Critical). ⚠ **A mapping must not be guessed
 > from resemblance; `RTS` alone is ambiguous between `READY_TO_SHIP` and Return-To-Seller** (`BR-079`).
-> **c.** 🔴 **BLOCKED — MISSING CANONICAL BUSINESS RULE.** **The four shipped KPI cards are undefined**
-> (`GAP-004`). ✅ **The `82px` region and its geometry are ratified; the FIGURES are not.** **The region
-> renders its blocked marker and no KPI is invented.**
+> ✅ **`OSC-054` does NOT close this** — it makes the block irrelevant to the tab set by never using a legacy
+> label, rather than by finally mapping one. 🔴 **The legacy labels remain unusable.**
+> **c.** ✅ **RESOLVED 2026-08-23 — see `OSC-053`.** **The wording above is retained** (`DOC-009`) **because it
+> was correct while the figures were undecided.** ⚠ **The four shipped KPI cards were never defined; they were
+> WITHDRAWN and four different figures ratified in their place.**
 
 ## 4.2 `FRAME 02` — Order Detail, Overview
 
@@ -345,6 +352,62 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > the `minWidth: 0` / `minmax(0, …)` / `nowrap` / ellipsis discipline.** ⚠ **Zoom changes scale and viewport
 > visibility — never information existence; page size and record count never change with viewport or zoom.**
 
+> **`OSC-053` — ✅ THE FOUR SUMMARY FIGURES. Product-owner decision, 2026-08-23.**
+>
+> 🔴 **THE SHIPPED KPIs WERE NOT DEFINED — THEY WERE WITHDRAWN.** ⚠ **`GAP-004` asked what
+> `Total Orders` / `Confirmed Today` / `Total Revenue` / `Total Margin` mean. The business answered by
+> naming a DIFFERENT four**, and the capture's set carries no authority from this rule.
+>
+> | Figure | What it counts | Rule it rests on |
+> |---|---|---|
+> | **Total orders** | Every channel order matching the active filter. ⚠ **Cancelled orders are INCLUDED** — it states how many orders exist, not how many succeeded | — a count |
+> | **Today's orders** | Orders whose ingestion timestamp falls on today's business date | 🔴 **`TEC-050`, `TEC-052` — `Asia/Dhaka`, never a UTC-truncated instant** |
+> | **Today's dispatched** | Orders first observed as canonically `DISPATCHED` on today's business date | **`OSC-053.c`** |
+> | **Total collectable** | Order value of orders whose canonical status is `DELIVERED` | 🔴 **`BR-033` — the obligation follows DELIVERED goods; `SM-5` `DUE` is *"Delivered; payment expected"*; `BR-035` — money is Trioloo's only once it ARRIVES** |
+>
+> **a.** ✅ **NO MARGIN OR REVENUE FIGURE IS RATIFIED, AND THAT IS THE POINT.** **`GAP-004` called margin
+> *"the most dangerous"*: `BR-007` makes an uncosted line's margin UNKNOWN and `SYS-034` forbids summing
+> unknowns as zeros, so a pre-settlement margin would be confidently wrong and undetectable from the screen**
+> (`BR-011`, `BR-067`). 🔴 **Neither is drawn.**
+> **b.** ⚠ **`Total collectable` SUBTRACTS NOTHING, BECAUSE NOTHING HAS BEEN RECEIVED.** **No receipt,
+> remittance or settlement record exists, so the figure is the delivered-and-unsettled position in full.**
+> 🔴 **When Payment lands it must become `delivered − received`; that is a restatement of a published number
+> and belongs to Payment's amendment, never to an implementation tidy-up.**
+> **c.** 🔴 **`Today's dispatched` COUNTS AN ERP OBSERVATION, NOT A MARKETPLACE FACT.** **`DZC-045.e` and
+> `DZC-047.c` enumerate every field the provider publishes and NONE is a dispatch timestamp**, so when the
+> carrier took the parcel is not readable. ✅ **What is recorded is the instant this system FIRST saw the order
+> carrying `DISPATCHED` — written once, never rewritten, and never reconstructed afterwards from
+> `provider_updated_at`, which moves for unrelated reasons.** ⚠ **ON THE FIRST BACKFILL THE FIGURE IS WRONG:**
+> every already-shipped order is first observed on one day, so that day's count is the backlog. 🔴 **Stated,
+> not designed around.**
+> **d.** 🔴 **EVERY FIGURE HONOURS THE ACTIVE FILTER.** ⚠ **A card stating a different population from the
+> cards beneath it on the same screen is the failure this clause exists to prevent.**
+> **e.** 🔴 **A FIGURE THE SERVER CANNOT SUPPLY RENDERS AS AN EXPLICIT ABSENCE, NEVER AS `0`** (`OSC-045`,
+> `SYS-034`). ✅ **A real zero and an unavailable figure must not look alike.**
+> **f.** 🔴 **`Total collectable` CROSSES AS A STRING AND IS NEVER PARSED** (`OSC-043`, `TEC-015`).
+
+> **`OSC-054` — ✅ THE STATUS TABS ARE FILLED BY THE ADAPTER'S TRANSLATION, NOT BY A UI MAPPING.**
+>
+> ✅ **`§4.3` makes translation an ADAPTER responsibility in its own words — *"Translation — Convert channel
+> vocabulary into canonical vocabulary (status names, payment methods, address formats)"* — and `BR-005`
+> forbids any downstream stage from carrying channel-conditional behaviour.** ✅ **`DZC-045.c.ii` says the same
+> from the other side: *"Mapping it to `SM-1` is ADAPTER WORK and is not performed here."***
+>
+> **a.** 🔴 **THE SURFACE FILTERS ON THE CANONICAL MIRROR AND NEVER ON A CHANNEL'S OWN SPELLING.** ⚠ **A tab
+> that matched the string `ready_to_ship` would put Daraz vocabulary into the Orders workspace, which is
+> exactly what `BR-005` prohibits.**
+> **b.** 🔴 **THE MIRROR AND THE RAW CHANNEL STATUS ARE BOTH RETAINED, AS TWO FACTS** (`BR-171`, `BR-173`,
+> `UX-182`, `OSC-036`). ✅ **The card shows both, separately labelled.** 🔴 **They are never merged.**
+> **c.** ⚠ **A CHANNEL VALUE THE ADAPTER CANNOT TRANSLATE IS OMITTED FROM THE MIRROR, NEVER APPROXIMATED**
+> (`BR-134`, `SYS-034`). ✅ **The surface says the status was not translated rather than borrowing the
+> marketplace's word and presenting it as a canonical state.**
+> **d.** ⚠ **SEVERAL TABS CAN ONLY BE EMPTY IN THIS SLICE.** **`CONFIRMED`, `RELEASED`, `IN_FULFILLMENT`,
+> `ON_HOLD` and `CLOSED` are reached by Trioloo's own acts, and this read-only slice performs none of them.**
+> ✅ **An empty tab is an honest fact, not a defect, and no figure is invented to populate one.**
+> **e.** 🔴 **THIS RATIFIES NO LIFECYCLE BEHAVIOUR.** **`§7.8` still places an imported order in
+> `PENDING_VERIFICATION`, `BR-171` still forbids the external status re-driving the lifecycle, and nothing
+> here creates a state, a transition or an event** (`OSC-003`).
+
 ---
 
 # 6. The blocked register
@@ -353,8 +416,8 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Element | Frame | Marker | Owner |
 |---|---|---|---|
-| **Four orders-list KPIs** | `01` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-004`) | `SYS-088` |
-| **Legacy UI-label → state mapping** | `01` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-017`, 🔴 Critical) | `OM §6.2` |
+| ~~**Four orders-list KPIs**~~ | `01` | ✅ **RESOLVED 2026-08-23 — the shipped four are WITHDRAWN and four different figures ratified** (`OSC-053`, `GAP-004` closed for this workspace) | Product owner |
+| **Legacy UI-label → state mapping** | `01` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-017`, 🔴 Critical). ⚠ **Still blocked, and now irrelevant to the tab set: `OSC-054` uses `SM-1` names filled by the adapter and no legacy label at all** | `OM §6.2` |
 | **`B2C` as a classification** | `01`, `04` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-022`) | `OM §3.1` |
 | **`DRAFT` lifecycle** | `01` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-023`) | `OM §6.2` |
 | **Ageing / SLA markers** | `01`, `08`, `09` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-024`) | `SYS-023` |
@@ -372,9 +435,15 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > **a.** ✅ **THIS SUPERSEDES THE ORIGINAL PLACEHOLDER RULE.** The previous v1.0.0 wording required every blocked
 > region to keep geometry and render a neutral marker. That preserved design traceability, but in production it
 > made unresolved documentation look like operator-facing product functionality.
-> **b.** 🔴 **NO KPI ROW, LEGACY STATUS TAB SET, BLOCKED BADGE, DISABLED BULK ACTION, MANUAL-ACTION BUTTON OR
-> FUTURE WRITE CONTROL IS RENDERED BY THE READ-ONLY MVP.** It may be restored only when the owner ratifies the
-> missing rule and the implementing slice can show real data or a real permitted action.
+> **b.** 🔴 **NO BLOCKED BADGE, DISABLED BULK ACTION, MANUAL-ACTION BUTTON OR FUTURE WRITE CONTROL IS RENDERED
+> BY THE READ-ONLY MVP.** It may be restored only when the owner ratifies the missing rule and the implementing
+> slice can show real data or a real permitted action.
+>
+> **b.i.** ✅ **AMENDED 2026-08-23 — THE KPI ROW AND THE STATUS TABS ARE NOW RENDERED, BY THIS CLAUSE'S OWN
+> TEST.** **The original wording withheld them because they were unresolved documentation; `OSC-053` and
+> `OSC-054` resolved them, and each now shows REAL DATA.** ⚠ **The superseded wording — *"NO KPI ROW, LEGACY
+> STATUS TAB SET…"* — is retained here** (`DOC-009`) **because it was correct while they were unresolved.**
+> 🔴 **NO LEGACY STATUS TAB SET IS RENDERED, THEN OR NOW** (`GAP-017`, `OSC-054`).
 > **c.** ✅ **EMPTY DATA IS STILL EXPLICIT.** No order rows renders an empty state that says an approved Daraz order
 > pull must run before channel orders appear. It does not fabricate sample cards and it does not imply a defect
 > in the page.
@@ -486,6 +555,10 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | Order frontend module / route / page | ✅ **Exists** — `/sales/orders` and `/sales/orders/:id` render read-only Orders surfaces |
 | Order migration | ✅ **Exists** — `V16__channel_order_import.sql` in the codebase; deployment still applies pending migrations behind `DEP-125` |
 | `FRAME 01`–`FRAME 09` | ✅ **FRAME 01–08 built as read-only first slice; FRAME 09 not built and its placeholders withheld** |
+| Orders KPI row | ✅ **Ratified and rendered** — four figures (`OSC-053`); `Total Revenue` and `Total Margin` WITHDRAWN |
+| Orders status tabs | ✅ **Ratified and rendered** — `SM-1` names filled by the adapter translation (`OSC-054`); no legacy label |
+| Canonical status mirror | ✅ **Persisted beside the raw channel status, never instead of it** (`BR-171`, `BR-173`) |
+| Dispatch observation | ⚠ **An ERP observation, not a marketplace fact** — the provider publishes no dispatch timestamp (`OSC-053.c`) |
 | Approved visual authority | ✅ **`OSC-010`** — *Trioloo Orders Screens*, two artboards |
 | Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
@@ -499,6 +572,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.5.0** | **2026-08-23** | ✅ **THE KPI ROW AND THE STATUS TABS ARE RATIFIED AND BUILT.** **`OSC-053`** names the four summary figures the product owner chose — **Total orders · Today's orders · Today's dispatched · Total collectable** — closing `GAP-004` for this workspace. 🔴 **The shipped KPIs were not defined, they were WITHDRAWN: `Total Revenue` and `Total Margin` are gone, which is the substance of the resolution, because `BR-007` uncosted lines and `SYS-034` unknown-is-not-zero make a pre-settlement margin confidently wrong and undetectable from the screen.** **`OSC-054`** records that the tabs are `SM-1` state names filled by the §4.3 ADAPTER translation (`BR-005`, `DZC-045.c.ii`), so the surface never touches a channel's own vocabulary — ⚠ **`GAP-017` stays blocked and becomes irrelevant to the tab set rather than being closed.** ✅ **`OSC-030.a` gains `Returned`**, an `SM-1` state `OM §6.2`, `SMA §5.2` and `§6.3`'s own diagram all carry and the v1.0.0 list omitted by oversight. ✅ **`OSC-051.b.i`** amends the withhold rule by its own test: both regions now show real data. 🔴 **TWO LIMITATIONS RECORDED RATHER THAN DESIGNED AROUND** — `Total collectable` subtracts nothing because no receipt or settlement record exists, and `Today's dispatched` counts an ERP OBSERVATION because `DZC-045.e`/`DZC-047.c` prove the provider publishes no dispatch timestamp, so the first backfill's count is the backlog. 🔴 **No lifecycle, permission, endpoint or event created; `FRAME 09` still not built; every other entry in `OSC-050` stands.** |
 | **1.4.0** | **2026-08-23** | ✅ **LIVE READ-ONLY UI CLEANUP.** Unresolved blocker placeholders, legacy status tabs, disabled future buttons and KPI shells are removed from the operator-facing Orders list/detail pages. `OSC-050` remains the canonical blocked register, but `OSC-051` now requires the MVP UI to withhold unresolved controls rather than render documentation as product chrome. Frontend only: no backend, no migration, no Daraz call. |
 | **1.3.0** | **2026-08-23** | ✅ **FIRST READ-ONLY ORDERS UI SLICE.** `OrdersPage.tsx` implements `FRAME 01` as the card-list workspace; `OrderDetailPage.tsx` implements `FRAME 02` plus the read-only `FRAME 03`–`FRAME 08` panels. `FRAME 09` renders blocked markers only. 🔴 **No write path, no scheduler, no import trigger, no shipment/payment/inventory action, no marketplace write and no manual order capture.** Focused Orders test 2/2, full frontend 876/876 and build passed. |
 | **1.2.0** | **2026-08-23** | ✅ **`OSC-060` RESOLVED — THE MIGRATION BAR IS LIFTED.** **The production read was performed: `flyway_schema_history` is at `V14`, `V15` unapplied and `channel_listing_review` absent, BECAUSE the deployed jar carries `V1`–`V14` and no `V15`.** 🔴 **There was never a contradiction — `DEP-071` cannot apply a migration the deployed artifact does not contain.** ✅ **`DEP-125` then TOOK the position: `V15` is applied deliberately on the next deployment behind the backup gate, and V15-free release branches are discontinued.** 🔴 **A number is still assigned only AFTER the `DEP-031` pre-flight confirms the applied ceiling — `DEP-070.b` is unchanged and a ceiling is never assumed.** ⚠ **The superseded wording is retained (`DOC-009`) because it was correct while the question was open.** ⚠ **THIS CHANGES NO FRAME: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT and `OSC-050`'s blocked register is untouched.** |

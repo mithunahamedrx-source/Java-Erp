@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.67.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.68.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -137,6 +137,46 @@ Specifically undefined: whether `Total Orders` includes cancelled orders (the sa
 **Why it matters.** These are the numbers management looks at. `Total Margin` is the most dangerous: `BR-007` establishes that uncosted lines produce margin that is *unknown, not zero*, and `SYS-034` forbids summing unknowns as zeros. A margin KPI computed over orders whose settlement has not arrived and whose cost may be unknown will be **confidently wrong in a way nobody can detect from the screen.**
 
 **Suggested documentation.** `REPORTING_ARCHITECTURE.md` defining each KPI's population, filters, period basis, and — critically — its behaviour when inputs are unknown, including whether unsettled orders are excluded or estimated and how that is disclosed on the surface.
+
+> ### ✅ RESOLVED FOR THE ORDERS WORKSPACE — product-owner decision, 2026-08-23
+>
+> 🔴 **THE FOUR KPIs ARE NOT DEFINED. THEY ARE REPLACED.** ⚠ **The business did not supply
+> definitions for `Total Orders` / `Confirmed Today` / `Total Revenue` / `Total Margin`; it named
+> a DIFFERENT four, and the shipped set is withdrawn.** ✅ **The original finding is retained
+> above exactly as written** (`DOC-009`).
+>
+> | Figure | Population | Basis |
+> |---|---|---|
+> | **Total orders** | Every channel order matching the active filter | A count. ⚠ Cancelled orders are INCLUDED — the figure states how many orders exist, not how many succeeded |
+> | **Today's orders** | Orders whose `imported_at` falls on today's business date | 🔴 **The moment the order entered TRIOLOO'S SYSTEM, not the moment the marketplace created it.** ✅ **Chosen deliberately: it is stable, and a late poll of an older order never migrates into today.** **Asia/Dhaka** (`TEC-050`, `TEC-052`) |
+> | **Today's dispatched** | Orders first observed as canonically `DISPATCHED` on today's business date | See the hazard below |
+> | **Total collectable** | Σ order value of orders whose canonical status is `DELIVERED` | ✅ **`BR-033` — the obligation follows DELIVERED goods, never ordered goods.** **`SM-5` `DUE` is *"Delivered; payment expected"*.** **`BR-035` — money is Trioloo's only once it has ARRIVED** |
+>
+> ✅ **`Total Margin` IS GONE, AND THAT IS THE MOST IMPORTANT PART OF THIS RESOLUTION.** **The
+> finding above called it *"the most dangerous"* — a margin stated before settlement, over lines
+> whose cost may be UNKNOWN, would have been confidently wrong and undetectable from the screen**
+> (`BR-007`, `SYS-034`). 🔴 **No margin or revenue KPI is ratified by this decision and none is
+> rendered.**
+>
+> ⚠ **`Total collectable` SUBTRACTS NOTHING, BECAUSE NOTHING HAS BEEN RECEIVED.** **No receipt,
+> remittance or settlement record exists in the implemented slice, so the figure states the
+> delivered-and-unsettled position in full.** 🔴 **When Payment lands, this figure must become
+> `delivered − received` and the change is NOT an implementation detail** — it is a restatement
+> of a published number and belongs to Payment's own amendment.
+>
+> 🔴 **THE `Today's dispatched` HAZARD, STATED RATHER THAN HIDDEN.** **`DZC-045.e` and
+> `DZC-047.c` enumerate every field Daraz publishes and NONE is a dispatch timestamp**, so when
+> the carrier actually took the parcel is **not readable**. ✅ **What is recorded is an ERP
+> observation — the instant this system first saw the order carrying `DISPATCHED`, written once
+> and never rewritten.** ⚠ **ON THE FIRST BACKFILL THIS FIGURE IS WRONG:** every already-shipped
+> order is observed for the first time on the same day, so that day's count is the backlog and
+> not the day's dispatches. 🔴 **Recorded as a known limitation of the figure, not designed
+> around.**
+>
+> ⚠ **THIS RESOLVES THE ORDERS WORKSPACE KPI ROW ONLY.** **`GAP-082`'s period-completeness
+> question is untouched, `SYS-088`'s five-component Net Profit is untouched, and no dashboard
+> outside Orders acquires a defined KPI.** 🔴 **`GAP_ANALYSIS.md` §"Reconciliation" row
+> `GAP-004` is updated in the same change.**
 
 ---
 
@@ -1298,6 +1338,7 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 
 | Version | Date | Change |
 |---|---|---|
+| **2.68.0** | **2026-08-23** | ✅ **`GAP-004` RESOLVED FOR THE ORDERS WORKSPACE by product-owner decision.** 🔴 **The four shipped KPIs are WITHDRAWN, not defined** — the business named a different four: **Total orders · Today's orders · Today's dispatched · Total collectable.** ✅ **`Total Margin` and `Total Revenue` are GONE, which is the substance of the resolution: the finding called margin *"the most dangerous"* because `BR-007` uncosted lines and `SYS-034` unknown-is-not-zero make a pre-settlement margin confidently wrong and undetectable from the screen.** ✅ **Each surviving figure derives from an ALREADY-RATIFIED rule and none is new business content** — `BR-033`/`SM-5` `DUE` for collectable, `TEC-050`/`TEC-052` for the Asia/Dhaka business date. 🔴 **TWO LIMITATIONS RECORDED RATHER THAN DESIGNED AROUND: `Total collectable` subtracts nothing because no receipt or settlement record exists yet, and `Today's dispatched` counts an ERP OBSERVATION because `DZC-045.e`/`DZC-047.c` prove Daraz publishes no dispatch timestamp — so the first backfill's count is the backlog, not that day's dispatches.** ⚠ **`GAP-082` period completeness, `SYS-088` Net Profit and every KPI outside the Orders workspace are UNTOUCHED.** ⚠ **This table's previous entry is `2.45.0`; versions `2.46.0`–`2.67.0` were never recorded here and are NOT reconstructed — the omission is reported, not invented over** (`DOC-009`). |
 | 1.0.0 | 2026-08-04 | Initial audit. 7 documents examined, 16 verified absent, Claude Design project verified empty. 68 findings |
 | **1.1.0** | **2026-08-06** | **Sales discovery reconciliation.** 9 gaps closed (`GAP-016`, `019` partial, `021`, `031`, `032`, `035`, `045` substantial, `063`, `064`); 4 opened (`GAP-069` – `GAP-072`); 10 blocking questions listed. Source: [`BUSINESS_DISCOVERY.md`](BUSINESS_DISCOVERY.md), 116 answers |
 | **1.2.0** | **2026-08-06** | **Blocking question 2 resolved.** Immutability decision confirmed (`BD-254`, `BD-230`) — the architecture required no change; `DB-002`, `DM-008`, `AUD-006`, `BR-048`, `INV-50.3` all confirmed. **9 blockers remain**, `BD-242` (serial recording policy) still first |
@@ -1398,7 +1439,7 @@ Ordered by how much they block. Each is already queued in `BUSINESS_DISCOVERY.md
 |---|---|---|
 | **`GAP-001`** | ✅ **CLOSED 2026-08-09 — see the CLOSED table.** Every registered document is written, and **both modules that were never registered now are** (`DOC-062`, `DOC-063`) | — |
 | `GAP-003` | VAT deliberately out of scope (`BD-307`, `SYS-092`, `RPT-049`) | Re-entry touches line composition and reporting |
-| `GAP-004` | **Net Profit defined by five components** (`SYS-088`) | **The four shipped orders-list KPIs remain undefined** |
+| `GAP-004` | **Net Profit defined by five components** (`SYS-088`); ✅ **the Orders workspace KPI row RESOLVED 2026-08-23 — the four shipped KPIs are WITHDRAWN and four different ones ratified, `Total Margin` among the withdrawn** | **Period completeness stays with `GAP-082`; no KPI outside the Orders workspace is defined** |
 | `GAP-016` | Quantity model exists (`BD-280`, `BD-285`) | **The backorder flow is unmodelled** |
 | `GAP-017` | `NOT RELEASED` dropped (`BD-039`); `B2C Pending` replaced (`BD-027`) | **No full UI-label-to-state mapping exists** |
 | `GAP-019` | Release manual (`BR-081`); `LOST` external (`DLV-027`) | **`SM-5` `RECEIVED → RECONCILED` remains `UNDECIDED`** |

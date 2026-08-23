@@ -3,6 +3,8 @@ package com.trioloo.erp.order.api;
 import com.trioloo.erp.order.application.ChannelOrderImportException;
 import com.trioloo.erp.order.application.ChannelOrderImportService;
 import com.trioloo.erp.order.application.ChannelOrderNotFoundException;
+import com.trioloo.erp.order.application.ChannelOrderPullQueryService;
+import com.trioloo.erp.order.application.ChannelOrderPullService;
 import com.trioloo.erp.order.application.ChannelOrderQueryService;
 import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import org.springframework.data.domain.Page;
@@ -28,10 +30,15 @@ public class ChannelOrderController {
 
     private final ChannelOrderQueryService queries;
     private final ChannelOrderImportService imports;
+    private final ChannelOrderPullService pulls;
+    private final ChannelOrderPullQueryService pullStates;
 
-    public ChannelOrderController(ChannelOrderQueryService queries, ChannelOrderImportService imports) {
+    public ChannelOrderController(ChannelOrderQueryService queries, ChannelOrderImportService imports,
+                                  ChannelOrderPullService pulls, ChannelOrderPullQueryService pullStates) {
         this.queries = queries;
         this.imports = imports;
+        this.pulls = pulls;
+        this.pullStates = pullStates;
     }
 
     @GetMapping
@@ -53,6 +60,27 @@ public class ChannelOrderController {
     @GetMapping("/{id}")
     public ChannelOrderQueryService.ChannelOrderDetail detail(@PathVariable UUID id) {
         return queries.detail(id);
+    }
+
+    /**
+     * Runs the MANAGED pull for one shop — backfill chunk or incremental, whichever is due.
+     *
+     * <p>🔴 {@code BR-180.a} — the job carries an EXPLICIT channel instance. There is no
+     * "current shop" and none is inferred ({@code API-071.b}, {@code AGV-016}).
+     *
+     * <p>⚠ This is the same work the scheduler does; it exists so an operator can start the
+     * three-month backfill without waiting for a cadence tick. It is permission-gated in the
+     * application service ({@code OSC-044}, {@code PRM-091}).
+     */
+    @PostMapping("/pull-runs")
+    public ChannelOrderPullService.PullOutcome pull(@RequestBody PullRequest request) {
+        return pulls.pullAsOperator(request.channelInstanceId());
+    }
+
+    /** The ingestion position and the recent runs for one shop — read-only. */
+    @GetMapping("/pull-state")
+    public ChannelOrderPullQueryService.PullState pullState(@RequestParam UUID channelInstanceId) {
+        return pullStates.forShop(channelInstanceId);
     }
 
     @PostMapping("/imports")
@@ -80,13 +108,17 @@ public class ChannelOrderController {
                 .body(Map.of("error", "NOT_FOUND", "message", e.getMessage()));
     }
 
-    public record ChannelOrderHttpQuery(UUID channelInstanceId, String status, String search) {
+    public record ChannelOrderHttpQuery(UUID channelInstanceId, String channelType,
+                                        String status, String search, String period) {
         ChannelOrderQueryService.Filter toFilter() {
-            return new ChannelOrderQueryService.Filter(channelInstanceId, status, search);
+            return new ChannelOrderQueryService.Filter(channelInstanceId, channelType, status,
+                    search, period);
         }
     }
 
     public record ImportRequest(UUID channelInstanceId, Instant createdAfter,
                                 Instant createdBefore, Integer pageSize) {
     }
+
+    public record PullRequest(UUID channelInstanceId) {}
 }

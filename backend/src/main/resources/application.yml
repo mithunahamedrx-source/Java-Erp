@@ -97,3 +97,25 @@ management:
 logging:
   level:
     root: INFO
+
+# =====================================================================================
+# Channel Order ingestion - ORDER_MANAGEMENT_ARCHITECTURE.md §29 (BR-178 - BR-183).
+#
+# 🔴 BR-179.a - THE CADENCE IS CONFIGURATION, NEVER HARD-CODED (SYS-013). Fifteen minutes is
+# the RATIFIED DEFAULT, not a constant.
+#
+# ⚠ BR-179.b - it is deliberately NOT the five minutes the legacy system shows. BD-018
+# records ~5 minutes as OBSERVED LEGACY BEHAVIOUR and §7.8 restates it as ARRIVAL LATENCY
+# carrying no rule number; a legacy latency is not a business requirement.
+#
+# 🔴 BR-179.e - NO RATE LIMIT IS PUBLISHED (DZC-050.b). The cadence is CONSERVATIVE BY
+# CHOICE, and tightening it is a configuration change made ON EVIDENCE, never a default.
+#
+# 🔴 `enabled` is FALSE by default. A read against a live seller account is never started by
+# a test, a diagnostic launch or a developer's laptop on its own; a deployment opts in.
+trioloo:
+  order:
+    pull:
+      enabled: ${ORDER_PULL_ENABLED:false}
+      interval: ${ORDER_PULL_INTERVAL:PT15M}
+      initial-delay: ${ORDER_PULL_INITIAL_DELAY:PT1M}

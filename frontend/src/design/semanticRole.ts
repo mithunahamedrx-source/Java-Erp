@@ -189,6 +189,54 @@ export const CONFIGURATION_STATE_ROLE = {
 } as const satisfies Record<string, SemanticTone>;
 
 /**
+ * Order lifecycle — `SM-1`, `OM §6.2`, `SMA §5.2`.
+ *
+ * 🔴 EVERY ROW CITES THE MEANING `OM §6.2` GIVES THE STATE, NEVER WHAT THE WORD RESEMBLES
+ * (`RULE 3.14.a.a`). This map REPLACES a substring matcher that coloured a state by testing
+ * whether its name contained `cancel`, `fail`, `deliver` or `ship` — the exact resemblance
+ * reasoning that rule prohibits.
+ *
+ * 🔴 `CANCELLED` IS NEUTRAL, AND IT IS THE MOST DELIBERATE ROW HERE. `RULE 3.3.c` reserves
+ * canonical red for DESTRUCTIVE ACTION semantics in three enumerated placements — a
+ * confirmation fill, a destructive menu row, an outline marker — and an order STATE is none of
+ * them. Cancellation is also an ordinary, fully authorised business outcome with its own
+ * authority table (`OM §6.4`), so it is a settled decision rather than a fault. Same reasoning
+ * as `LOCAL_LIFECYCLE_ROLE.WITHDRAWN`.
+ *
+ * 🔴 THE FIVE MID-LIFECYCLE STATES ARE NEUTRAL BY DECISION, NOT BY OMISSION. `CONFIRMED`,
+ * `RELEASED`, `IN_FULFILLMENT`, `READY_TO_SHIP` and `DISPATCHED` are ordinary forward progress:
+ * none owes anyone a decision, and colouring five consecutive stages would be decoration at
+ * scale (`RULE 3.3.d.e`) that drains the colour of meaning from the states that do.
+ *
+ * ⚠ `DELIVERED` IS SUCCESS AND DOES NOT MEAN PAID. `BR-010` — delivery does not close an order,
+ * and `OM §11.1` states outright that an order marked paid at delivery is a false statement on
+ * every channel Trioloo operates. The success role describes the FULFILMENT outcome; `CLOSED`
+ * is the only clean terminal state and carries the commercial one.
+ *
+ * ⚠ `ON_HOLD` is warning because it will sit there until a person acts: `BR-151` explicitly
+ * prohibits hold duration, ageing, SLA, auto-cancellation and auto-release, so nothing will
+ * ever move it on its own.
+ */
+export const ORDER_LIFECYCLE_ROLE = {
+  // "Awaiting the verification decision" — in-flight work that has just arrived (§7.8, §7.4).
+  PENDING_VERIFICATION: 'info',
+  CONFIRMED: 'neutral',
+  RELEASED: 'neutral',
+  IN_FULFILLMENT: 'neutral',
+  READY_TO_SHIP: 'neutral',
+  DISPATCHED: 'neutral',
+  DELIVERED: 'success',
+  // "Attempted and failed — not terminal". Recoverable: §10.4 re-attempts, so warning not danger.
+  FAILED_DELIVERY: 'warning',
+  // "Goods came back to Trioloo" — owes QC disposition and a refund decision.
+  RETURNED: 'warning',
+  ON_HOLD: 'warning',
+  CANCELLED: 'neutral',
+  // `BR-010` — the only clean terminal state, reached when every sub-machine is terminal.
+  CLOSED: 'success',
+} as const satisfies Record<string, SemanticTone>;
+
+/**
  * Resolves a canonical state to its role, refusing to guess.
  *
  * 🔴 An unknown value is NOT quietly rendered neutral (`RULE 3.3.d.e`): that would hide a

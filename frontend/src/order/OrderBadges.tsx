@@ -38,22 +38,17 @@ export function StatusBadge({
   );
 }
 
-export function toneForStatus(status: string | null | undefined): BadgeTone {
-  const normalized = (status ?? '').toLowerCase();
-  if (normalized.includes('cancel') || normalized.includes('fail') || normalized.includes('return')) {
-    return 'cancelled';
-  }
-  if (normalized.includes('deliver') || normalized.includes('confirm')) {
-    return 'confirmed';
-  }
-  if (normalized.includes('ship') || normalized.includes('dispatch') || normalized.includes('ready')) {
-    return 'dispatched';
-  }
-  if (normalized.includes('pending') || normalized.includes('hold') || normalized.includes('pack')) {
-    return 'pending';
-  }
-  return 'neutral';
-}
+/*
+  🔴 `toneForStatus` REMOVED 2026-08-23. It resolved a colour by testing whether a status name
+  CONTAINED `cancel`, `fail`, `deliver` or `ship` — resemblance matching, which `RULE 3.14.a.a`
+  prohibits outright: "A STATE TAKES THE ROLE ITS MEANING DESERVES, NEVER THE ROLE IT
+  RESEMBLES". It also coloured `CANCELLED` as a failure, against `RULE 3.3.c`, which reserves
+  canonical red for destructive ACTION semantics in three enumerated placements — an order state
+  is none of them, and cancellation is a fully authorised business outcome (`OM §6.4`).
+
+  ✅ Replaced by `ORDER_LIFECYCLE_ROLE` in `src/design/semanticRole.ts`, the one source of
+  semantic-role truth (`RULE 3.3.d`), where every state cites the meaning `OM §6.2` gives it.
+*/
 
 export function BlockedMarker({ children }: { readonly children: ReactNode }): React.JSX.Element {
   return (

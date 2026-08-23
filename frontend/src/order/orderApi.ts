@@ -1,6 +1,15 @@
 import { apiRequest } from '../platform/api';
 
-export type DecimalValue = string | number | null;
+/**
+ * An authoritative monetary amount, as it crosses the API.
+ *
+ * 🔴 `TEC-015` / `DB-079` / `OSC-043` — money crosses as an exact decimal STRING, never a JSON
+ * number, because JavaScript parses every JSON number as an IEEE-754 double and a value that
+ * has been through one is no longer the authoritative amount. `number` is deliberately NOT in
+ * this union: the type is what stops a server-side `@MonetaryAmount` omission from being
+ * absorbed silently on this side (`PRJ-045`, `TEC-095`).
+ */
+export type DecimalValue = string | null;
 
 export type ChannelOrderPage<T> = {
   readonly content: readonly T[];
@@ -10,12 +19,34 @@ export type ChannelOrderPage<T> = {
   readonly totalPages: number;
 };
 
+/**
+ * The four Orders workspace summary figures.
+ *
+ * 🔴 `totalCollectable` is an authoritative decimal STRING (`TEC-015`, `OSC-043`). It is never
+ * parsed into a `Number` and no arithmetic is performed on it here (`TEC-095`).
+ */
 export type ChannelOrderSummary = {
   readonly totalOrders: number;
-  readonly pendingOrders: number;
-  readonly readyToShipOrders: number;
-  readonly deliveredOrders: number;
+  readonly todaysOrders: number;
+  readonly todaysDispatched: number;
+  readonly totalCollectable: string | null;
   readonly totalItems: number;
+  /**
+   * The channel types that actually have orders, with counts.
+   *
+   * 🔴 The channel filter is built from THIS, never from a hard-coded list of channel names.
+   * A browser-side list would be a second register of a set `SYS-108` owns, and it would offer
+   * the operator a filter that can only ever return nothing.
+   */
+  readonly channelTypes: readonly { readonly channelType: string; readonly orderCount: number }[];
+  /**
+   * How many orders currently carry each canonical status.
+   *
+   * ⚠ Computed IGNORING the active status filter, so selecting one tab does not zero the rest.
+   * 🔴 An order carrying several canonical statuses is counted under each, so these need not
+   * sum to `totalOrders` — that is correct, not a defect.
+   */
+  readonly statusCounts: readonly { readonly status: string; readonly orderCount: number }[];
 };
 
 export type AddressView = {
@@ -40,7 +71,16 @@ export type ChannelOrderRow = {
   readonly externalOrderId: string;
   readonly orderNumber: string | null;
   readonly ownership: string;
+  /** The marketplace's own status vocabulary, exactly as reported (`BR-173`). */
   readonly statuses: readonly string[];
+  /**
+   * The canonical (`SM-1`, `OM §6.2`) mirror the channel adapter produced (`§4.3`, `BR-005`).
+   *
+   * 🔴 A separate fact from `statuses` and never merged with it (`BR-171`, `UX-182`).
+   */
+  readonly canonicalStatuses: readonly string[];
+  /** When THIS system first observed the order as `DISPATCHED` — not a marketplace fact. */
+  readonly dispatchObservedAt: string | null;
   readonly providerCreatedAt: string | null;
   readonly providerUpdatedAt: string | null;
   readonly lastSeenAt: string | null;
@@ -107,6 +147,10 @@ export type ChannelOrderDetail = ChannelOrderRow & {
 export type ChannelOrderFilters = {
   readonly search?: string;
   readonly status?: string;
+  /** Canonical channel type (`BR-002`), e.g. `DARAZ`. Never a display label. */
+  readonly channelType?: string;
+  /** `DAY` · `MONTH` · `YEAR` — calendar boundaries in `Asia/Dhaka` (`TEC-050`, `TEC-052`). */
+  readonly period?: string;
   readonly channelInstanceId?: string;
 };
 

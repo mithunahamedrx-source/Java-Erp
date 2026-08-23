@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { EmptyState, buttonStyle } from '../ui/primitives';
+import { EmptyState, SegmentedControl, StatusPill, buttonStyle } from '../ui/primitives';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
-import { StatusBadge, toneForStatus } from './OrderBadges';
+import { StatusBadge } from './OrderBadges';
+import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
   ORDER_ROW_COLUMNS,
+  ORDER_STATUS_TABS,
+  canonicalStatus,
+  canonicalStatusLabel,
   channelSubtitle,
   customerName,
   displayMoment,
@@ -26,6 +30,15 @@ import {
  * card-list workspace, not a table (`OSC-030`). Undecided KPI/status controls stay out of
  * the operator UI until their business rules are ratified.
  */
+/**
+ * The sentinel for "no filter on this dimension".
+ *
+ * ⚠ `SegmentedControl` holds one selected value and an empty string is a legitimate search
+ * term elsewhere, so the unfiltered option carries an explicit name rather than `''`. It never
+ * reaches the API: it is translated to `undefined` before the request is built.
+ */
+const ALL = '__ALL__';
+
 export default function OrdersPage(): React.JSX.Element {
   const [items, setItems] = useState<readonly ChannelOrderRow[]>([]);
   const [summary, setSummary] = useState<ChannelOrderSummary | null>(null);
@@ -38,6 +51,21 @@ export default function OrdersPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
+  /*
+    The channel options are held separately from `summary` so they survive a failed or empty
+    reload. Rebuilding them from every response would make the control the operator just used
+    flicker or vanish underneath them.
+  */
+  const [channelOptions, setChannelOptions] = useState<
+    readonly { readonly channelType: string; readonly orderCount: number }[]
+  >([]);
+  /*
+    ⚠ A status with no entry is ABSENT from the map, so its segment renders NO count rather than
+    a fabricated `0` (`SYS-034`, `OSC-045`). A status the server reports as `0` renders `0`.
+  */
+  const statusCounts = new Map<string, number>(
+    (summary?.statusCounts ?? []).map((entry) => [entry.status, entry.orderCount]),
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +80,7 @@ export default function OrdersPage(): React.JSX.Element {
       setTotalElements(orders.totalElements);
       setTotalPages(orders.totalPages);
       setSummary(totals);
+      setChannelOptions(totals.channelTypes ?? []);
     } catch (cause) {
       if (cause instanceof ApiError && cause.isForbidden) {
         setForbidden(true);
@@ -76,35 +105,144 @@ export default function OrdersPage(): React.JSX.Element {
     setFilters((current) => ({ ...current, search: searchDraft.trim() || undefined }));
   };
 
+  /*
+    The search applies as the operator types, after a short pause.
+
+    ⚠ The superseded implementation applied ONLY on Enter, with no button and no other
+    affordance, so the field read as dead — it was reported as "not working". Enter still
+    applies immediately through the form's submit; this simply stops the field from looking
+    inert when nobody presses it.
+
+    🔴 This is an input debounce and nothing else. It changes no page size, no record count and
+    no permission (`RULE 7.3.a`), and it reads no viewport (`UX-266`).
+  */
+  useEffect(() => {
+    const pending = searchDraft.trim() || undefined;
+    if (pending === filters.search) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(0);
+      setFilters((current) => ({ ...current, search: pending }));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchDraft, filters.search]);
+
   return (
     <>
       <PageHeader title="Orders" subtitle="All channels · operational workspace" />
 
-      <div style={filterRowStyle}>
-        <span style={filterLabelStyle}>FILTER</span>
-        <div style={segmentStyle}>
-          {['All channels', 'Daraz', 'Website', 'Walk-in', 'Phone'].map((label) => (
-            <button key={label} type="button" disabled={label !== 'All channels'} style={segmentButtonStyle(label === 'All channels')}>
-              {label}
-            </button>
-          ))}
-        </div>
+      <SummaryStrip summary={summary} loading={loading} unavailable={forbidden || error !== null} />
+
+      {/*
+        🔴 `RULE 3.13` — the list status tabs ARE the canonical segmented control, and
+        `RULE 5.2` requires it to be REUSED rather than re-cut: one container with
+        `overflow: hidden`, `width: fit-content`, a permanently-present ink-filled active
+        segment (`RULE 8.6.c`), and NO per-tab pill, gap or border.
+
+        🔴 `UX-266` names tabs explicitly among the structural UI that DOES NOT WRAP, and
+        `UX-265` forbids `overflow-x: auto` as the escape. The row therefore stays one row and
+        participates in the one coherent workspace canvas above the guaranteed band (`UX-264`).
+      */}
+      <div className="operational-row" style={controlRowStyle}>
+        <span style={filterLabelStyle}>STATUS</span>
+        <SegmentedControl
+          options={ORDER_STATUS_TABS.map((tab) => ({
+            value: tab.value ?? ALL,
+            label: tab.label,
+            count: tab.value === null ? summary?.totalOrders : statusCounts.get(tab.value),
+            /*
+              🔴 The role comes from `semanticRole.ts`, the one source of semantic-role truth
+              (`RULE 3.3.d`). It is NEVER derived from the label text here.
+            */
+            countTone:
+              tab.value === null ? 'neutral' : semanticRoleOf(ORDER_LIFECYCLE_ROLE, tab.value),
+          }))}
+          value={filters.status ?? ALL}
+          onChange={(next) => {
+            setPage(0);
+            setFilters((current) => ({ ...current, status: next === ALL ? undefined : next }));
+          }}
+        />
+      </div>
+
+      <div className="operational-row" style={controlRowStyle}>
+        {/*
+          ⚠ THE SEARCH SITS FIRST AND IS DELIBERATELY NARROW — a product-owner composition
+          decision, 2026-08-23. It no longer stretches to fill the row: a `240px` flexible field
+          swallowed every pixel the other controls did not claim, which is what pushed the
+          period filter out of reach and made the row look like a search bar with decorations.
+          🔴 `flexShrink: 0` keeps it from being squeezed instead, because `UX-266` forbids the
+          row solving width pressure by reshaping itself.
+        */}
         <form
           onSubmit={(event) => {
             event.preventDefault();
             applySearch();
           }}
-          style={{ minWidth: 0, flex: '1 1 320px' }}
+          style={{ flex: '0 0 auto' }}
         >
           <input
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
-            placeholder="Order no., marketplace ref, customer"
+            placeholder="Order no., ref, customer"
             aria-label="Search orders"
             style={searchStyle}
           />
         </form>
-        <span style={dateChipStyle}>Captured · last 30 days</span>
+        <span style={filterLabelStyle}>CHANNEL</span>
+        {/*
+          🔴 THE CHANNEL OPTIONS COME FROM THE SERVER, NOT FROM A LIST IN THE BROWSER.
+          The superseded implementation hard-coded `Daraz · Website · Walk-in · Phone` and
+          DISABLED every one of them, so the control could not be clicked at all. A fixed list
+          here would also be a second register of a set `SYS-108` owns, offering filters that can
+          only ever return nothing.
+
+          ⚠ `UX-273.d` — showing `Daraz` is presentation; the canonical value stays the channel
+          type, and nothing branches on the label.
+        */}
+        <SegmentedControl
+          options={[
+            { value: ALL, label: 'All channels' },
+            ...channelOptions.map((option) => ({
+              value: option.channelType,
+              label: displayStatus(option.channelType),
+            })),
+          ]}
+          value={filters.channelType ?? ALL}
+          onChange={(next) => {
+            setPage(0);
+            setFilters((current) => ({ ...current, channelType: next === ALL ? undefined : next }));
+          }}
+        />
+        <span style={filterLabelStyle}>PERIOD</span>
+        {/*
+          🔴 THE PERIOD FILTER USES THE SAME TIMESTAMP THE `Today's orders` CARD COUNTS — the
+          moment the order entered THIS system — because two period bases on one screen is the
+          exact defect `GAP-004` recorded when it asked what boundary the shipped `This month`
+          KPI used and found no answer.
+
+          🔴 `Day` · `Month` · `Year` are CALENDAR boundaries in `Asia/Dhaka` (`TEC-050`,
+          `TEC-052`). ⚠ No rolling window is offered: no rolling-period concept exists anywhere
+          in the corpus, so `last 30 days` would be inventing what `Month` means.
+
+          ✅ `RULE 3.13` names the period filter as a third use of this same segmented control,
+          and `RULE 5.2` requires it to be the same component — which it is.
+        */}
+        <SegmentedControl
+          options={[
+            { value: ALL, label: 'All time' },
+            { value: 'DAY', label: 'Day' },
+            { value: 'MONTH', label: 'Month' },
+            { value: 'YEAR', label: 'Year' },
+          ]}
+          value={filters.period ?? ALL}
+          onChange={(next) => {
+            setPage(0);
+            setFilters((current) => ({ ...current, period: next === ALL ? undefined : next }));
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 'var(--space-3)' }} />
         <button
           type="button"
           onClick={() => {
@@ -169,8 +307,78 @@ function OrdersSurface({ children }: { readonly children: React.ReactNode }): Re
   return <section style={ordersSurfaceStyle}>{children}</section>;
 }
 
+/**
+ * The four summary cards, ratified by the product owner on 2026-08-23.
+ *
+ * 🔴 Each figure is server-computed and rendered as received (`TEC-095`). Nothing here adds,
+ * subtracts or rounds, and `Total collectable` never passes through a `Number` (`OSC-043`).
+ *
+ * 🔴 A figure the server could not supply renders as an explicit absence, never as `0`
+ * (`OSC-045`, `SYS-034`, `BR-134`) — a real zero and an unavailable figure must not look alike.
+ */
+function SummaryStrip({
+  summary,
+  loading,
+  unavailable,
+}: {
+  readonly summary: ChannelOrderSummary | null;
+  readonly loading: boolean;
+  readonly unavailable: boolean;
+}): React.JSX.Element {
+  const figure = (value: number | null | undefined): string =>
+    loading ? '—' : unavailable || value === null || value === undefined ? 'Not available' : String(value);
+
+  return (
+    <div style={summaryStripStyle} data-testid="order-summary-strip">
+      <SummaryCard label="Total orders" value={figure(summary?.totalOrders)} />
+      <SummaryCard label="Today's orders" value={figure(summary?.todaysOrders)} note="Imported today · Asia/Dhaka" />
+      <SummaryCard
+        label="Today's dispatched"
+        value={figure(summary?.todaysDispatched)}
+        note="First observed dispatched today"
+      />
+      <SummaryCard
+        label="Total collectable"
+        value={
+          loading
+            ? '—'
+            : unavailable
+              ? 'Not available'
+              : (displayMoney(summary?.totalCollectable ?? null) ?? 'Not available')
+        }
+        note="Delivered, not yet received"
+      />
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  note,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+}): React.JSX.Element {
+  return (
+    <article style={summaryCardStyle}>
+      <div style={summaryLabelStyle}>{label}</div>
+      <div className="tabular-nums" style={summaryValueStyle}>
+        {value}
+      </div>
+      {note ? <div style={summaryNoteStyle}>{note}</div> : null}
+    </article>
+  );
+}
+
 function OrderCard({ order }: { readonly order: ChannelOrderRow }): React.JSX.Element {
-  const status = primaryStatus(order.statuses);
+  // 🔴 TWO STATUSES, TWO OWNERS, NEVER RECONCILED INTO ONE (`BR-171`, `UX-182`, `OSC-036`).
+  // The canonical lifecycle reading and the marketplace's own report are rendered as separate,
+  // separately labelled facts, and `Marketplace: Cancelled` beside a canonical state is a
+  // legitimate reading rather than a contradiction to resolve.
+  const canonical = canonicalStatus(order.canonicalStatuses);
+  const reported = primaryStatus(order.statuses);
   return (
     <article style={orderCardStyle} data-testid="order-card">
       <div style={orderTopRowStyle}>
@@ -202,7 +410,18 @@ function OrderCard({ order }: { readonly order: ChannelOrderRow }): React.JSX.El
       </div>
       <div style={orderFooterStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
-          <StatusBadge tone={toneForStatus(status)}>{displayStatus(status)}</StatusBadge>
+          {/*
+            An order the adapter could translate nothing for says so. It does NOT borrow the
+            marketplace's own word and present it as a canonical state (`BR-134`, `SYS-034`).
+          */}
+          {canonical ? (
+            <StatusPill tone={semanticRoleOf(ORDER_LIFECYCLE_ROLE, canonical)}>
+              {canonicalStatusLabel(canonical)}
+            </StatusPill>
+          ) : (
+            <StatusBadge>Status not translated</StatusBadge>
+          )}
+          <StatusBadge>Marketplace · {reported === 'Not recorded' ? 'Not recorded' : reported}</StatusBadge>
           <StatusBadge>Payment · {order.paymentMethod || 'Not recorded'}</StatusBadge>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -237,11 +456,70 @@ const ordersSurfaceStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const filterRowStyle: React.CSSProperties = {
+/*
+  The KPI region the approved capture fixes at `82px`. 🔴 `RULE 7.4` / `UX-266` — a structured
+  region does not wrap, so the four cards stay four across and the page never scrolls
+  horizontally: each cell is `minmax(0, 1fr)` and its content ellipsises instead.
+*/
+const summaryStripStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+  gap: 'var(--space-5)',
+  marginTop: 'var(--space-7)',
+};
+
+const summaryCardStyle: React.CSSProperties = {
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-border-card)',
+  borderRadius: 'var(--radius-panel)',
+  boxShadow: 'var(--elevation-card)',
+  padding: '13px 17px',
+  minWidth: 0,
+};
+
+const summaryLabelStyle: React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 750,
+  color: 'var(--color-text-muted)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  marginTop: '5px',
+  fontSize: '22px',
+  fontWeight: 800,
+  color: 'var(--color-heading-ink)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+const summaryNoteStyle: React.CSSProperties = {
+  marginTop: '3px',
+  fontSize: '11px',
+  color: 'var(--color-text-muted)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+/*
+  One control row shape, used by BOTH the status row and the channel row.
+
+  🔴 `UX-266` names tabs and filter/control rows among the structural UI that does not wrap, and
+  `.operational-row` carries the `flex-wrap: nowrap !important` safety net that `RULE 7.4` and
+  `UX-060` already established for every such row. 🔴 No `overflow-x` is declared here — `UX-265`
+  forbids it as a responsive solution, and above the guaranteed 80%–110% band the row moves with
+  the one coherent workspace canvas instead (`UX-263`, `UX-264`).
+*/
+const controlRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
-  margin: 'var(--space-7) 0 var(--space-6)',
+  marginTop: 'var(--space-6)',
+  minWidth: 0,
 };
 
 const filterLabelStyle: React.CSSProperties = {
@@ -249,32 +527,16 @@ const filterLabelStyle: React.CSSProperties = {
   fontWeight: 750,
   color: 'var(--color-text-muted)',
   letterSpacing: '0',
+  flexShrink: 0,
 };
 
-const segmentStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  border: '1px solid var(--color-border-control)',
-  borderRadius: 'var(--radius-control)',
-  overflow: 'hidden',
-  background: 'var(--color-surface)',
-};
-
-function segmentButtonStyle(active: boolean): React.CSSProperties {
-  return {
-    height: '32px',
-    border: 'none',
-    borderRight: active ? 'none' : '1px solid var(--color-divider-light)',
-    background: active ? 'var(--color-ink)' : 'transparent',
-    color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
-    fontSize: '13px',
-    fontWeight: active ? 750 : 500,
-    padding: '0 14px',
-    cursor: active ? 'default' : 'not-allowed',
-  };
-}
-
+/*
+  `RULE 3.18` — the approved search input geometry: `34px` / `9px` radius / `13px` text. Only
+  the WIDTH is set here, and it is fixed rather than flexible so the field never grows to swallow
+  the row (product-owner decision, 2026-08-23).
+*/
 const searchStyle: React.CSSProperties = {
-  width: '100%',
+  width: '232px',
   height: '34px',
   border: '1px solid var(--color-border-control)',
   borderRadius: 'var(--radius-control)',
