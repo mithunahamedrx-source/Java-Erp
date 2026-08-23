@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.68.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.69.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2316,6 +2316,61 @@ reason and not by preference.** ⚠ **`GAP-134` stays open and `PRD-187` stays u
 >
 > 🔴 **NOTHING BEYOND INGESTION IS RATIFIED** (`BR-183.c`): **no `DRAFT` shop pull, no webhook implementation, no order write, no shipment or fulfilment action, no inventory movement, no settlement or payment reconciliation, and no lifecycle progression beyond `PENDING_VERIFICATION`.**
 
+
+---
+
+## GAP-138
+
+**Category:** Integration · **Severity:** 🔴 Critical
+**Source:** `DELIVERY_ARCHITECTURE.md` `DLV-013`, `SYS §12.3`, implementation attempt 2026-08-24
+
+**Problem.** **`DLV-013` ratifies Steadfast as the default and primary courier for all courier deliveries,
+assigned automatically with no selection step, and `SYS §12.3` registers courier integration as booking,
+tracking and COD remittance.** ⚠ **No document recorded HOW.** **No protocol, no endpoint, no field, no
+status vocabulary and no error semantics existed anywhere in the corpus**, while `SM-4` Shipment, `E-036`
+Courier and `E-037` Shipment were all fully ratified against an integration nobody had specified.
+
+**Why it matters.** `DLV-025` makes `SM-4`'s authority **External** — the courier is system of record for
+tracking and outcome — so the ERP's shipment state is only as good as the translation from a vocabulary that
+was never written down. `DLV-017` bounds synchronisation by *the courier adapter's declared capability*, and
+a capability cannot be declared against an unknown protocol.
+
+**Status — ⚠ PARTIALLY ADDRESSED 2026-08-24.**
+
+✅ **The PROTOCOL half is now recorded in [`STEADFAST_PROVIDER_CONTRACT.md`](STEADFAST_PROVIDER_CONTRACT.md)
+v1.0.0 (`STF-001`–`STF-012`)**, from live read-only observation against the production merchant account.
+**Base host, authentication headers, the remittance feed, the coverage feed and three runtime hazards are
+established.** 🔴 **Nothing is implemented; knowing the protocol is not implementing it.**
+
+🔴 **WHAT REMAINS OPEN, AND IT IS THE HALF THAT DECIDES BEHAVIOUR:**
+
+**a.** 🔴 **THE `delivery_status` VALUE SET IS UNKNOWN**, so the `SM-4` translation `BR-005` and `OM §4.3`
+assign to the adapter **cannot be written**. ⚠ **`STF-011` refuses to guess it.**
+**b.** 🔴 **DUPLICATE-`invoice` BEHAVIOUR IS UNKNOWN.** **`BR-023` as amended allows an order at most ONE
+ACTIVE shipment; if Steadfast silently books a second parcel on a repeated `invoice`, that invariant is
+violated AT THE COURIER, where the ERP cannot see it** (`STF-010.b`).
+**c.** 🔴 **NO WEBHOOK OR PUSH MECHANISM IS EVIDENCED**, while **`DLV-031` requires push, pull and manual
+tracking to be supported permanently.** ⚠ **Only pull is evidenced.**
+**d.** 🔴 **THE PER-CONSIGNMENT REMITTANCE BREAKDOWN IS NOT IN THE OBSERVED FEED.** **`BD-438` records that
+the Steadfast PANEL states which consignments a remittance covers; whether the API does was not
+established**, and `BD-439` forbids inferring it from a bank credit.
+**e.** 🔴 **NO RATE, ZONE PRICE OR DELIVERY TIME IS EXPOSED**, so `DLV §11`'s rate structure and `DLV §12`'s
+estimated-versus-actual courier cost have no source.
+**f.** 🔴 **RETURN-REQUEST AND CANCELLATION ENDPOINTS WERE NOT FOUND** under the names probed, so `DLV §10`
+return-to-origin and `SM-4` `CANCELLED` have no mechanism.
+**g.** 🔴 **NO COURIER PERMISSION CODE IS RATIFIED.** **`PRM-091` ratifies two Order codes and states that
+neither grants shipment action; `DLV §22` requires every delivery action to be permissioned and attributable
+(`DLV-011` — P6).** ⚠ **`PRM-089.b` is a spelling rule and not a generator, so no code may be minted to make
+a booking path work.**
+**h.** 🔴 **WHERE THE COURIER CREDENTIAL HANGS IS UNDECIDED.** **It is per MERCHANT ACCOUNT, not per shop
+(`STF-003.d`)** — Trioloo runs four Daraz shops against one Steadfast account — **so it does not attach to
+`channel_instance` the way a Daraz authorisation does.**
+**i.** 🔴 **`GAP-034` STILL BLOCKS THE BULK PATH.** **`Send to Steadfast` is one of the four bulk controls it
+names as having no permitted-action inventory.**
+
+**Suggested documentation.** A courier capability declaration under `DLV-017`; the `SM-4` status mapping once
+the vocabulary is observed; the booking idempotency rule; courier permission codes under `PRM-089`; and the
+credential-ownership decision.
 
 ---
 
