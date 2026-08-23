@@ -1,7 +1,7 @@
 # Listings — Pause and Handoff Note
 
 **Owner:** Trioloo Technology · **Kind:** 📌 **Status record — NOT canonical architecture**
-**Version:** 1.0.0 · **Recorded:** 2026-08-22 · **Registered:** `DOC-093` · **Rule prefix:** **none — this document issues no rules**
+**Version:** 1.1.0 · **Recorded:** 2026-08-22 · **Amended:** 2026-08-23 (§6.a `V15` unknown RESOLVED by a production read — `DEP-126`) · **Registered:** `DOC-093` · **Rule prefix:** **none — this document issues no rules**
 
 > 🔴 **THIS DOCUMENT DECIDES NOTHING.** It records **where Listings was left** on 2026-08-22, when the
 > product owner paused the Listing View visual redesign and the team moved to the Order module.
@@ -103,7 +103,7 @@ control that drives it is undeployed.** 🔴 **The first real push therefore has
 | **Frontend release** | `package.json` version **`0.1.0`**; served from `/var/www/trioloo-erp/releases/<UTC-timestamp>/` behind the `current` symlink | 🔴 **THE DEPLOYED TIMESTAMP IS NOT RECORDED IN THIS REPOSITORY — a discovery item** (`DEP-042.f`) |
 | **Flyway — source** | `V1` … **`V15`** present in the tree, at `main` **and** at `d54c27c` | `backend/src/main/resources/db/migration/` |
 | **Flyway — production** | 🔴 **UNVERIFIED. `V14` is the last version documented as applied; `GAP-136` (2026-08-21) states `V15` remains unapplied** | ⚠ **`DEP-070.b` — pending migrations are determined by reading production `flyway_schema_history` and are NEVER ASSUMED** |
-| **`V15` applied?** | 🔴 **UNKNOWN, AND THE EVIDENCE CONFLICTS** — see below | — |
+| **`V15` applied?** | ✅ **YES — applied 2026-08-23 `02:12`, read from production** (`DEP-126.b`). ⚠ The contradiction below was real at the time and is retained (`DOC-009`) | `flyway_schema_history` |
 | **Listing counts** | **9 Listings · 9 orderable SKUs · 85 attributes**, from the 2026-08-18 first pull. ⚠ **No later count is recorded anywhere in this repository** | `GAP-134`, `LSC` §6 |
 
 > **🔴 THE `V15` CONTRADICTION, STATED RATHER THAN RESOLVED.**
@@ -158,8 +158,14 @@ authorised act (`DEP-010.c`).
 
 **Recorded as unknown, deliberately not resolved by inference.**
 
-**a.** 🔴 **Whether `V15` is applied in production** — §4. **Answerable only by reading
-`flyway_schema_history`.**
+**a.** ✅ **RESOLVED 2026-08-23 — `V15` IS APPLIED.** **The read was performed on production:
+`V15` and `V16` were applied at `02:12` on 2026-08-23, and the ceiling has since reached `V18`**
+(`DEP-126`). ⚠ **The original wording is retained below** (`DOC-009`) **because it was correct
+when written, and because the answer arrived exactly as it predicted — by reading, not by
+reasoning.**
+
+~~🔴 **Whether `V15` is applied in production** — §4. **Answerable only by reading
+`flyway_schema_history`.**~~
 **b.** 🔴 **The deployed frontend release timestamp** — not recorded in this repository (`DEP-042.f`).
 **c.** ⚠ **Whether the production listing count is still 9** — no discovery run after 2026-08-18 is
 recorded here.

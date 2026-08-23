@@ -563,6 +563,8 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
 | `order.*` permission codes | ✅ **Ratified** — `order.channel-order.view`, `order.channel-order.sync` (`PRM-091`, `OSC-052.c`) |
+| Managed ingestion | ✅ **LIVE IN PRODUCTION 2026-08-23** — `OM §29` (`BR-178`–`BR-183`); 109 orders across three shops, 0 failed runs (`DEP-126`) |
+| Ingestion cadence | ⚠ **`PT5M` deployed as CONFIGURATION**; the ratified default remains `PT15M` (`BR-179.a`, `BR-179.e`) |
 | Orders migration number | ✅ **Assignable** — the read was done and `DEP-125` took the position; still only after the `DEP-031` pre-flight (`OSC-060.d`–`.f`) |
 | Capture / create / amend form | ⬜ **Not designed, deliberately unnumbered** (`OSC-020.b`) |
 
