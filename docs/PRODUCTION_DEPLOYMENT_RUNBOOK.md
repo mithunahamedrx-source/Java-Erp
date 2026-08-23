@@ -1,7 +1,7 @@
 # Production Deployment Runbook
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting operations · **Status:** Canonical
-**Version:** 1.7.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-23 (**`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale**) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
+**Version:** 1.8.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-24 (**`DEP-127` — the Order Card deployment, PERFORMED. No migration was pending and the read was performed anyway. 🔴 THE ARTIFACT WAS SWAPPED UNDER A LIVE JVM, so the departing process threw `NoClassDefFoundError` from its shutdown hook — harmless to data, but a fabricated-looking fault written at the exact moment a reader inspects a cutover. `DEP-127.e` fixes the order: STOP, SWAP, START. ⚠ The authenticated half of `DEP-082` is owed by the operator, not waived**) · **Amended:** 2026-08-23 (**`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale**) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
 
 > 🔴 **THIS DOCUMENT RATIFIES INFRASTRUCTURE THAT ALREADY EXISTS. IT INVENTS NONE.** **The host, the reverse proxy, the routing model and the origin address are USER DECISIONS**, recorded here so a deployment agent never has to choose them — and never may.
 >
@@ -394,6 +394,56 @@
 ---
 
 # 15b. The `V15` position — resolved 2026-08-23
+
+> **`DEP-127` — ✅ THE ORDER CARD DEPLOYMENT, PERFORMED 2026-08-24. AND THE ARTIFACT-SWAP ORDER,
+> FIXED AFTER GETTING IT WRONG.**
+>
+> **a.** ✅ **PRE-FLIGHT PASSED, IN `DEP-031` ORDER.** Local gate green — backend `708/708`,
+> frontend `886/886`, `tsc` clean, `vite build` succeeded; SSH reached the origin; service
+> `active (running)` with `NRestarts=0`; `nginx -t` valid; backend bound to `127.0.0.1:8080` only;
+> database reachable; `flyway_schema_history` read at `V18`, `failed=0`; **43 GB free**; no error
+> in the log.
+> **b.** ✅ **THE READ CONFIRMED NO MIGRATION WAS PENDING.** **Repository ceiling `V18`, production
+> `V18`** — ⚠ **and the read was still performed.** **`DEP-070.b` does not exempt the case where
+> the answer is expected to be "nothing"**; Flyway then reported *Successfully validated 18
+> migrations · Schema "public" is up to date. No migration necessary.*
+> **c.** ✅ **A BACKUP WAS TAKEN ANYWAY** (`DEP-060`), verified by exit status and `gzip -t`, though
+> `DEP-060`'s gate is a MIGRATION gate and no migration ran. ⚠ **The gate is cheap and the
+> judgement about whether a startup will migrate is made BEFORE the startup, not after it.**
+> **d.** 🔴 **THE ARTIFACT WAS SWAPPED WHILE THE OLD JVM WAS STILL RUNNING, AND THIS IS THE ENTRY'S
+> MOST USEFUL LINE.** **`backend.jar` was overwritten and only then was the service restarted, so
+> the outgoing process lost its own classpath mid-shutdown and threw
+> `NoClassDefFoundError: ch/qos/logback/classic/spi/ThrowableProxy` from its
+> `SpringApplicationShutdownHook`.** ✅ **No data effect — the exception is raised by the DEPARTING
+> process during teardown, after it has stopped serving** — ⚠ **but it writes a fabricated-looking
+> fault into the log at the exact moment a reader is inspecting a cutover, which is precisely when
+> a spurious error costs the most.**
+> **e.** 🔴 **THE ORDER IS THEREFORE FIXED: STOP, SWAP, START.** **`systemctl stop` the service,
+> replace `backend.jar`, then `systemctl start`** — never `cp` over a jar a live JVM has open.
+> ⚠ **`DEP-071` already establishes that STARTING is the migration; it did not state that
+> REPLACING is not a safe no-op, and now it does.**
+> **f.** ✅ **`DEP-080` PASSED IN FULL, `SELECT` ONLY.** **4 `channel_instance` rows, unchanged; 4
+> `channel_connection` rows, unchanged; Zeon Tech still `DRAFT` with `activated_by` NULL.**
+> 🔴 **The deployment activated nothing, connected nothing and invented no identity, link or
+> attribution timestamp** (`DEP-080.c`–`.g`). ⚠ **`market` is non-`NULL` on all four rows and that
+> is NOT a `DEP-080.b` violation: no migration ran, so nothing could have been backfilled, and each
+> value was written by a real authorisation.**
+> **g.** ✅ **`DEP-082` SERVER, HTTP AND DATABASE GATES PASSED.** **`https://user.trioloo.com/`
+> returns `200`; `/api/orders/channel-orders` returns `401` unauthenticated, which is the correct
+> answer and not a fault; Flyway `18`, `failed=0`; `NRestarts=0`; zero log entries at `err` or
+> above since cutover.** ✅ **The served bundle hash equals the locally built one** (`DEP-011.c`).
+> **h.** ⚠ **THE AUTHENTICATED HALF OF `DEP-082` WAS NOT PERFORMED BY THE DEPLOYING AGENT AND IS
+> NOT CLAIMED.** **Sign-in, the workspace load and the bounded 80 / 90 / 100 / 110 visual check
+> require a legitimate Owner session, and `DEP-021.d` keeps that credential out of reach by
+> design.** 🔴 **It is owed by the operator, not waived.**
+> **i.** ✅ **INGESTION SURVIVED THE CUTOVER, OBSERVED RATHER THAN ASSUMED** — an `INCREMENTAL` run
+> completed at `20:17:07 UTC`, **33 seconds after the new process reported started**, so the
+> `BR-179` scheduler is alive on the deployed artifact.
+> **j.** ✅ **ROLLBACK PATH PRESERVED** — the previous jar is retained under
+> `/opt/trioloo-erp/releases/`, and the previous frontend release directory is retained beside the
+> `current` symlink, so a rollback is a symlink move.
+> **k.** 🔴 **NO MIGRATION, NO PERMISSION GRANT, NO SCHEMA CHANGE, NO CONFIGURATION CHANGE.**
+> **`ORDER_PULL_ENABLED` and the `PT5M` cadence are untouched from `DEP-126`.**
 
 > **`DEP-126` — ✅ THE ORDERS INGESTION DEPLOYMENT, PERFORMED 2026-08-23.**
 >
