@@ -161,6 +161,22 @@
 
 ---
 
+## Registered packs and specifications
+
+⚠ **`OSC-011.c` recorded that this README registered none of the tracked packs though the index
+credited it with doing so.** ✅ **The register begins here.**
+
+| File | Owning contract | Governs |
+|---|---|---|
+| [`Order Card DS.md`](Order%20Card%20DS.md) | `ORDERS_SCREEN_CONTRACT.md` `OSC-055` | The Orders card — three-band composition, type scale, economic hierarchy |
+| `Trioloo Listings Feature Pack.html` | `LISTINGS_SCREEN_CONTRACT.md` `LSC-002` | The Listings frames |
+| `Trioloo Shops and Channels Feature Pack.html` | `SHOPS_CHANNELS_SCREEN_CONTRACT.md` `SCS-` | The Shops & Channels surfaces |
+
+🔴 **A `.md` specification is a first-class reference here.** **The Order Card's source project was
+unreadable (`HTTP 404`), so its binding record is the written specification transcribed from the
+rendered bundle** — ⚠ **which is exactly what this document already demands of a PNG: record what
+the design FIXES, not merely what it shows.**
+
 ## Adding to this folder
 
 Name new captures `NN-screen-name.png` and add a section here specifying what the image **fixes** — structure, spacing, states and colour roles. Amend the Constitution in the same change if the capture establishes a new pattern.

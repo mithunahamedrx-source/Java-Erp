@@ -26,6 +26,13 @@ const ORDER_ROW: ChannelOrderRow = {
   itemsCount: 2,
   customerFirstName: 'Tanvir',
   customerLastName: 'Enterprise',
+  shippingPhone: '+8801712448903',
+  shippingLine: 'House 42, Banani, Dhaka, 1213',
+  buyerNote: 'Handle with care',
+  itemName: 'Dell OptiPlex 7010 SFF',
+  trackingCode: 'DEX-BDN-0072025926',
+  invoiceNumber: null,
+  purchaseOrderId: '659537729498894',
 };
 
 const SUMMARY: ChannelOrderSummary = {

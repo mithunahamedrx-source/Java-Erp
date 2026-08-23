@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.5.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (**KPI ROW AND STATUS TABS RATIFIED** — `OSC-053` names the four summary figures the product owner chose, closing `GAP-004` for this workspace and WITHDRAWING the shipped `Total Revenue`/`Total Margin` pair; `OSC-054` records that the tabs are `SM-1` states filled by the §4.3 adapter translation, so `GAP-017`'s legacy-label mapping stays blocked without blocking the tab set; `OSC-030.a` gains `Returned`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.6.0 · **Amended:** 2026-08-24 (**`OSC-055` — the ORDER CARD visual authority registered and built. The Claude Design project was NOT readable (`HTTP 404`), so the owner supplied the bundle and the specification is transcribed from its markup, never imagined (`OSC-012`'s discipline). Every colour resolved to an existing token; the design's sample figures for Cost, Charges, Received and Margin are REFUSED as unknown, and its `Not Released` chip is not rendered because `BR-080` withdrew the state**) · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (**KPI ROW AND STATUS TABS RATIFIED** — `OSC-053` names the four summary figures the product owner chose, closing `GAP-004` for this workspace and WITHDRAWING the shipped `Total Revenue`/`Total Margin` pair; `OSC-054` records that the tabs are `SM-1` states filled by the §4.3 adapter translation, so `GAP-017`'s legacy-label mapping stays blocked without blocking the tab set; `OSC-030.a` gains `Returned`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -408,6 +408,49 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > `PENDING_VERIFICATION`, `BR-171` still forbids the external status re-driving the lifecycle, and nothing
 > here creates a state, a transition or an event** (`OSC-003`).
 
+> **`OSC-055` — ✅ THE ORDER CARD VISUAL AUTHORITY. Approved 2026-08-24.**
+>
+> | | |
+> |---|---|
+> | **Artifact** | *Order Card DS* — `Order Card DS.dc.html` |
+> | **Source project** | Claude Design `63b1762f-7588-4c3f-bf32-afc766fb3351` |
+> | **Tracked as** | [`design-reference/Order Card DS.md`](design-reference/Order%20Card%20DS.md) — the written specification |
+> | **Implemented in** | `frontend/src/order/OrderCard.tsx` |
+>
+> **a.** 🔴 **THE PROJECT WAS NOT READABLE AND THE DESIGN WAS NOT IMAGINED.** **`DesignSync`
+> returned `HTTP 404 — project not found` for both `get_project` and `list_files`** — ⚠ **the same
+> condition `OSC-012` recorded for project `e56dcf10-…`.** ✅ **The product owner supplied the
+> rendered bundle directly, and the specification is transcribed from its own markup rather than
+> from a screenshot.**
+> **b.** ✅ **THIS DISCHARGES `OSC-011` FOR THE CARD.** **`OSC-011` recorded that no Orders pack was
+> tracked repo-locally and that the visual authority therefore lived only at a URL a reader might
+> not reach.** **A written specification now sits under `design-reference/`, exactly as
+> `SHOPS_CHANNELS_` and `LISTINGS_SCREEN_CONTRACT.md` do for their packs.** ⚠ **`OSC-011` remains
+> open for the two `OSC-010` artboards, which are still URL-only.**
+> **c.** ✅ **NOTHING WAS INVENTED, AND THAT IS A FINDING RATHER THAN AN ASSURANCE.** **Every
+> `oklch(…)` value in the design resolves to an existing token in `frontend/src/design/tokens.css`,
+> because the design was authored from the same matrix.** ⚠ **ONE value has no token — the
+> `Received`/`Margin` label at `oklch(0.55 0.015 290)` against `--color-text-muted`'s
+> `oklch(0.5 …)`.** 🔴 **The TOKEN is used; `RULE 15.1` forbids hard-coding the literal, and the
+> one-step difference is recorded in the specification.**
+> **d.** 🔴 **THE CARD TAKES THE DESIGN'S COMPOSITION AND REFUSES ITS SAMPLE DATA.** **`Not
+> Released` is not rendered — `BR-080` withdrew the state outright; `Cost`, `Charges`, `Received`
+> and `Margin` render UNKNOWN rather than the mock's figures (`INV-32.4`, `BR-033`, `BR-007`,
+> `SYS-034`); `More Actions` is not drawn (`OSC-051.b`).** ✅ **`design-reference/README.md` states
+> the governing principle: a mockup's sample data is a visual pattern to keep and a business claim
+> to discard.**
+> **e.** ⚠ **THE `Margin` FIGURE IS ALSO NOT PAINTED GREEN.** **`--color-positive` states a GAIN,
+> and an unknown margin has not been shown to be one** (`RULE 3.14.a.a` — role by meaning, never by
+> resemblance). 🔴 **`BR-007` uncosted lines and `SYS-034` unknown-is-not-zero are precisely why
+> `OSC-053` WITHDREW the shipped `Total Margin` KPI; the card must not reintroduce the same claim in
+> colour, and `E-032`'s own note already records the live defect of a line rendering a margin that
+> was in fact unknown.**
+> **f.** ⚠ **`support.js` CARRIES NO VISUAL AUTHORITY AND WAS NOT IMPLEMENTED.**
+> **`design-reference/README.md` already records it as generated `dc-runtime` code with zero
+> tokens, zero `oklch` values and zero `Manrope` references.**
+> **g.** 🔴 **ALL THREE BANDS ARE STRUCTURED OPERATIONAL ROWS** (`RULE 7.4`, `UX-266`, `OSC-046`)
+> **and none carries `overflow-x`** (`UX-265`).
+
 ---
 
 # 6. The blocked register
@@ -560,7 +603,8 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | Canonical status mirror | ✅ **Persisted beside the raw channel status, never instead of it** (`BR-171`, `BR-173`) |
 | Dispatch observation | ⚠ **An ERP observation, not a marketplace fact** — the provider publishes no dispatch timestamp (`OSC-053.c`) |
 | Approved visual authority | ✅ **`OSC-010`** — *Trioloo Orders Screens*, two artboards |
-| Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
+| Repo-local rendered pack | ⚠ **Partially tracked** — the Order Card carries a written specification (`OSC-055`); the two `OSC-010` artboards remain URL-only (`OSC-011`) |
+| Order card visual authority | ✅ **`OSC-055`** — *Order Card DS*, specified at `design-reference/Order Card DS.md`, implemented in `OrderCard.tsx` |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
 | `order.*` permission codes | ✅ **Ratified** — `order.channel-order.view`, `order.channel-order.sync` (`PRM-091`, `OSC-052.c`) |
 | Managed ingestion | ✅ **LIVE IN PRODUCTION 2026-08-23** — `OM §29` (`BR-178`–`BR-183`); 109 orders across three shops, 0 failed runs (`DEP-126`) |
@@ -574,6 +618,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.6.0** | **2026-08-24** | ✅ **THE ORDER CARD IS REGISTERED AND BUILT FROM ITS APPROVED DESIGN.** **`OSC-055`** registers *Order Card DS* as the visual authority for the Orders card and records [`design-reference/Order Card DS.md`](design-reference/Order%20Card%20DS.md) as its written specification, implemented in `OrderCard.tsx`. 🔴 **THE PROJECT WAS NOT READABLE — `DesignSync` returned `HTTP 404` for `get_project` and `list_files`, the same condition `OSC-012` recorded** — so the product owner supplied the rendered bundle and the specification is TRANSCRIBED FROM ITS OWN MARKUP, never imagined from a screenshot. ✅ **Every `oklch(…)` in the design resolved to an existing token**; ⚠ **the one value with no token (`oklch(0.55 0.015 290)`) is RECORDED and the nearest token used, because `RULE 15.1` forbids the literal.** 🔴 **THE DESIGN'S SAMPLE DATA IS REFUSED WHILE ITS COMPOSITION IS KEPT**: `Cost`, `Charges`, `Received` and `Margin` render UNKNOWN (`INV-32.4`, `BR-033`, `BR-007`, `SYS-034`), the `Not Released` chip is not drawn because `BR-080` WITHDREW the state, `More Actions` is not drawn (`OSC-051.b`), and the marketplace's own word is labelled `Marketplace · {reported}` (`BR-171`). ✅ **`design-reference/README.md` now REGISTERS its packs**, discharging the `OSC-011.c` observation; ⚠ **`OSC-011` stays open for the two URL-only `OSC-010` artboards.** 🔴 **No lifecycle, permission, endpoint or event created.** |
 | **1.5.0** | **2026-08-23** | ✅ **THE KPI ROW AND THE STATUS TABS ARE RATIFIED AND BUILT.** **`OSC-053`** names the four summary figures the product owner chose — **Total orders · Today's orders · Today's dispatched · Total collectable** — closing `GAP-004` for this workspace. 🔴 **The shipped KPIs were not defined, they were WITHDRAWN: `Total Revenue` and `Total Margin` are gone, which is the substance of the resolution, because `BR-007` uncosted lines and `SYS-034` unknown-is-not-zero make a pre-settlement margin confidently wrong and undetectable from the screen.** **`OSC-054`** records that the tabs are `SM-1` state names filled by the §4.3 ADAPTER translation (`BR-005`, `DZC-045.c.ii`), so the surface never touches a channel's own vocabulary — ⚠ **`GAP-017` stays blocked and becomes irrelevant to the tab set rather than being closed.** ✅ **`OSC-030.a` gains `Returned`**, an `SM-1` state `OM §6.2`, `SMA §5.2` and `§6.3`'s own diagram all carry and the v1.0.0 list omitted by oversight. ✅ **`OSC-051.b.i`** amends the withhold rule by its own test: both regions now show real data. 🔴 **TWO LIMITATIONS RECORDED RATHER THAN DESIGNED AROUND** — `Total collectable` subtracts nothing because no receipt or settlement record exists, and `Today's dispatched` counts an ERP OBSERVATION because `DZC-045.e`/`DZC-047.c` prove the provider publishes no dispatch timestamp, so the first backfill's count is the backlog. 🔴 **No lifecycle, permission, endpoint or event created; `FRAME 09` still not built; every other entry in `OSC-050` stands.** |
 | **1.4.0** | **2026-08-23** | ✅ **LIVE READ-ONLY UI CLEANUP.** Unresolved blocker placeholders, legacy status tabs, disabled future buttons and KPI shells are removed from the operator-facing Orders list/detail pages. `OSC-050` remains the canonical blocked register, but `OSC-051` now requires the MVP UI to withhold unresolved controls rather than render documentation as product chrome. Frontend only: no backend, no migration, no Daraz call. |
 | **1.3.0** | **2026-08-23** | ✅ **FIRST READ-ONLY ORDERS UI SLICE.** `OrdersPage.tsx` implements `FRAME 01` as the card-list workspace; `OrderDetailPage.tsx` implements `FRAME 02` plus the read-only `FRAME 03`–`FRAME 08` panels. `FRAME 09` renders blocked markers only. 🔴 **No write path, no scheduler, no import trigger, no shipment/payment/inventory action, no marketplace write and no manual order capture.** Focused Orders test 2/2, full frontend 876/876 and build passed. |

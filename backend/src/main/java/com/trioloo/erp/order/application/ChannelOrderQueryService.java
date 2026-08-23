@@ -49,9 +49,21 @@ public class ChannelOrderQueryService {
                        o.external_order_id, o.order_number, o.ownership, o.statuses_json::text,
                        o.canonical_statuses_json::text, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
-                       o.price, o.payment_method, o.items_count, o.customer_first_name, o.customer_last_name
+                       o.price, o.payment_method, o.items_count, o.customer_first_name, o.customer_last_name,
+                       o.shipping_phone, o.shipping_address1, o.shipping_address3, o.shipping_city,
+                       o.shipping_post_code, o.buyer_note,
+                       i.item_name, i.tracking_code, i.invoice_number, i.purchase_order_id
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
+                  -- ⚠ The card shows ONE representative line. LEFT JOIN LATERAL keeps an order with
+                  -- no imported item visible rather than dropping it from the workspace.
+                  LEFT JOIN LATERAL (
+                      SELECT item_name, tracking_code, invoice_number, purchase_order_id
+                        FROM channel_order_item
+                       WHERE channel_order_id = o.id
+                       ORDER BY external_order_item_id ASC
+                       LIMIT 1
+                  ) i ON true
                 """ + where + """
                  ORDER BY o.provider_created_at DESC NULLS LAST, o.imported_at DESC, o.external_order_id ASC
                  LIMIT ? OFFSET ?
@@ -297,7 +309,10 @@ public class ChannelOrderQueryService {
                 instant(rs, "provider_created_at"),
                 instant(rs, "provider_updated_at"), instant(rs, "last_seen_at"),
                 rs.getBigDecimal("price"), rs.getString("payment_method"), integer(rs, "items_count"),
-                rs.getString("customer_first_name"), rs.getString("customer_last_name"));
+                rs.getString("customer_first_name"), rs.getString("customer_last_name"),
+                rs.getString("shipping_phone"), shippingLine(rs), rs.getString("buyer_note"),
+                rs.getString("item_name"), rs.getString("tracking_code"),
+                rs.getString("invoice_number"), rs.getString("purchase_order_id"));
     }
 
     private ChannelOrderDetail detail(ResultSet rs) throws SQLException {
@@ -367,6 +382,26 @@ public class ChannelOrderQueryService {
     private static Integer integer(ResultSet rs, String column) throws SQLException {
         int value = rs.getInt(column);
         return rs.wasNull() ? null : value;
+    }
+
+    /**
+     * The delivery address as one readable line.
+     *
+     * <p>⚠ {@code DZC-045.f} — Daraz's address numbering does NOT correspond to a simple two-line
+     * street address: {@code address3} is the STATE name and {@code address4} the CITY name, so
+     * they are never concatenated blindly. Only parts whose meaning the provider publishes join.
+     */
+    private static String shippingLine(ResultSet rs) throws SQLException {
+        List<String> parts = new java.util.ArrayList<>();
+        for (String column : List.of("shipping_address1", "shipping_address3", "shipping_city",
+                "shipping_post_code")) {
+            String value = rs.getString(column);
+            if (value != null && !value.isBlank()) {
+                parts.add(value.trim());
+            }
+        }
+        // SYS-034 — an order with no recorded address renders an absence, never an empty string.
+        return parts.isEmpty() ? null : String.join(", ", parts);
     }
 
     private static long n(Long value) {
@@ -503,7 +538,10 @@ public class ChannelOrderQueryService {
                                   Instant providerUpdatedAt, Instant lastSeenAt,
                                   @MonetaryAmount BigDecimal price, String paymentMethod,
                                   Integer itemsCount,
-                                  String customerFirstName, String customerLastName) {}
+                                  String customerFirstName, String customerLastName,
+                                  String shippingPhone, String shippingLine, String buyerNote,
+                                  String itemName, String trackingCode, String invoiceNumber,
+                                  String purchaseOrderId) {}
 
     public record ChannelOrderDetail(UUID id, UUID channelInstanceId, String channelName,
                                      String channelType, String externalOrderId, String orderNumber,

@@ -102,6 +102,14 @@ export type ChannelOrderRow = {
   readonly itemsCount: number | null;
   readonly customerFirstName: string | null;
   readonly customerLastName: string | null;
+  readonly shippingPhone: string | null;
+  /** The delivery address as one line, joined only from parts Daraz documents (`DZC-045.f`). */
+  readonly shippingLine: string | null;
+  readonly buyerNote: string | null;
+  readonly itemName: string | null;
+  readonly trackingCode: string | null;
+  readonly invoiceNumber: string | null;
+  readonly purchaseOrderId: string | null;
 };
 
 export type ChannelOrderItemRow = {

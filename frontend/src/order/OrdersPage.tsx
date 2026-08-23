@@ -1,27 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { EmptyState, SegmentedControl, Select, StatusPill, buttonStyle } from '../ui/primitives';
+import { EmptyState, SegmentedControl, Select, buttonStyle } from '../ui/primitives';
+import OrderCard from './OrderCard';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
-import { StatusBadge } from './OrderBadges';
+import { ORDER_STATUS_TABS, displayMoney, displayStatus } from './orderView';
 import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
-import {
-  ORDER_ROW_COLUMNS,
-  ORDER_STATUS_TABS,
-  canonicalStatus,
-  canonicalStatusLabel,
-  channelSubtitle,
-  customerName,
-  displayMoment,
-  displayMoney,
-  displayStatus,
-  orderTitle,
-  ownershipLabel,
-  pageHeaderButton,
-  primaryStatus,
-} from './orderView';
 
 /**
  * FRAME 01 - Order Dashboard / List.
@@ -414,88 +399,9 @@ function SummaryCard({
   );
 }
 
-function OrderCard({ order }: { readonly order: ChannelOrderRow }): React.JSX.Element {
-  // 🔴 TWO STATUSES, TWO OWNERS, NEVER RECONCILED INTO ONE (`BR-171`, `UX-182`, `OSC-036`).
-  // The canonical lifecycle reading and the marketplace's own report are rendered as separate,
-  // separately labelled facts, and `Marketplace: Cancelled` beside a canonical state is a
-  // legitimate reading rather than a contradiction to resolve.
-  const canonical = canonicalStatus(order.canonicalStatuses);
-  const reported = primaryStatus(order.statuses);
-  return (
-    <article style={orderCardStyle} data-testid="order-card">
-      <div style={orderTopRowStyle}>
-        <div style={avatarStyle} aria-hidden="true">{customerName(order).slice(0, 2).toUpperCase()}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-            <Link to={`/sales/orders/${order.id}`} style={orderLinkStyle}>{orderTitle(order)}</Link>
-            <span style={customerStyle}>{customerName(order)}</span>
-          </div>
-          <div style={mutedLineStyle}>{channelSubtitle(order)}</div>
-        </div>
-        <div style={{ textAlign: 'right', color: 'var(--color-text-muted)', fontSize: '12px' }}>
-          <div>Captured</div>
-          <strong style={{ color: 'var(--color-text-primary)', fontWeight: 650 }}>{displayMoment(order.providerCreatedAt, true)}</strong>
-        </div>
-        <StatusBadge>{ownershipLabel(order.ownership)}</StatusBadge>
-      </div>
-      <div style={orderMiddleRowStyle} className="operational-row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', minWidth: 0 }}>
-          <div style={thumbnailStyle} aria-hidden="true" />
-          <div style={{ minWidth: 0 }}>
-            <div style={itemTitleStyle}>{order.itemsCount ?? 0} imported item{order.itemsCount === 1 ? '' : 's'}</div>
-            <div style={mutedLineStyle}>Payment · {order.paymentMethod || 'Not recorded'}</div>
-          </div>
-        </div>
-        <Metric label="Cost" value="Not recorded" />
-        <Metric label="Received" value="Not recorded" />
-        <Metric label="Sale" value={displayMoney(order.price)} strong />
-      </div>
-      <div style={orderFooterStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
-          {/*
-            An order the adapter could translate nothing for says so. It does NOT borrow the
-            marketplace's own word and present it as a canonical state (`BR-134`, `SYS-034`).
-          */}
-          {canonical ? (
-            <StatusPill tone={semanticRoleOf(ORDER_LIFECYCLE_ROLE, canonical)}>
-              {canonicalStatusLabel(canonical)}
-            </StatusPill>
-          ) : (
-            <StatusBadge>Status not translated</StatusBadge>
-          )}
-          <StatusBadge>Marketplace · {reported === 'Not recorded' ? 'Not recorded' : reported}</StatusBadge>
-          <StatusBadge>Payment · {order.paymentMethod || 'Not recorded'}</StatusBadge>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '12px', fontWeight: 650 }}>INVOICE</span>
-          <span style={{ color: 'var(--color-text-muted)' }}>—</span>
-          <Link to={`/sales/orders/${order.id}`} style={{ ...buttonStyle('secondary', 'row-action'), ...pageHeaderButton }}>
-            View
-          </Link>
-          <button type="button" disabled style={buttonStyle('secondary', 'row-action')}>More</button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function Metric({ label, value, strong = false }: { readonly label: string; readonly value: string; readonly strong?: boolean }): React.JSX.Element {
-  return (
-    <div style={{ textAlign: 'right', minWidth: 0 }}>
-      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{label}</div>
-      <div className="tabular-nums" style={{ fontSize: strong ? '16px' : '13px', fontWeight: strong ? 800 : 500, color: 'var(--color-heading-ink)' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 /*
-  The order collection. `marginTop` separates the card list from the control row above it —
-  the controls are chrome and the cards are the record set, and they read as one block without
-  it (product-owner request, 2026-08-24).
-
-  ⚠ Both values are canonical spacing tokens, not eyeballed pixels (`RULE 5.1`, `RULE 15.1`).
+  The order collection. `marginTop` separates the card list from the control row above it: the
+  controls are chrome, the cards are the record set, and they read as one block without it.
 */
 const orderListStyle: React.CSSProperties = {
   display: 'grid',
@@ -511,11 +417,6 @@ const ordersSurfaceStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-/*
-  The KPI region the approved capture fixes at `82px`. 🔴 `RULE 7.4` / `UX-266` — a structured
-  region does not wrap, so the four cards stay four across and the page never scrolls
-  horizontally: each cell is `minmax(0, 1fr)` and its content ellipsises instead.
-*/
 const summaryStripStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
@@ -623,97 +524,15 @@ const resetStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const orderCardStyle: React.CSSProperties = {
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border-card)',
-  borderRadius: 'var(--radius-panel)',
-  boxShadow: 'var(--elevation-card)',
-  overflow: 'hidden',
-};
 
-const orderTopRowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-4)',
-  padding: '14px 17px',
-};
 
-const avatarStyle: React.CSSProperties = {
-  width: '28px',
-  height: '28px',
-  borderRadius: '999px',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--color-status-neutral-bg)',
-  color: 'var(--color-status-neutral-fg)',
-  fontWeight: 750,
-  fontSize: '11px',
-  flexShrink: 0,
-};
 
-const orderLinkStyle: React.CSSProperties = {
-  color: 'var(--color-heading-ink)',
-  fontWeight: 800,
-  fontSize: '13px',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap',
-};
 
-const customerStyle: React.CSSProperties = {
-  color: 'var(--color-heading-ink)',
-  fontSize: '13px',
-  fontWeight: 650,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
 
-const mutedLineStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted)',
-  fontSize: '12px',
-  marginTop: '3px',
-  minWidth: 0,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
 
-const orderMiddleRowStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: ORDER_ROW_COLUMNS,
-  gap: 'var(--space-6)',
-  alignItems: 'center',
-  padding: '13px 17px',
-  borderTop: '1px solid var(--color-divider-inner)',
-};
 
-const thumbnailStyle: React.CSSProperties = {
-  width: '42px',
-  height: '42px',
-  borderRadius: 'var(--radius-control)',
-  background: 'var(--color-divider-light)',
-  flexShrink: 0,
-};
 
-const itemTitleStyle: React.CSSProperties = {
-  color: 'var(--color-heading-ink)',
-  fontSize: '14px',
-  fontWeight: 650,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
 
-const orderFooterStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 'var(--space-5)',
-  padding: '12px 17px',
-  background: 'var(--color-divider-light)',
-  borderTop: '1px solid var(--color-divider-inner)',
-};
 
 const paginationStyle: React.CSSProperties = {
   display: 'flex',
