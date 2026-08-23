@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.3.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.4.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -12,8 +12,9 @@
 > owning architecture document wins** (`DOC-005`, `DOC-010`).
 >
 > 🔴 **A SPACE IN THE DESIGN IS NOT A RATIFIED BEHAVIOUR.** ⚠ **Where the artboards draw a region the canon
-> does not answer, this contract records it **BLOCKED — MISSING CANONICAL BUSINESS RULE** and the region ships
-> stating that, never filled with an invented figure, action or state** (`DOC-024`, `CLAUDE.md` §5).
+> does not answer, this contract records it **BLOCKED — MISSING CANONICAL BUSINESS RULE** in the register and
+> the live read-only UI withholds the unresolved figure, control or placeholder rather than filling it with an
+> invented value** (`DOC-024`, `CLAUDE.md` §5, `OSC-051`).
 
 **Inherits:** [`UI_UX_ARCHITECTURE.md`](UI_UX_ARCHITECTURE.md) (`UX-187` the Orders workspace · `UX-016`,
 `UX-045` action levels · `UX-260` no component specification) ·
@@ -112,7 +113,7 @@
 | **06** | **Fulfilment / Shipment panel** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — read-only imported fields** |
 | **07** | **Marketplace / Channel reference panel** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — external facts only** |
 | **08** | **Activity / history timeline** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — first imported-order projection** |
-| **09** | **Exception / manual-action states** | both | `OrdersPage.tsx`, `OrderDetailPage.tsx` | 🟨 **Partial — blocked markers only; no exception workflow** |
+| **09** | **Exception / manual-action states** | both | — | ⬜ **Not built — unresolved controls withheld from live UI** |
 
 > **a.** ⚠ **`FRAME 03`–`FRAME 09` ARE PANELS OF THE `FRAME 02` SURFACE, NOT SEPARATE ROUTES.** **`UX-187`
 > composes fulfilment, shipment and sync access INSIDE the Orders workspace; 🔴 no sidebar row is created for
@@ -363,9 +364,20 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | **`Mark reconciled` control** | `05` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-019` residual) | Payment / `SM-5` |
 | **Permitted bulk transitions** | `01` | **BLOCKED — MISSING CANONICAL BUSINESS RULE** (`GAP-034`) | `OM` / `PRM-025` |
 
-> **`OSC-051` — ✅ A BLOCKED REGION KEEPS ITS GEOMETRY AND STATES ITS CONDITION.** 🔴 **It is not deleted,
-> not hidden, and not filled.** ⚠ **Deleting it would lose the ratified composition; filling it would invent a
-> business rule.** ✅ **It renders the marker and the gap reference, in NEUTRAL** (`OSC-042.b`).
+> **`OSC-051` — ✅ A BLOCKED ELEMENT IS RECORDED IN CANON AND WITHHELD FROM THE LIVE READ-ONLY UI.** 🔴 **It
+> is not filled, not acted on, and not presented as an operator control until the owning business rule exists.**
+> ⚠ **The blocked register remains visible to implementers in `OSC-050`; the production page shows only real
+> imported order facts, explicit absences and allowed read-only navigation.**
+>
+> **a.** ✅ **THIS SUPERSEDES THE ORIGINAL PLACEHOLDER RULE.** The previous v1.0.0 wording required every blocked
+> region to keep geometry and render a neutral marker. That preserved design traceability, but in production it
+> made unresolved documentation look like operator-facing product functionality.
+> **b.** 🔴 **NO KPI ROW, LEGACY STATUS TAB SET, BLOCKED BADGE, DISABLED BULK ACTION, MANUAL-ACTION BUTTON OR
+> FUTURE WRITE CONTROL IS RENDERED BY THE READ-ONLY MVP.** It may be restored only when the owner ratifies the
+> missing rule and the implementing slice can show real data or a real permitted action.
+> **c.** ✅ **EMPTY DATA IS STILL EXPLICIT.** No order rows renders an empty state that says an approved Daraz order
+> pull must run before channel orders appear. It does not fabricate sample cards and it does not imply a defect
+> in the page.
 
 > **`OSC-052` — 🔴 NO `order.*` PERMISSION CODE IS RATIFIED, AND IMPLEMENTATION MAY NOT COIN ONE.**
 >
@@ -390,7 +402,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > requires the gate to live in the application service.**
 > **e.** ⚠ **THIS UNBLOCKED GATING BEFORE THE READ-ONLY UI SLICE.** **The superseded "no frame is built"
 > wording is retained above and in history (`DOC-009`); the current frame state is now the `OSC-020`
-> register: `FRAME 01`–`FRAME 08` are built read-only, `FRAME 09` is partial, and every entry in
+> register: `FRAME 01`–`FRAME 08` are built read-only, `FRAME 09` is not built, and every entry in
 > `OSC-050`'s blocked register still stands.**
 
 ---
@@ -453,8 +465,8 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > **b.** ✅ **A no-write-on-render test** — opening a surface issues no `PUT` or `POST`. **The precedent is
 > `LSC-061.i`, written after a page was reported broken for a reason no test had covered.**
 > **c.** ✅ **A lifecycle-independence test** — the per-lifecycle rows never collapse into one (`OSC-031`).
-> **d.** ✅ **An unavailable-marker test** — every blocked region renders its marker and no fabricated figure
-> (`OSC-045`, `OSC-051`).
+> **d.** ✅ **A withheld-placeholder test** — unresolved blocked markers, disabled future controls and invented
+> figures do not render in the live read-only UI (`OSC-045`, `OSC-051`).
 > **e.** ✅ **An attribution test** — an `AUTO_CONFIRMED` order renders no human `Confirmed By` (`BR-166`).
 > **f.** ✅ **A money-path test** — no monetary value passes through `Number` (`OSC-043`).
 > **g.** ✅ **A permission-refusal test** — the server refuses independently of whether the control was hidden
@@ -473,11 +485,11 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 | Order backend package / entity / service | ✅ **Exists** — import persistence, query API and read endpoints are implemented |
 | Order frontend module / route / page | ✅ **Exists** — `/sales/orders` and `/sales/orders/:id` render read-only Orders surfaces |
 | Order migration | ✅ **Exists** — `V16__channel_order_import.sql` in the codebase; deployment still applies pending migrations behind `DEP-125` |
-| `FRAME 01`–`FRAME 09` | 🟨 **FRAME 01–08 built as read-only first slice; FRAME 09 partial blocked-marker coverage** |
+| `FRAME 01`–`FRAME 09` | ✅ **FRAME 01–08 built as read-only first slice; FRAME 09 not built and its placeholders withheld** |
 | Approved visual authority | ✅ **`OSC-010`** — *Trioloo Orders Screens*, two artboards |
 | Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
-| `order.*` permission codes | 🔴 **Unratified — the hardest blocker** (`OSC-052`) |
+| `order.*` permission codes | ✅ **Ratified** — `order.channel-order.view`, `order.channel-order.sync` (`PRM-091`, `OSC-052.c`) |
 | Orders migration number | ✅ **Assignable** — the read was done and `DEP-125` took the position; still only after the `DEP-031` pre-flight (`OSC-060.d`–`.f`) |
 | Capture / create / amend form | ⬜ **Not designed, deliberately unnumbered** (`OSC-020.b`) |
 
@@ -487,6 +499,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.4.0** | **2026-08-23** | ✅ **LIVE READ-ONLY UI CLEANUP.** Unresolved blocker placeholders, legacy status tabs, disabled future buttons and KPI shells are removed from the operator-facing Orders list/detail pages. `OSC-050` remains the canonical blocked register, but `OSC-051` now requires the MVP UI to withhold unresolved controls rather than render documentation as product chrome. Frontend only: no backend, no migration, no Daraz call. |
 | **1.3.0** | **2026-08-23** | ✅ **FIRST READ-ONLY ORDERS UI SLICE.** `OrdersPage.tsx` implements `FRAME 01` as the card-list workspace; `OrderDetailPage.tsx` implements `FRAME 02` plus the read-only `FRAME 03`–`FRAME 08` panels. `FRAME 09` renders blocked markers only. 🔴 **No write path, no scheduler, no import trigger, no shipment/payment/inventory action, no marketplace write and no manual order capture.** Focused Orders test 2/2, full frontend 876/876 and build passed. |
 | **1.2.0** | **2026-08-23** | ✅ **`OSC-060` RESOLVED — THE MIGRATION BAR IS LIFTED.** **The production read was performed: `flyway_schema_history` is at `V14`, `V15` unapplied and `channel_listing_review` absent, BECAUSE the deployed jar carries `V1`–`V14` and no `V15`.** 🔴 **There was never a contradiction — `DEP-071` cannot apply a migration the deployed artifact does not contain.** ✅ **`DEP-125` then TOOK the position: `V15` is applied deliberately on the next deployment behind the backup gate, and V15-free release branches are discontinued.** 🔴 **A number is still assigned only AFTER the `DEP-031` pre-flight confirms the applied ceiling — `DEP-070.b` is unchanged and a ceiling is never assumed.** ⚠ **The superseded wording is retained (`DOC-009`) because it was correct while the question was open.** ⚠ **THIS CHANGES NO FRAME: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT and `OSC-050`'s blocked register is untouched.** |
 | **1.1.0** | **2026-08-23** | ✅ **`OSC-052` DISCHARGED BY `PRM-091`.** **The owning module named `order.channel-order.view` and `order.channel-order.sync`; the superseded wording is retained (`DOC-009`) because it records WHY the codes could not be invented here.** 🔴 **Neither grants Order mutation, inventory movement, payment or settlement action, shipment action, or any marketplace write** (`PRM-091.b`). ✅ **`PRM-091.c` keeps probe, incremental poll and backfill on the one `sync` code rather than inventing a third.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT, every entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.** ✅ **Documentation only in this contract — the first Orders code is a read-only diagnostic that creates no schema.** |

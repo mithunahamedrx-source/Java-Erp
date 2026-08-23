@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { Button, Card, EmptyState } from '../ui/primitives';
+import { Card, EmptyState } from '../ui/primitives';
 import { fetchChannelOrder } from './orderApi';
 import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow } from './orderApi';
-import { BlockedMarker, StatusBadge, toneForStatus } from './OrderBadges';
+import { StatusBadge, toneForStatus } from './OrderBadges';
 import {
   addressLines,
   customerName,
@@ -19,14 +19,12 @@ import {
   primaryStatus,
 } from './orderView';
 
-const DETAIL_TABS = ['Overview', 'Fulfilment', 'Payment', 'Activity'] as const;
-
 /**
  * FRAME 02, FRAME 03, FRAME 04, FRAME 05, FRAME 06, FRAME 07 AND FRAME 08 - Order Detail.
  *
  * The first Orders detail slice is read-only over imported channel orders (`OSC-061`). Panels
- * render stored snapshots only (`OSC-032`, `OSC-033`), keep lifecycle rows independent
- * (`OSC-031`), and mark unresolved actions rather than offering invented controls.
+ * render stored snapshots only (`OSC-032`, `OSC-033`) and keep lifecycle rows independent
+ * (`OSC-031`) without drawing controls for unresolved workflows.
  */
 export default function OrderDetailPage(): React.JSX.Element {
   const { id } = useParams();
@@ -71,24 +69,12 @@ export default function OrderDetailPage(): React.JSX.Element {
   }
 
   const status = primaryStatus(order.statuses);
-  const headerActions = (
-    <>
-      <Button size="page-header" disabled describedBy="orders-amend-unavailable">Amend</Button>
-      <Button size="page-header" disabled describedBy="orders-hold-unavailable">Release hold</Button>
-      <Button size="page-header" variant="primary" disabled describedBy="orders-release-unavailable">Release to warehouse</Button>
-    </>
-  );
-
   return (
     <>
       <PageHeader
         title={`Order ${orderTitle(order)}`}
         subtitle={detailMeta(order)}
-        actions={headerActions}
       />
-      <div id="orders-amend-unavailable" style={srOnly}>Amend is not part of the read-only Orders slice.</div>
-      <div id="orders-hold-unavailable" style={srOnly}>Hold release is not ratified for this slice.</div>
-      <div id="orders-release-unavailable" style={srOnly}>Warehouse release is not ratified for this slice.</div>
 
       <div style={breadcrumbStyle}>
         <Link to="/sales/orders" style={{ color: 'var(--color-text-muted)' }}>Sales & Orders</Link>
@@ -100,14 +86,6 @@ export default function OrderDetailPage(): React.JSX.Element {
         <StatusBadge>{ownershipLabel(order.ownership)}</StatusBadge>
       </div>
 
-      <div style={tabsStyle}>
-        {DETAIL_TABS.map((tab) => (
-          <button key={tab} type="button" disabled={tab !== 'Overview'} style={tabStyle(tab === 'Overview')}>
-            {tab}
-          </button>
-        ))}
-      </div>
-
       <div style={detailGridStyle}>
         <main style={{ display: 'grid', gap: 'var(--space-7)', minWidth: 0 }}>
           <Panel title="Customer" tag="API-managed snapshot">
@@ -117,7 +95,7 @@ export default function OrderDetailPage(): React.JSX.Element {
               <Fact label="Delivery address" value={addressValue(order.shippingAddress)} />
               <Fact label="Customer type" value="Channel customer" />
               <Fact label="Snapshot taken" value={displayMoment(order.providerCreatedAt)} />
-              <Fact label="Notes" value={<><BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker> <span>Order notes · GAP-066</span></>} />
+              <Fact label="Notes" value="Not recorded" />
             </div>
           </Panel>
 
@@ -130,8 +108,7 @@ export default function OrderDetailPage(): React.JSX.Element {
               )}
             </div>
             <div style={panelFooterNoteStyle}>
-              <BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker>
-              <span>Line-level cancel · GAP-025 — undefined after release; no per-line control is drawn.</span>
+              <span>{order.items.length} imported line{order.items.length === 1 ? '' : 's'}</span>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>Goods value</div>
                 <strong className="tabular-nums">{displayMoney(order.price)}</strong>
@@ -154,10 +131,6 @@ export default function OrderDetailPage(): React.JSX.Element {
             <div style={activityListStyle}>
               <ActivityRow title="Imported from channel" detail={`${order.channelName ?? 'Channel'} · ${displayMoment(order.importedAt)}`} time={displayMoment(order.importedAt, true)} />
               <ActivityRow title="Channel last reported this order" detail={order.statuses.map(displayStatus).join(', ') || 'Status not recorded'} time={displayMoment(order.lastSeenAt, true)} />
-            </div>
-            <div style={panelFooterNoteStyle}>
-              <BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker>
-              <span>Ageing and SLA markers · GAP-024 — no residency threshold exists for these states.</span>
             </div>
           </Panel>
         </main>
@@ -189,9 +162,7 @@ export default function OrderDetailPage(): React.JSX.Element {
           <RailCard title="Payment">
             <Fact label="Collection mode" value={order.paymentMethod || 'Not recorded'} compact />
             <Fact label="Voucher code" value={order.voucherCode || 'None'} compact />
-            <div style={railDividerStyle} />
-            <BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker>
-            <p style={railHelpStyle}>Mark reconciled · GAP-019 residual — no control is offered.</p>
+            <p style={railHelpStyle}>Payment values are the imported channel snapshot. Reconciliation controls are not shown in this read-only view.</p>
           </RailCard>
 
           <RailCard title="Channel references">
@@ -313,29 +284,6 @@ const breadcrumbStyle: React.CSSProperties = {
   marginTop: '-18px',
   marginBottom: 'var(--space-6)',
 };
-
-const tabsStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  background: 'var(--color-divider-light)',
-  borderRadius: 'var(--radius-card-small)',
-  padding: '4px',
-  marginBottom: 'var(--space-7)',
-};
-
-function tabStyle(active: boolean): React.CSSProperties {
-  return {
-    height: '36px',
-    minWidth: '92px',
-    border: 'none',
-    borderRadius: 'var(--radius-control)',
-    background: active ? 'var(--color-surface)' : 'transparent',
-    boxShadow: active ? 'var(--elevation-active-tab)' : 'none',
-    color: active ? 'var(--color-heading-ink)' : 'var(--color-text-secondary)',
-    fontSize: '13px',
-    fontWeight: active ? 700 : 550,
-    cursor: active ? 'default' : 'not-allowed',
-  };
-}
 
 const detailGridStyle: React.CSSProperties = {
   display: 'grid',
@@ -493,16 +441,4 @@ const activityDotStyle: React.CSSProperties = {
   background: 'var(--color-ink)',
   marginTop: '5px',
   flexShrink: 0,
-};
-
-const srOnly: React.CSSProperties = {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  padding: 0,
-  margin: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0, 0, 0, 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
 };

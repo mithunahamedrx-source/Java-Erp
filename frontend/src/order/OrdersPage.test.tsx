@@ -150,10 +150,9 @@ describe('Orders first slice', () => {
     const { calls } = renderAt('/sales/orders');
 
     expect(await screen.findByRole('heading', { name: 'Orders' })).not.toBeNull();
-    expect(screen.getByTestId('orders-kpi-blocked').textContent).toContain('GAP-004');
-    expect((screen.getByRole('button', { name: 'All' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('button', { name: 'Pending verification' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'New order' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/BLOCKED/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pending verification' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New order' })).toBeNull();
     expect(screen.getByPlaceholderText('Order no., marketplace ref, customer')).not.toBeNull();
     expect(await screen.findByText('TRL-2026-004176')).not.toBeNull();
     expect(screen.getByText('Tanvir Enterprise')).not.toBeNull();
@@ -168,19 +167,19 @@ describe('Orders first slice', () => {
     const { calls } = renderAt('/sales/orders/11111111-1111-1111-1111-111111111111');
 
     expect(await screen.findByRole('heading', { name: 'Order TRL-2026-004176' })).not.toBeNull();
-    expect((screen.getByRole('button', { name: 'Release to warehouse' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'Overview' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('button', { name: 'Fulfilment' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Release to warehouse' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Overview' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Fulfilment' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Customer' })).not.toBeNull();
     expect(screen.getByText(/House 42, Road 11, Banani, Dhaka/)).not.toBeNull();
     expect(screen.getByRole('heading', { name: 'Items' })).not.toBeNull();
     expect(screen.getByText('Dell OptiPlex 7010 SFF')).not.toBeNull();
     expect(screen.getByRole('heading', { name: 'Status' })).not.toBeNull();
     expect(screen.getByText('Verification')).not.toBeNull();
-    expect(screen.getAllByText('Fulfilment').length).toBeGreaterThan(1);
+    expect(screen.getByText('Not progressed in Trioloo')).not.toBeNull();
     expect(screen.getByRole('heading', { name: 'Channel references' })).not.toBeNull();
     expect(screen.getByText('External order ID')).not.toBeNull();
-    expect(screen.getAllByText('BLOCKED — MISSING CANONICAL BUSINESS RULE').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/BLOCKED/)).toBeNull();
     expect(calls.filter((call) => call.method === 'POST' || call.method === 'PUT')).toHaveLength(0);
   });
 });

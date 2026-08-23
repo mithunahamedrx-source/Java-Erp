@@ -1035,6 +1035,7 @@ describe('Frame 10 — the push control is capability-driven', () => {
     stubApi();
     await loaded();
 
+    await waitFor(() => expect(screen.getByTestId('edit-push-unavailable')).toBeTruthy());
     const notice = screen.getByTestId('edit-push-unavailable');
     expect(notice.textContent).toContain('does not declare any listing field writable');
     expect(notice.textContent).not.toContain('Sale Price and Listing stock');

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { Button, EmptyState, buttonStyle } from '../ui/primitives';
+import { EmptyState, buttonStyle } from '../ui/primitives';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
-import { BlockedMarker, StatusBadge, toneForStatus } from './OrderBadges';
+import { StatusBadge, toneForStatus } from './OrderBadges';
 import {
   ORDER_ROW_COLUMNS,
   channelSubtitle,
@@ -19,27 +19,12 @@ import {
   primaryStatus,
 } from './orderView';
 
-const STATUS_TABS = [
-  'All',
-  'Pending verification',
-  'Confirmed',
-  'Released',
-  'In fulfilment',
-  'Ready to ship',
-  'Dispatched',
-  'Delivered',
-  'Failed delivery',
-  'On hold',
-  'Cancelled',
-  'Closed',
-] as const;
-
 /**
  * FRAME 01 - Order Dashboard / List.
  *
  * Read-only `API_MANAGED` Orders first slice (`OSC-061`). The approved capture fixes a
- * card-list workspace, not a table (`OSC-030`), and blocked KPI/status semantics keep their
- * geometry while stating the missing rule instead of inventing one (`OSC-051`).
+ * card-list workspace, not a table (`OSC-030`). Undecided KPI/status controls stay out of
+ * the operator UI until their business rules are ratified.
  */
 export default function OrdersPage(): React.JSX.Element {
   const [items, setItems] = useState<readonly ChannelOrderRow[]>([]);
@@ -86,16 +71,6 @@ export default function OrdersPage(): React.JSX.Element {
     void load();
   }, [load]);
 
-  const headerActions = useMemo(
-    () => (
-      <>
-        <Button size="page-header" disabled describedBy="orders-export-unavailable">Export</Button>
-        <Button size="page-header" variant="primary" disabled describedBy="orders-new-unavailable">New order</Button>
-      </>
-    ),
-    [],
-  );
-
   const applySearch = (): void => {
     setPage(0);
     setFilters((current) => ({ ...current, search: searchDraft.trim() || undefined }));
@@ -103,29 +78,7 @@ export default function OrdersPage(): React.JSX.Element {
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="All channels · operational workspace" actions={headerActions} />
-      <div id="orders-export-unavailable" style={srOnly}>Export is not in the Orders MVP.</div>
-      <div id="orders-new-unavailable" style={srOnly}>Manual order capture is not designed in this pack.</div>
-
-      <section style={blockedKpiStyle} data-testid="orders-kpi-blocked">
-        <BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker>
-        <span>KPI row · GAP-004 — the four shipped KPIs are undefined. Geometry is fixed; no KPI is invented.</span>
-      </section>
-
-      <div style={tabsStyle} aria-label="Order states">
-        {STATUS_TABS.map((tab) => (
-          <button key={tab} type="button" disabled={tab !== 'All'} style={tabStyle(tab === 'All')}>
-            {tab}
-          </button>
-        ))}
-      </div>
-      <div style={blockedLineStyle}>
-        <BlockedMarker>BLOCKED — MISSING CANONICAL BUSINESS RULE</BlockedMarker>
-        <span>
-          Legacy label mapping · GAP-017 — tabs are named for ratified SM-1 states. Shipped, RTS, Pending and B2C Pending
-          have no canonical state set.
-        </span>
-      </div>
+      <PageHeader title="Orders" subtitle="All channels · operational workspace" />
 
       <div style={filterRowStyle}>
         <span style={filterLabelStyle}>FILTER</span>
@@ -179,7 +132,7 @@ export default function OrdersPage(): React.JSX.Element {
         </OrdersSurface>
       ) : items.length === 0 ? (
         <OrdersSurface>
-          <EmptyState title="No imported orders yet" guidance="Run an approved inbound pull before this workspace can show channel orders." />
+          <EmptyState title="No orders imported yet" guidance="Run the approved Daraz order pull, then this workspace will show the imported channel orders." />
         </OrdersSurface>
       ) : (
         <div style={{ display: 'grid', gap: 'var(--space-6)' }}>
@@ -284,60 +237,11 @@ const ordersSurfaceStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const blockedKpiStyle: React.CSSProperties = {
-  minHeight: '84px',
-  border: '1px dashed var(--color-text-demoted)',
-  borderRadius: 'var(--radius-panel)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-3)',
-  color: 'var(--color-text-muted)',
-  fontSize: '12.5px',
-  marginBottom: 'var(--space-6)',
-};
-
-const tabsStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--space-1)',
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border-control)',
-  borderRadius: 'var(--radius-control)',
-  padding: '4px',
-  maxWidth: '100%',
-  overflow: 'hidden',
-};
-
-function tabStyle(active: boolean): React.CSSProperties {
-  return {
-    height: '31px',
-    padding: '0 12px',
-    border: 'none',
-    borderRadius: 'var(--radius-control-small)',
-    background: active ? 'var(--color-ink)' : 'transparent',
-    color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
-    fontWeight: active ? 750 : 550,
-    fontSize: '13px',
-    whiteSpace: 'nowrap',
-    cursor: active ? 'default' : 'not-allowed',
-  };
-}
-
-const blockedLineStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-3)',
-  margin: 'var(--space-3) 0 var(--space-5)',
-  color: 'var(--color-text-muted)',
-  fontSize: '12px',
-};
-
 const filterRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
-  marginBottom: 'var(--space-6)',
+  margin: 'var(--space-7) 0 var(--space-6)',
 };
 
 const filterLabelStyle: React.CSSProperties = {
@@ -519,16 +423,4 @@ const activePageStyle: React.CSSProperties = {
   background: 'var(--color-ink)',
   color: 'var(--color-surface)',
   fontWeight: 800,
-};
-
-const srOnly: React.CSSProperties = {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  padding: 0,
-  margin: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0, 0, 0, 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
 };
