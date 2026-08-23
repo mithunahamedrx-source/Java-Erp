@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.2.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating is unblocked, no frame is) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.3.0 · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -98,20 +98,21 @@
 
 # 3. Frame register
 
-> **`OSC-020` — 🔴 NINE FRAMES, AND NONE IS BUILT.** **No Order package, entity, service, route, component or
-> migration exists in this repository as of 2026-08-23.**
+> **`OSC-020` — ✅ FRAME 01 AND FRAME 02 ARE BUILT AS THE FIRST READ-ONLY SLICE.** **The Orders package,
+> schema, import path, query API and frontend list/detail surfaces now exist.** 🔴 **Mutation, shipment,
+> inventory movement, payment reconciliation, marketplace write and manual order capture remain outside this slice.**
 
 | # | Frame | Artboard | Implemented in | State |
 |---|---|---|---|---|
-| **01** | **Order Dashboard / List** | `Order Dashboard` | *none* | ⬜ **Not built** |
-| **02** | **Order Detail — Overview** | `Order Detail` | *none* | ⬜ **Not built** |
-| **03** | **Items** | `Order Detail` | *none* | ⬜ **Not built** |
-| **04** | **Buyer / Customer panel** | `Order Detail` | *none* | ⬜ **Not built** |
-| **05** | **Payment summary** | `Order Detail` | *none* | ⬜ **Not built** |
-| **06** | **Fulfilment / Shipment panel** | `Order Detail` | *none* | ⬜ **Not built** |
-| **07** | **Marketplace / Channel reference panel** | `Order Detail` | *none* | ⬜ **Not built** |
-| **08** | **Activity / history timeline** | `Order Detail` | *none* | ⬜ **Not built** |
-| **09** | **Exception / manual-action states** | both | *none* | ⬜ **Not built** |
+| **01** | **Order Dashboard / List** | `Order Dashboard` | `frontend/src/order/OrdersPage.tsx` | ✅ **Complete — read-only first slice** |
+| **02** | **Order Detail — Overview** | `Order Detail` | `frontend/src/order/OrderDetailPage.tsx` | ✅ **Complete — read-only first slice** |
+| **03** | **Items** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — imported item snapshot rows** |
+| **04** | **Buyer / Customer panel** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — stored snapshot only** |
+| **05** | **Payment summary** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — read-only imported fields** |
+| **06** | **Fulfilment / Shipment panel** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — read-only imported fields** |
+| **07** | **Marketplace / Channel reference panel** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — external facts only** |
+| **08** | **Activity / history timeline** | `Order Detail` | `OrderDetailPage.tsx` | ✅ **Complete — first imported-order projection** |
+| **09** | **Exception / manual-action states** | both | `OrdersPage.tsx`, `OrderDetailPage.tsx` | 🟨 **Partial — blocked markers only; no exception workflow** |
 
 > **a.** ⚠ **`FRAME 03`–`FRAME 09` ARE PANELS OF THE `FRAME 02` SURFACE, NOT SEPARATE ROUTES.** **`UX-187`
 > composes fulfilment, shipment and sync access INSIDE the Orders workspace; 🔴 no sidebar row is created for
@@ -387,8 +388,10 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > **d.** 🔴 **NEITHER GRANTS ORDER MUTATION, INVENTORY MOVEMENT, PAYMENT OR SETTLEMENT ACTION, SHIPMENT
 > ACTION, OR ANY MARKETPLACE WRITE** (`PRM-091.b`). ⚠ **The frames may now cite them; `OSC-044` still
 > requires the gate to live in the application service.**
-> **e.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES.** **`FRAME 01`–`FRAME 09` remain `⬜ Not built`, every
-> entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.**
+> **e.** ⚠ **THIS UNBLOCKED GATING BEFORE THE READ-ONLY UI SLICE.** **The superseded "no frame is built"
+> wording is retained above and in history (`DOC-009`); the current frame state is now the `OSC-020`
+> register: `FRAME 01`–`FRAME 08` are built read-only, `FRAME 09` is partial, and every entry in
+> `OSC-050`'s blocked register still stands.**
 
 ---
 
@@ -467,10 +470,10 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Fact | State |
 |---|---|
-| Order backend package / entity / service | ⬜ **None exists** — verified 2026-08-23 |
-| Order frontend module / route / page | ⬜ **None exists** — `/sales/orders` is a navigation destination resolving to `ModulePlaceholder` |
-| Order migration | ⬜ **None exists** |
-| `FRAME 01`–`FRAME 09` | ⬜ **None built** |
+| Order backend package / entity / service | ✅ **Exists** — import persistence, query API and read endpoints are implemented |
+| Order frontend module / route / page | ✅ **Exists** — `/sales/orders` and `/sales/orders/:id` render read-only Orders surfaces |
+| Order migration | ✅ **Exists** — `V16__channel_order_import.sql` in the codebase; deployment still applies pending migrations behind `DEP-125` |
+| `FRAME 01`–`FRAME 09` | 🟨 **FRAME 01–08 built as read-only first slice; FRAME 09 partial blocked-marker coverage** |
 | Approved visual authority | ✅ **`OSC-010`** — *Trioloo Orders Screens*, two artboards |
 | Repo-local rendered pack | 🔴 **Not tracked** (`OSC-011`) |
 | `Order Dashboard.dc.html` · `Order Details.dc.html` | 🔴 **Unreachable** — precedence 2–3, project `e56dcf10…` returns 404 (`OSC-012`) |
@@ -484,6 +487,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-08-23** | ✅ **FIRST READ-ONLY ORDERS UI SLICE.** `OrdersPage.tsx` implements `FRAME 01` as the card-list workspace; `OrderDetailPage.tsx` implements `FRAME 02` plus the read-only `FRAME 03`–`FRAME 08` panels. `FRAME 09` renders blocked markers only. 🔴 **No write path, no scheduler, no import trigger, no shipment/payment/inventory action, no marketplace write and no manual order capture.** Focused Orders test 2/2, full frontend 876/876 and build passed. |
 | **1.2.0** | **2026-08-23** | ✅ **`OSC-060` RESOLVED — THE MIGRATION BAR IS LIFTED.** **The production read was performed: `flyway_schema_history` is at `V14`, `V15` unapplied and `channel_listing_review` absent, BECAUSE the deployed jar carries `V1`–`V14` and no `V15`.** 🔴 **There was never a contradiction — `DEP-071` cannot apply a migration the deployed artifact does not contain.** ✅ **`DEP-125` then TOOK the position: `V15` is applied deliberately on the next deployment behind the backup gate, and V15-free release branches are discontinued.** 🔴 **A number is still assigned only AFTER the `DEP-031` pre-flight confirms the applied ceiling — `DEP-070.b` is unchanged and a ceiling is never assumed.** ⚠ **The superseded wording is retained (`DOC-009`) because it was correct while the question was open.** ⚠ **THIS CHANGES NO FRAME: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT and `OSC-050`'s blocked register is untouched.** |
 | **1.1.0** | **2026-08-23** | ✅ **`OSC-052` DISCHARGED BY `PRM-091`.** **The owning module named `order.channel-order.view` and `order.channel-order.sync`; the superseded wording is retained (`DOC-009`) because it records WHY the codes could not be invented here.** 🔴 **Neither grants Order mutation, inventory movement, payment or settlement action, shipment action, or any marketplace write** (`PRM-091.b`). ✅ **`PRM-091.c` keeps probe, incremental poll and backfill on the one `sync` code rather than inventing a third.** ⚠ **THIS UNBLOCKS GATING, NOT THE FRAMES: `FRAME 01`–`FRAME 09` remain ⬜ NOT BUILT, every entry in `OSC-050`'s blocked register stands, and `OSC-060`'s migration bar is untouched.** ✅ **Documentation only in this contract — the first Orders code is a read-only diagnostic that creates no schema.** |
 | **1.0.0** | **2026-08-23** | **Initial ratification** (`DOC-094`). ✅ **Registers the *Trioloo Orders Screens* artifact and its two artboards as the approved Orders visual authority (`OSC-010`), and records the `FRAME 01`–`FRAME 09` register with NONE built.** ✅ **Fixes per frame what must be visible, what may be done, what must be refused, which rules govern and what coverage is owed.** 🔴 **Records ten blocked elements in one register (`OSC-050`) and decides none of them** — KPIs, the legacy label mapping, `B2C`, the `DRAFT` lifecycle, ageing, line-level cancel, cancel consequences, notes, reconcile, bulk transitions. 🔴 **Records that NO `order.*` permission code is ratified and that implementation may never coin one (`OSC-052`).** 🔴 **Records that the collection is a CARD LIST and never a table (`OSC-030`, `RULE 3.15`), and that a BLOCKED marker is NEUTRAL because canonical red is reserved for destructive action (`OSC-042.b`).** ⚠ **Records honestly that the pack is not yet tracked repo-locally (`OSC-011`) and that two higher-precedence Order design files were unreachable and did not inform it (`OSC-012`).** 🔴 **Preserves the `V15` production contradiction and forbids proposing any migration number until `flyway_schema_history` is read (`OSC-060`).** ✅ **Recommends a read-only `FRAME 01`/`02`/`08` first slice, shipping without status tabs until `GAP-017` is answered (`OSC-061`).** 🔴 **No business rule, entity, permission, endpoint, migration or visual decision created.** |
