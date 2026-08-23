@@ -141,7 +141,12 @@ class ApplicationFoundationSmokeTest {
                 // 🔴 Ciphertext and a one-time callback correlation. Neither holds a business
                 // fact, and neither may ever be projected through a business API (API-070).
                 "channel_credential",
-                "channel_authorisation_attempt");
+                "channel_authorisation_attempt",
+
+                // Orders MVP - channel-mirrored order headers and items only. No canonical
+                // ERP-managed Order, inventory movement, shipment action or settlement row.
+                "channel_order",
+                "channel_order_item");
     }
 
     /**

@@ -375,13 +375,12 @@ class DarazOrderPullProbeTest {
                 .containsExactlyInAnyOrder("ChannelInstanceRepository", "ChannelConnectionRepository");
     }
 
-    /**
-     * 🔴 NOTHING IS WRITTEN, AND THIS COUNTS ROWS TO PROVE IT. ⚠ No order table exists yet, so the
-     * tables that DO exist and could plausibly be touched are counted instead.
-     */
+    /** 🔴 NOTHING IS WRITTEN, AND THIS COUNTS ROWS TO PROVE IT. */
     @Test
     @DisplayName("🔴 a full probe writes no row to any Trioloo table")
     void writesNothing() {
+        long ordersBefore = count("channel_order");
+        long itemsBefore = count("channel_order_item");
         long listingsBefore = count("channel_listing");
         long skusBefore = count("channel_listing_sku");
         long operationsBefore = count("channel_listing_operation");
@@ -389,20 +388,25 @@ class DarazOrderPullProbeTest {
 
         probe().probe(shop, AFTER, BEFORE);
 
+        assertThat(count("channel_order")).isEqualTo(ordersBefore);
+        assertThat(count("channel_order_item")).isEqualTo(itemsBefore);
         assertThat(count("channel_listing")).isEqualTo(listingsBefore);
         assertThat(count("channel_listing_sku")).isEqualTo(skusBefore);
         assertThat(count("channel_listing_operation")).isEqualTo(operationsBefore);
         assertThat(count("channel_instance")).isEqualTo(instancesBefore);
     }
 
-    /** 🔴 No order table exists, and this slice deliberately did not create one. */
+    /** ✅ The schema may now exist; the diagnostic still has no order persistence collaborator. */
     @Test
-    @DisplayName("🔴 no order table exists — this slice created no schema")
-    void noOrderTableExists() {
-        Long found = jdbc.queryForObject(
-                "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE '%order%'"
-                        + " AND table_schema = 'public'", Long.class);
-        assertThat(found).isZero();
+    @DisplayName("the order tables may exist, but the diagnostic still never imports into them")
+    void orderTablesExistOutsideTheDiagnostic() {
+        List<String> tables = jdbc.queryForList(
+                "SELECT table_name FROM information_schema.tables "
+                        + "WHERE table_schema = 'public' AND table_name IN ('channel_order', 'channel_order_item')",
+                String.class);
+        assertThat(tables).containsExactlyInAnyOrder("channel_order", "channel_order_item");
+        assertThat(count("channel_order")).isZero();
+        assertThat(count("channel_order_item")).isZero();
     }
 
     // ================================================================= helpers
