@@ -43,6 +43,24 @@ public final class OrderPermissions {
      */
     public static final String CHANNEL_ORDER_SYNC = "order.channel-order.sync";
 
+    /**
+     * {@code PRM-093} — CREATE A MANUAL ORDER, the direct-channel capture {@code OM §22} calls
+     * <em>manual order capture</em>.
+     *
+     * <p>✅ THE ORDER STARTS AT {@code PENDING_VERIFICATION} — the product owner's decision,
+     * 2026-08-24 — which is also the state a channel order arrives in ({@code OM §7.4},
+     * {@code §7.8}). ⚠ A manual order and an imported one therefore enter the SAME human
+     * verification queue, and no state is skipped because a person typed it.
+     *
+     * <p>🔴 CREATION IS NOT CONFIRMATION ({@code PRM-093.b}). This code ends at
+     * {@code PENDING_VERIFICATION} and stops; advancing is a separate act with separate authority,
+     * and nothing here may write {@code Confirmed By} / {@code Confirmed At} ({@code BR-176}).
+     *
+     * <p>🔴 A manual order is {@code ERP_MANAGED} from creation ({@code BR-168}) — there is no
+     * marketplace to hold authority over it and no takeover occurs ({@code BR-169}).
+     */
+    public static final String ORDER_CREATE = "order.order.create";
+
     private OrderPermissions() {
     }
 }

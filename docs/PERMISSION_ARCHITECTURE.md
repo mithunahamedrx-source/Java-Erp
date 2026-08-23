@@ -1,7 +1,7 @@
 # Permission Architecture
 
 **Owner:** Trioloo Technology · **Module:** Permission · **Status:** Canonical
-**Version:** 1.14.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-23 (**`PRM-091` — the Order MVP capability codes `order.channel-order.view` and `order.channel-order.sync`; neither grants Order mutation, inventory movement, payment/settlement, shipment action or any marketplace write**) · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
+**Version:** 1.15.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-24 (**`PRM-092` — the COURIER AND SHIPMENT capability codes `delivery.shipment.book`, `.track`, `.cancel` and `payment.courier-remittance.view`, closing `GAP-138.g`: `DLV §22` has required every dispatch permissioned and attributable since ratification and no code existed to enforce it. 🔴 The remittance code's module segment is `payment`, NOT `delivery` — `PAY-022` and `DLV §23` both place `E-042` with Payment and `PRM-089.a` requires the owning module to name it. Book, track and cancel are INDEPENDENT, not a ladder, and cancelling a consignment never cancels the Order. `PRM-093` — `order.order.create` for manual order capture; a manual order starts at `PENDING_VERIFICATION`, the same state an imported one arrives in, and creation is NOT confirmation**) · **Amended:** 2026-08-23 (**`PRM-091` — the Order MVP capability codes `order.channel-order.view` and `order.channel-order.sync`; neither grants Order mutation, inventory movement, payment/settlement, shipment action or any marketplace write**) · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
 
 ---
 
@@ -190,6 +190,55 @@ A permission is the right to perform one **action** on one **subject type**.
 > **f.** ✅ **WHAT EXISTS TODAY IS A READ-ONLY DIAGNOSTIC, NOT A FEATURE.** **No Order table, endpoint, screen, scheduler or import exists**, and `OSC-052`'s blocker is discharged only in the sense that the codes are now RATIFIED and may be referenced. 🔴 **`GAP-137`'s business questions — backfill window, cadence, shop fan-out, retry — are untouched by this rule.**
 >
 > **g.** 🔴 **THE MODULE SEGMENT IS `order`, AND IT IS PERMANENT** (`DOC-013`, `PRM-089.a`). **Order Management owns these actions, so the first segment names it.**
+
+> **PRM-092 — ✅ THE COURIER AND SHIPMENT CAPABILITY CODES. Ratified 2026-08-24 on confirmed business decision.**
+>
+> **Derived under `PRM-089` and named by the owning module** (`PRM-007`). ⚠ **`DLV §22` has required every dispatch, tracking entry and recovery decision to be permissioned and attributable since ratification (`DLV-011`, `AGV-001`, `AUD-004`), and NO code existed to enforce it with.** 🔴 **`GAP-138.g` recorded that absence; these close it.**
+>
+> | Code | Grants | Explicitly does NOT grant |
+> |---|---|---|
+> | **`delivery.shipment.book`** | **BOOK A CONSIGNMENT WITH THE COURIER** — create the shipment and hand it to Steadfast | 🔴 **Tracking. Cancellation. Any Order state change. Any payment or settlement act** |
+> | **`delivery.shipment.track`** | **READ AND REFRESH TRACKING** — pull consignment status and record tracking events | 🔴 **Booking. Cancellation. Any Order mutation** |
+> | **`delivery.shipment.cancel`** | **CANCEL A BOOKED CONSIGNMENT** with the courier | 🔴 **Booking. Tracking. Cancelling the ORDER, which is a different act under `OM §6.4`** |
+> | **`payment.courier-remittance.view`** | **READ THE COURIER'S REMITTANCE FEED** — what the courier says it has remitted | 🔴 **Advancing `SM-5`. Accepting a deduction. Recording receipt. Any write at all** |
+>
+> **a.** 🔴 **THE FOURTH CODE'S MODULE SEGMENT IS `payment`, NOT `delivery`, AND THAT IS NOT A TYPO.** ⚠ **The product owner's proposal named it `delivery.remittance.view`; `DLV §23` and `PAY-022` both place `E-042` Remittance Batch with PAYMENT, and `PRM-089.a` requires the first segment to name the module that OWNS the action — because that is the module that enforces it.** ✅ **The correction is a derivation from the owning documents, not a change of business intent** (`PRM-007`, `DOC-005`).
+>
+> **b.** 🔴 **BOOK, TRACK AND CANCEL ARE THREE INDEPENDENT CODES, NOT A LADDER.** ⚠ **Booking spends money and dispatches a rider; tracking is a read; cancelling withdraws a commitment already made to a third party.** ✅ **Holding one never implies another**, in the same way `PRM-091.a` keeps `view` and `sync` independent.
+>
+> **c.** 🔴 **`delivery.shipment.cancel` DOES NOT CANCEL THE ORDER.** ⚠ **Cancelling a consignment and cancelling an Order are different acts with different consequences and different authority** (`OM §6.4`, `SM-1` versus `SM-4`). **A code that quietly did both would let a courier-desk operator cancel a sale.**
+>
+> **d.** 🔴 **`payment.courier-remittance.view` IS A READ AND NOTHING MORE, DELIBERATELY.** **`BR-035` — money held or reported by an intermediary is not money received by Trioloo — and `SM-5`'s `COLLECTED_BY_INTERMEDIARY → RECEIVED` is MANUAL because *"a courier statement saying money was remitted is not the same fact as receipt"*** (`PAY-070`, `PAY-072`, `SMA-079`). ⚠ **NO CODE HERE ADVANCES `SM-5`**, and accepting a deduction remains permissioned Accounts work under `PAY-078`.
+>
+> **e.** 🔴 **NONE OF THESE GRANTS AN ORDER MUTATION**, at any scope. **`SM-1` progression, confirmation, release, hold and cancellation remain outside this set entirely.** ⚠ **`DLV-021` makes the Order reach `DELIVERED` *because* its shipment did — that is a consequence of a tracked fact, never a permission a courier code carries.**
+>
+> **f.** 🔴 **BACKEND ENFORCEMENT REMAINS MANDATORY** (`PRM-004`). **A hidden control is not an authorisation control**, and the gate lives in the application service.
+>
+> **g.** ⚠ **`PRM-064`'s scope dimensions are unaffected** (`PRM-009`, `AGV-020`). **Capability and scope stay separate.**
+>
+> **h.** ⚠ **NO CODE IS CREATED FOR COURIER SELECTION, RATE MANAGEMENT OR CLAIMS.** **`DLV-014` records that selection logic is not modelled because no choice is being made** (`DLV-013` — Steadfast is assigned automatically); **`DLV §11`'s rate structure and `DLV §19`'s claims have no mechanism yet.** 🔴 **`PRM-089.b` is a spelling rule and not a generator: a resource does not acquire a verb because it could have one.**
+
+> **PRM-093 — ✅ THE ORDER CREATION CAPABILITY CODE. Ratified 2026-08-24 on confirmed business decision.**
+>
+> **Derived under `PRM-089`, owned by Order Management** (`PRM-007`).
+>
+> | Code | Grants | Explicitly does NOT grant |
+> |---|---|---|
+> | **`order.order.create`** | **CREATE A MANUAL ORDER** — the direct-channel capture `OM §22` calls *manual order capture* | 🔴 **Amending, confirming, releasing, holding or cancelling any Order** · **any channel-order act** · **inventory, payment or shipment action** |
+>
+> **a.** ✅ **A MANUALLY CREATED ORDER STARTS AT `PENDING_VERIFICATION`** — the product owner's decision, 2026-08-24. ⚠ **It is also the `SM-1` initial state a channel order arrives in** (`OM §7.4`, `§7.8`), **so a manual order and an imported one enter the same queue and receive the same human verification.** 🔴 **NO state is skipped because a human typed the order rather than a marketplace sending it.**
+>
+> **b.** 🔴 **CREATION IS NOT CONFIRMATION.** **`create` ends at `PENDING_VERIFICATION` and stops.** ⚠ **Advancing from there is a separate act with separate authority, and this code does not carry it** — `BR-176` also forbids sync ever writing `Confirmed By`/`Confirmed At`, and a creation path must not write them either.
+>
+> **c.** 🔴 **A MANUAL ORDER IS `ERP_MANAGED` FROM CREATION** (`BR-168`). ⚠ **There is no marketplace to hold authority over it, and no takeover event occurs** (`BR-169`).
+>
+> **d.** ✅ **THE PRICE ON A MANUAL LINE IS ENTERED BY STAFF** (`PRD-139`, `BR-145` — captured at Order Line CREATION and preserved). 🔴 **The Ideal / Recommended Selling Price is ADVISORY ONLY and is never a floor, never `BD-275`'s *original price* and never an approval trigger** (`PRD-140`, `BR-148`). ⚠ **A manual price below the recommendation is NOT a discount.**
+>
+> **e.** 🔴 **THIS CODE CREATES NO INVENTORY EFFECT.** **`BR-096`/`BR-004` keep reservation and movement elsewhere, and `GAP-016`'s finding stands: stock shortage never blocks, holds or cancels an Order** — **shortage is a condition of the STOCK, not of the ORDER.**
+>
+> **f.** ⚠ **`GAP-035`'s REMAINING QUESTIONS ARE NOT CLOSED BY THIS RULE.** ✅ **Invoice NUMBERING is settled** (`OSC-057`) **and the product owner has now ratified that the invoice CARRIES VAT/tax** — 🔴 **but `GAP-003` still supplies NO rate, BIN, Mushak requirement or calculation, and none may be inferred** (`BD-307`, `INV-39.2`'s `tax detail (undefined)`). ⚠ **Whether partial payment may be taken at creation is ALSO still unanswered and still conflicts with `§11.3`'s `NOT_DUE`.**
+>
+> **g.** ⚠ **`GAP-023`'s abandoned-modal disposition is untouched.** ✅ **An unsubmitted capture form has created nothing, which is the only reading consistent with `create` being the act.**
 
 ## 5.3 Authority magnitude
 

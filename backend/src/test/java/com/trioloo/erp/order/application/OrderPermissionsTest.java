@@ -47,14 +47,24 @@ class OrderPermissionsTest {
     }
 
     /**
-     * 🔴 MVP MEANS TWO. {@code PRM-091.c} keeps probe, incremental poll and backfill on ONE sync
-     * code, and {@code PRM-089.b} states the shape is not a generator — so a third constant
-     * appearing here is an invented capability until `PRM-` ratifies it.
+     * 🔴 EVERY CONSTANT HERE IS RATIFIED BY NAME, AND THE COUNT IS THE TRIPWIRE.
+     * {@code PRM-089.b} states the shape is not a generator, so a constant appearing here without
+     * a `PRM-` rule behind it is an INVENTED capability — which {@code PRM-089.f} forbids outright.
+     *
+     * <p>⚠ AMENDED 2026-08-24, AND THE TRIPWIRE DID ITS JOB. This asserted exactly TWO while
+     * {@code PRM-091} was the only rule. {@code PRM-093} then ratified {@code order.order.create}
+     * on the product owner's decision, and the test FAILED until the ratified set was updated here
+     * — which is precisely the moment it exists to create. ✅ It is widened to the new ratified
+     * set, never loosened into a range.
      */
     @Test
-    @DisplayName("🔴 exactly two codes exist — no capability was invented alongside them")
-    void onlyTheMvpCodesExist() {
-        assertThat(declaredCodes()).hasSize(2);
+    @DisplayName("🔴 exactly the ratified codes exist — no capability was invented alongside them")
+    void onlyTheRatifiedCodesExist() {
+        assertThat(declaredCodes())
+                .containsExactlyInAnyOrder(
+                        "order.channel-order.view",   // PRM-091
+                        "order.channel-order.sync",   // PRM-091
+                        "order.order.create");        // PRM-093
     }
 
     private static List<String> declaredCodes() {
