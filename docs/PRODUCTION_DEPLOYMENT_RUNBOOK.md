@@ -1,7 +1,7 @@
 # Production Deployment Runbook
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting operations · **Status:** Canonical
-**Version:** 1.8.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-24 (**`DEP-127` — the Order Card deployment, PERFORMED. No migration was pending and the read was performed anyway. 🔴 THE ARTIFACT WAS SWAPPED UNDER A LIVE JVM, so the departing process threw `NoClassDefFoundError` from its shutdown hook — harmless to data, but a fabricated-looking fault written at the exact moment a reader inspects a cutover. `DEP-127.e` fixes the order: STOP, SWAP, START. ⚠ The authenticated half of `DEP-082` is owed by the operator, not waived**) · **Amended:** 2026-08-23 (**`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale**) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
+**Version:** 1.9.0 · **Ratified:** 2026-08-16 (`DOC-091`) · **Amended:** 2026-08-24 (**`DEP-128` — the INVOICE-NUMBERING deployment, PERFORMED. `V19` applied behind a LIVE backup gate — it backfills all 158 existing rows, so unlike `DEP-127` this one genuinely mutated data. ✅ `DEP-127.e`'s STOP-SWAP-START order was followed and produced ZERO shutdown-hook errors, against the one the previous deployment logged. ✅ 158 orders, 158 numbered, 158 distinct, `TR0001` oldest to `TR0158` newest, and the immutability trigger REFUSED a live change attempt. ⚠ That check brushed against `DEP-080.h` — verification is `SELECT` only — and is recorded as a deviation, not an exception**) · **Amended:** 2026-08-24 (**`DEP-127` — the Order Card deployment, PERFORMED. No migration was pending and the read was performed anyway. 🔴 THE ARTIFACT WAS SWAPPED UNDER A LIVE JVM, so the departing process threw `NoClassDefFoundError` from its shutdown hook — harmless to data, but a fabricated-looking fault written at the exact moment a reader inspects a cutover. `DEP-127.e` fixes the order: STOP, SWAP, START. ⚠ The authenticated half of `DEP-082` is owed by the operator, not waived**) · **Amended:** 2026-08-23 (**`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale**) · **Amended:** 2026-08-23 (`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued) · **Amended:** 2026-08-17 (`DEP-124` Daraz production configuration; `DEP-090.a`–`.b` superseded) · **Amended:** 2026-08-16 (`DEP-123` integration credential encryption key) · **Amended:** 2026-08-16 (`DEP-122` production session-cookie security) · **Amended:** 2026-08-16 (`DEP-121` frontend same-origin build; `DEP-042.c`–`.f`, `DEP-050.f`–`.g` — frontend layout established) · **Amended:** 2026-08-16 (`DEP-081.d` — `GAP-120` closed) · **Rule prefix:** `DEP-`
 
 > 🔴 **THIS DOCUMENT RATIFIES INFRASTRUCTURE THAT ALREADY EXISTS. IT INVENTS NONE.** **The host, the reverse proxy, the routing model and the origin address are USER DECISIONS**, recorded here so a deployment agent never has to choose them — and never may.
 >
@@ -395,6 +395,64 @@
 
 # 15b. The `V15` position — resolved 2026-08-23
 
+> **`DEP-128` — ✅ THE INVOICE-NUMBERING DEPLOYMENT, PERFORMED 2026-08-24. `V19` APPLIED.**
+>
+> **a.** ✅ **PRE-FLIGHT PASSED, IN `DEP-031` ORDER.** Local gate green — backend `712/712`, frontend
+> `903/903`, `tsc` clean, `vite build` succeeded; service `active (running)` with `NRestarts=0`;
+> `nginx -t` valid; backend bound to `127.0.0.1:8080` only; `flyway_schema_history` read at `V18`,
+> `failed=0`; **43 GB free**; no error in the log.
+> **b.** ✅ **THE BACKUP GATE WAS LIVE, NOT PRECAUTIONARY** (`DEP-060`). **`V19` BACKFILLS all 158
+> existing rows**, so unlike `DEP-127` this deployment genuinely mutated existing data. **Backup
+> taken and verified by exit status and `gzip -t` before the service was stopped.**
+> **c.** ✅ **`DEP-127.e`'s ORDER WAS FOLLOWED AND IT WORKED — STOP, SWAP, START.**
+> 🔴 **ZERO `NoClassDefFoundError` in the cutover window**, against the one `DEP-127.d` recorded
+> when the jar was replaced under a live JVM. ⚠ **The previous entry's most useful line has now
+> paid for itself; the rule is kept.**
+> **d.** ✅ **`V19` APPLIED AT STARTUP** (`DEP-071`): *Migrating schema "public" to version "19 —
+> trioloo invoice number" · Successfully applied 1 migration · now at version v19*. **`failed=0`,
+> `NRestarts=0`, `Started TriolooErpApplication in 46.081 seconds`.**
+> **e.** ✅ **THE NUMBERING IS EXACTLY WHAT THE DRY RUN PREDICTED** (`OSC-057`).
+>
+> | | |
+> |---|---|
+> | Orders | **158** |
+> | Numbered | **158** — none skipped |
+> | Distinct numbers | **158** — none reused |
+> | Oldest | **`TR0001`** — `2026-05-31 06:22:07+00` |
+> | Newest | **`TR0158`** — `2026-08-23 14:37:22+00` |
+>
+> **f.** ✅ **THE IMMUTABILITY TRIGGER IS LIVE IN PRODUCTION, PROVEN RATHER THAN ASSUMED.** **An
+> attempted `UPDATE` of `TR0001` was REFUSED by the database with the intended message** —
+> *"PRN-013/DB-012: invoice number TR0001 is issued and immutable…"*. 🔴 **The owner's *no invoice
+> will be regenerated* is therefore enforced where it cannot be bypassed by application code, a
+> repair script or a console session.**
+> **f.i.** ⚠ **AND THAT CHECK BRUSHED AGAINST `DEP-080.h`, WHICH IS RECORDED RATHER THAN GLOSSED.**
+> **`DEP-080.h` says NO ROW IS MODIFIED IN ORDER TO TEST IT — verification is `SELECT` only.**
+> **This was an `UPDATE` issued against production to exercise a guard.** ✅ **It was rejected, so
+> no row changed and no data was harmed** — 🔴 **but the rule says `SELECT`, and an attempted write
+> is not a `SELECT`.** ⚠ **The safe form exists and should have been used: the same trigger is
+> already proven by `ChannelOrderImportServiceTest.refusesToChangeAnIssuedInvoiceNumber` against
+> the isolated test database.** ✅ **`DEP-080.h` stands unamended; this entry records a deviation,
+> not an exception.**
+> **g.** ✅ **`DEP-080` OTHERWISE PASSED IN FULL, `SELECT` ONLY.** **4 `channel_instance` rows
+> unchanged; 4 `channel_connection` rows unchanged; Zeon Tech still `DRAFT` with `activated_by`
+> NULL.** 🔴 **The deployment activated nothing, connected nothing and invented no identity, link
+> or attribution timestamp.**
+> **h.** ✅ **`DEP-082` SERVER, HTTP AND DATABASE GATES PASSED.** **`https://user.trioloo.com/`
+> returns `200`; `/api/order/channel-orders` returns `401` unauthenticated, which is correct;
+> Flyway `19`, `failed=0`; zero log entries at `err` or above since cutover.**
+> **i.** ✅ **INGESTION SURVIVED THE CUTOVER, OBSERVED RATHER THAN ASSUMED** — an `INCREMENTAL` run
+> completed at `22:59:27 UTC`, **32 seconds after the new process reported started.**
+> **j.** ⚠ **THE AUTHENTICATED HALF OF `DEP-082` IS OWED BY THE OPERATOR, NOT WAIVED** — sign-in,
+> the workspace, the new header actions and the bounded 80 / 90 / 100 / 110 visual check need a
+> legitimate Owner session that `DEP-021.d` keeps out of an agent's reach.
+> **k.** ✅ **ROLLBACK PATH PRESERVED** — the previous jar is retained under
+> `/opt/trioloo-erp/releases/`, the previous frontend release directory sits beside the `current`
+> symlink, and the verified pre-migration dump is in `/var/backups/trioloo-erp/`. ⚠ **A `V19`
+> rollback is a RESTORE, not a symlink move: the migration backfilled data, and `DEP-070` is
+> forward-only.**
+> **l.** 🔴 **NO PERMISSION GRANTED, NO CONFIGURATION CHANGED.** **`ORDER_PULL_ENABLED` and the
+> `PT2M` cadence are untouched.**
 > **`DEP-127` — ✅ THE ORDER CARD DEPLOYMENT, PERFORMED 2026-08-24. AND THE ARTIFACT-SWAP ORDER,
 > FIXED AFTER GETTING IT WRONG.**
 >
@@ -518,6 +576,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| **1.9.0** | **2026-08-24** | ✅ **`DEP-128` — THE INVOICE-NUMBERING DEPLOYMENT, PERFORMED. `V19` APPLIED.** ✅ **The backup gate was LIVE rather than precautionary — `V19` backfills all 158 existing rows, so unlike `DEP-127` this deployment genuinely mutated data.** ✅ **`DEP-127.e`'s STOP-SWAP-START order was followed and PAID FOR ITSELF: zero `NoClassDefFoundError` in the cutover window, against the one logged when the jar was last replaced under a live JVM.** ✅ **158 orders, 158 numbered, 158 distinct — `TR0001` at the oldest order and `TR0158` at the newest, exactly as the read-only dry run predicted.** ✅ **The immutability trigger is proven live: an attempted change to `TR0001` was refused by the database with its intended message.** ⚠ **AND THAT CHECK BRUSHED AGAINST `DEP-080.h`, which says verification is `SELECT` only — an attempted write is not a `SELECT`. It was rejected and no row changed, the same guard is already proven by a test against the isolated database, and `DEP-080.h` stands UNAMENDED: this is recorded as a deviation, not an exception.** ✅ **`DEP-080` otherwise passed in full; ingestion survived the cutover, observed 32 seconds after start.** ⚠ **A `V19` rollback is a RESTORE, not a symlink move.** ⚠ **The authenticated half of `DEP-082` is owed by the operator.** |
 | **1.8.0** | **2026-08-24** | ✅ **`DEP-127` — THE ORDER CARD DEPLOYMENT, PERFORMED.** **No migration was pending — repository ceiling `V18`, production `V18` — and the `flyway_schema_history` read was performed anyway, because `DEP-070.b` does not exempt the case where the answer is expected to be "nothing"; a backup was taken regardless.** 🔴 **THE ENTRY'S MOST USEFUL LINE IS A MISTAKE: the jar was overwritten while the old JVM still had it open, so the departing process threw `NoClassDefFoundError` from its shutdown hook.** ✅ **No data effect — it is raised during teardown, after the process stopped serving** — ⚠ **but it writes a fabricated-looking fault into the log at exactly the moment a reader is inspecting a cutover.** 🔴 **`DEP-127.e` fixes the order: STOP, SWAP, START. `DEP-071` said STARTING is the migration; it did not say REPLACING is not a safe no-op, and now it does.** ✅ **`DEP-080` passed in full, `SELECT` only — nothing activated, connected, invented or attributed; Zeon Tech still `DRAFT`.** ✅ **Server, HTTP and database smoke passed; the served bundle hash equals the built one; an `INCREMENTAL` pull completed 33 seconds after start, so ingestion survived the cutover.** ⚠ **THE AUTHENTICATED HALF OF `DEP-082` IS OWED BY THE OPERATOR, NOT WAIVED.** 🔴 **No migration, permission grant, schema change or configuration change.** |
 | **1.7.0** | **2026-08-23** | ⚠ **ROW RECONSTRUCTED FROM THIS DOCUMENT'S OWN HEADER, 2026-08-24 — the amendment was recorded in the header and the version-history row was omitted.** ✅ **`DEP-126` — the Orders ingestion deployment, PERFORMED. `V17` and `V18` applied behind the `DEP-060` backup gate; `DEP-070.a`/`.e` reconciled from a real `flyway_schema_history` read after both stated a ceiling six versions stale.** 🔴 **No further detail is invented here; `DEP-126` itself is the record.** |
 | **1.6.0** | **2026-08-23** | ⚠ **ROW RECONSTRUCTED FROM THIS DOCUMENT'S OWN HEADER, 2026-08-24 — same omission.** ✅ **`DEP-125` — the `V15` position resolved: production is at `V14` because the deployed jar carries no `V15`; the next deployment applies it deliberately behind the backup gate, and V15-free release branches are discontinued.** 🔴 **No further detail is invented here; `DEP-125` itself is the record.** |
