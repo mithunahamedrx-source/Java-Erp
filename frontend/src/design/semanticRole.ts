@@ -237,6 +237,33 @@ export const ORDER_LIFECYCLE_ROLE = {
 } as const satisfies Record<string, SemanticTone>;
 
 /**
+ * Payment position — `SM-5`, `OM §11.3`.
+ *
+ * 🔴 THIS MAP HOLDS THREE KEYS BECAUSE THREE IS ALL THIS SLICE CAN HONESTLY DERIVE.
+ * `SM-5` has eleven states, and every one past `DUE` requires an `E-040 Receivable` that has
+ * been collected, remitted, matched or refunded. No receipt, remittance or settlement record
+ * exists here, so no order can have advanced past `DUE` — the same fact `OSC-053` recorded when
+ * `Total collectable` subtracts nothing.
+ *
+ * ⚠ `NOT_DUE` IS NEUTRAL because `OM §11.3` defines it as "goods not yet delivered", which is
+ * the ordinary condition of most orders and owes nobody a decision (`RULE 3.3.d.e`).
+ *
+ * ⚠ `DUE` IS INFO, NOT WARNING. `OM §11.3` defines it as "delivered; payment expected" — an
+ * obligation in flight, which is exactly `RULE 3.3.b`'s blue. It is not amber: nothing has gone
+ * wrong and no person is being asked to act. 🔴 It is emphatically not success either, because
+ * `OM §11.1` states outright that an order marked paid at delivery is a false statement on every
+ * channel Trioloo operates.
+ *
+ * 🔴 `UNKNOWN` IS NEUTRAL AND IS A REAL ANSWER (`SYS-034`). It is not the absence of a mapping;
+ * it is the position of an order whose payment state cannot be derived from what is held.
+ */
+export const PAYMENT_POSITION_ROLE = {
+  NOT_DUE: 'neutral',
+  DUE: 'info',
+  UNKNOWN: 'neutral',
+} as const satisfies Record<string, SemanticTone>;
+
+/**
  * Resolves a canonical state to its role, refusing to guess.
  *
  * 🔴 An unknown value is NOT quietly rendered neutral (`RULE 3.3.d.e`): that would hide a

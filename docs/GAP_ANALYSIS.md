@@ -612,6 +612,20 @@ Unmapped in both directions:
 
 **Suggested documentation.** Invoice specification, and clarification of whether pre-delivery payment is permitted and how it maps to the payment state machine.
 
+> ⚠ **PARTIALLY ADDRESSED 2026-08-24 — the NUMBERING half only** (`ORDERS_SCREEN_CONTRACT.md` v1.8.0 `OSC-057`).
+>
+> ✅ **The product owner supplied the numbering rule**: ONE sequence, `TR0001` upward, oldest to newest, every
+> existing and future order, none skipped, none regenerated. **`V19` implements it and enforces immutability at the
+> table.** ✅ **`BD-443`/`INV-39.1`'s prohibition on a SECOND sequence is respected — this is the one sequence.**
+>
+> 🔴 **THE GAP IS NOT CLOSED, AND WHAT REMAINS IS THE LARGER HALF.** **Invoice CONTENT is still unspecified, and
+> `INV-39.2` requires it snapshotted so an invoice stays reproducible years later.** ⚠ **WHEN a number is properly
+> issued is still unspecified, and the implementation now issues one at IMPORT — so 117 `CANCELLED`, never-delivered
+> orders carry an invoice number with no invoice behind it.** ✅ **`DB-012` accommodates that (a cancelled number is
+> retired, not recycled) and it was the owner's explicit instruction, but it is recorded here as a live consequence
+> rather than a settled design.** 🔴 **Pre-delivery payment remains unanswered and still conflicts with `§11.3`'s
+> `NOT_DUE`.**
+
 ---
 
 ## GAP-036

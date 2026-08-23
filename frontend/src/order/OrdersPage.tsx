@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageHeader } from '../shell/AppShell';
-import { EmptyState, SegmentedControl, Select, buttonStyle } from '../ui/primitives';
+import { Button, EmptyState, SegmentedControl, Select, buttonStyle } from '../ui/primitives';
 import OrderCard from './OrderCard';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
 import { ORDER_STATUS_TABS, displayMoney, displayStatus } from './orderView';
+import { buildOrderCsv, orderCsvFilename } from './orderCsv';
 import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
 
 /**
@@ -30,7 +31,24 @@ export default function OrdersPage(): React.JSX.Element {
   const [searchDraft, setSearchDraft] = useState('');
   const [filters, setFilters] = useState<ChannelOrderFilters>({});
   const [page, setPage] = useState(0);
-  const [size] = useState(50);
+  /*
+    ⚠ FIVE PER PAGE IS A PRODUCT-OWNER DECISION (`OSC-058.c`), not a viewport response. `RULE 7.3.a`
+    and `UX-266` forbid page size changing with zoom or width, and it does not: this is a constant.
+  */
+  const [size] = useState(5);
+  /*
+    🔴 SELECTION SURVIVES PAGING AND NOTHING ELSE (`OSC-058.d`, product owner, 2026-08-24).
+    Turning the page is NAVIGATION within one result set; changing a filter, a tab or the search
+    REPLACES the result set, and a tick that outlived that would leave the operator holding records
+    they can no longer see — the mistake `PRM-025`'s per-record authorisation exists to prevent.
+
+    ⚠ IT HOLDS WHOLE ROWS, NOT IDS, AND THAT IS WHAT MAKES CROSS-PAGE EXPORT HONEST. With five
+    orders a page, an operator who ticks rows on pages 1, 2 and 3 has selected records that are no
+    longer loaded. Keeping only ids would force a refetch — or, worse, silently export the twelve
+    the browser still happened to hold.
+  */
+  const [selected, setSelected] = useState<ReadonlyMap<string, ChannelOrderRow>>(new Map());
+  const [exporting, setExporting] = useState(false);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -82,6 +100,7 @@ export default function OrdersPage(): React.JSX.Element {
         setError(cause instanceof Error ? cause.message : 'Orders could not be loaded.');
       }
       setItems([]);
+      setSelected(new Map());
       setSummary(null);
       setTotalElements(0);
       setTotalPages(0);
@@ -110,6 +129,71 @@ export default function OrdersPage(): React.JSX.Element {
     🔴 This is an input debounce and nothing else. It changes no page size, no record count and
     no permission (`RULE 7.3.a`), and it reads no viewport (`UX-266`).
   */
+  /*
+    THE SELECTION IS CLEARED BY A FILTER, A TAB OR A SEARCH - AND NOT BY PAGING.
+    That is the whole distinction the owner drew (`OSC-058.d`), and it is keyed on `filters`
+    rather than on the fetch, so turning the page never reaches it. A tick that outlived a filter
+    change would leave the operator holding records the new result set does not contain, and
+    Export would then write rows that contradict the screen.
+  */
+  useEffect(() => {
+    setSelected(new Map());
+  }, [filters]);
+
+  const setSelectedFor = useCallback((order: ChannelOrderRow, next: boolean) => {
+    setSelected((current) => {
+      const updated = new Map(current);
+      if (next) {
+        updated.set(order.id, order);
+      } else {
+        updated.delete(order.id);
+      }
+      return updated;
+    });
+  }, []);
+
+  /*
+    SELECT ALL MEANS THIS PAGE (`OSC-058.d`). The owner asked for exactly that, and it is also
+    the only honest reading: a control that silently ticked 158 records the operator has never
+    seen would claim a review that did not happen.
+  */
+  const pageAllSelected = items.length > 0 && items.every((order) => selected.has(order.id));
+  const togglePage = useCallback((next: boolean) => {
+    setSelected((current) => {
+      const updated = new Map(current);
+      for (const order of items) {
+        if (next) {
+          updated.set(order.id, order);
+        } else {
+          updated.delete(order.id);
+        }
+      }
+      return updated;
+    });
+  }, [items]);
+
+  /*
+    EXPORT SCOPE IS RESOLVED HERE, AND NEVER FROM THE VISIBLE PAGE (`UX-044.b`).
+    A selection exports exactly what was ticked. NO selection exports the ACTIVE RESULT SET under
+    the current search and filters (`UX-044.a`) - which means fetching every matching record, not
+    the five on screen. Exporting five because the browser shows five is the silent truncation
+    `UX-044.b` names outright, and at this page size it would be a near-total one.
+  */
+  const exportCsv = useCallback(async () => {
+    setExporting(true);
+    try {
+      const scope = selected.size > 0 ? 'selected' : 'all';
+      const rows = selected.size > 0
+        ? [...selected.values()]
+        : await collectActiveResultSet(filters, totalElements);
+      download(buildOrderCsv(rows), orderCsvFilename(scope, rows.length, new Date()));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The export could not be produced.');
+    } finally {
+      setExporting(false);
+    }
+  }, [selected, filters, totalElements]);
+
   useEffect(() => {
     const pending = searchDraft.trim() || undefined;
     if (pending === filters.search) {
@@ -124,7 +208,83 @@ export default function OrdersPage(): React.JSX.Element {
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="All channels · operational workspace" />
+      <PageHeader
+        title="Orders"
+        subtitle="All channels - operational workspace"
+        actions={
+          /*
+            `UX-016` / `UX-045` - these act on the SURFACE, not on one record, so they belong in
+            the page-header action region. `UX-045`'s own examples are "Add Item - Import - Export".
+
+            `RULE 3.11` - EXACTLY ONE PRIMARY, and the dark button is rightmost. Create Order is
+            that one; Export and Print are secondary. `RULE 3.11.d` fixes the compact page-header
+            geometry, which `buttonStyle('...', 'header')` already carries.
+
+            `UX-045.f` - the icons never replace the visible label.
+          */
+          <div style={headerActionsStyle}>
+            <Button
+              variant="secondary"
+              size="page-header"
+              onClick={() => void exportCsv()}
+              disabled={exporting || loading || forbidden}
+              testId="orders-export"
+            >
+              {exporting ? 'Exporting...' : exportLabel(selected.size)}
+            </Button>
+
+            {/*
+              BLOCKED - MISSING CANONICAL BUSINESS RULE. Rendered because the owner asked for it,
+              and refusing to act because the architecture cannot yet say what it would produce.
+              `PRN-023` sources the Sales Invoice printable from `E-039` with a SNAPSHOT required
+              by `INV-39.2`; no `E-039` record exists, so there is nothing to render. `GAP-003`
+              leaves the tax model undefined on a tax-bearing document, and
+              `DOCUMENT_ARCHITECTURE.md` decides no layout at all. `OSC-058.b` records this.
+            */}
+            <Button
+              variant="secondary"
+              size="page-header"
+              disabled
+              describedBy="orders-print-reason"
+              testId="orders-print"
+            >
+              Print
+            </Button>
+
+            {/*
+              BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRM-091` ratifies exactly two Order
+              capability codes and states that NEITHER grants Order mutation; `PRM-089.b` is a
+              spelling rule and not a generator, so no create permission may be minted here.
+              `GAP-035` and `GAP-023` leave the modal's own behaviour unspecified. `OSC-058.a`.
+            */}
+            <Button
+              variant="primary"
+              size="page-header"
+              disabled
+              describedBy="orders-create-reason"
+              testId="orders-create"
+            >
+              Create Order
+            </Button>
+          </div>
+        }
+      />
+
+      {/*
+        `Button.describedBy` points at VISIBLE text, deliberately: a disabled action's reason is
+        never tooltip-only, because a tooltip is unreachable by keyboard and invisible on touch.
+      */}
+      <p style={blockedReasonStyle}>
+        <span id="orders-print-reason">
+          <strong>Print</strong> is unavailable: a Sales Invoice printable renders from an
+          <code> E-039 </code> record whose content must be snapshotted (<code>INV-39.2</code>),
+          and no such record exists yet. The invoice NUMBER is issued; the invoice is not.
+        </span>{' '}
+        <span id="orders-create-reason">
+          <strong>Create Order</strong> is unavailable: no Order-creation capability is ratified
+          (<code>PRM-091</code> grants view and sync only, and neither grants Order mutation).
+        </span>
+      </p>
 
       <SummaryStrip summary={summary} loading={loading} unavailable={forbidden || error !== null} />
 
@@ -299,8 +459,45 @@ export default function OrdersPage(): React.JSX.Element {
         </OrdersSurface>
       ) : (
         <div style={orderListStyle}>
+          {/*
+            The select-all lives WITH the list it acts on, not in the page header. `UX-045.c` and
+            `UX-016` keep record-scoped controls out of page-level positions, and this one scopes
+            to the five rows below it.
+          */}
+          <div className="operational-row" style={selectAllRowStyle}>
+            <label style={selectAllLabelStyle}>
+              <input
+                type="checkbox"
+                checked={pageAllSelected}
+                onChange={(event) => togglePage(event.target.checked)}
+                style={{ width: '15px', height: '15px', margin: 0, accentColor: 'var(--color-ink)', cursor: 'pointer' }}
+                data-testid="orders-select-page"
+              />
+              Select all on this page
+            </label>
+            {selected.size > 0 ? (
+              <>
+                {/*
+                  The count states the WHOLE selection, which may span pages the operator is no
+                  longer looking at. Showing only the ticks visible here would understate what
+                  Export is about to write.
+                */}
+                <span style={selectionCountStyle} data-testid="orders-selection-count">
+                  {selected.size} selected
+                </span>
+                <button type="button" style={clearSelectionStyle} onClick={() => setSelected(new Map())}>
+                  Clear selection
+                </button>
+              </>
+            ) : null}
+          </div>
           {items.map((order) => (
-            <OrderCard key={order.id} order={order} />
+            <OrderCard
+              key={order.id}
+              order={order}
+              selected={selected.has(order.id)}
+              onSelectedChange={(next) => setSelectedFor(order, next)}
+            />
           ))}
         </div>
       )}
@@ -312,10 +509,12 @@ export default function OrdersPage(): React.JSX.Element {
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <span style={dateChipStyle}>{size} per page</span>
-          <button type="button" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} style={pagerButtonStyle}>‹</button>
+          {/* A button whose accessible name is "‹" tells a screen-reader user nothing. */}
+          <button type="button" aria-label="Previous page" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} style={pagerButtonStyle}>‹</button>
           <span style={activePageStyle}>{page + 1}</span>
           <button
             type="button"
+            aria-label="Next page"
             disabled={totalPages === 0 || page + 1 >= totalPages}
             onClick={() => setPage((value) => value + 1)}
             style={pagerButtonStyle}
@@ -559,4 +758,119 @@ const activePageStyle: React.CSSProperties = {
   background: 'var(--color-ink)',
   color: 'var(--color-surface)',
   fontWeight: 800,
+};
+
+/**
+ * Fetches the ACTIVE RESULT SET for export - every record under the current search and filters.
+ *
+ * `UX-044.a` - the operator exports what they are looking at, which is the FILTERED SET and not
+ * the page. `UX-044.b` - pagination never defines export scope.
+ *
+ * It pages through the existing list endpoint rather than adding an unbounded one: a request for
+ * "everything" with no ceiling is how an export becomes an outage. The page size here is an
+ * export-transport detail and has nothing to do with the five rows the workspace displays.
+ */
+async function collectActiveResultSet(
+  filters: ChannelOrderFilters,
+  expected: number,
+): Promise<readonly ChannelOrderRow[]> {
+  const TRANSPORT_PAGE = 200;
+  const MAX_PAGES = 200;
+  const collected: ChannelOrderRow[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const result = await listChannelOrders(filters, page, TRANSPORT_PAGE);
+    collected.push(...result.content);
+    if (collected.length >= result.totalElements || result.content.length === 0) {
+      break;
+    }
+  }
+  /*
+    A partial export is reported, never written. `SYS-073` and `RPT-047` require partial success to
+    be reported per record and never hidden inside an aggregate - and a CSV that is quietly short
+    is the purest form of that failure, because it looks complete.
+  */
+  if (expected > 0 && collected.length < expected) {
+    throw new Error(
+      `The export read ${collected.length} of ${expected} orders and was stopped rather than `
+      + 'written incomplete. Narrow the filter and try again.',
+    );
+  }
+  return collected;
+}
+
+/**
+ * Hands the CSV to the browser.
+ *
+ * The BOM is deliberate: without it Excel opens UTF-8 as the local codepage, and every Bangla
+ * customer name and every taka sign in the file turns to mojibake on the operator's machine.
+ */
+function download(csv: string, filename: string): void {
+  const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * `UX-044.c` - an all-records export is a DELIBERATE choice, never a silent default. The label
+ * says which one is about to happen, so the operator is not told after the fact by a filename.
+ */
+function exportLabel(selectedCount: number): string {
+  return selectedCount > 0 ? `Export ${selectedCount}` : 'Export all';
+}
+
+const headerActionsStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  flexShrink: 0,
+};
+
+const blockedReasonStyle: React.CSSProperties = {
+  margin: '0 0 var(--space-6)',
+  fontSize: '12px',
+  lineHeight: 1.6,
+  color: 'var(--color-text-muted)',
+};
+
+const selectAllRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-4)',
+  minWidth: 0,
+};
+
+const selectAllLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: 'var(--color-text-secondary)',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+const selectionCountStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 700,
+  color: 'var(--color-text-primary)',
+  whiteSpace: 'nowrap',
+};
+
+const clearSelectionStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  font: 'inherit',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: 'var(--color-link)',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
 };

@@ -83,6 +83,18 @@ export type ChannelOrderRow = {
   readonly channelName: string | null;
   readonly externalOrderId: string;
   readonly orderNumber: string | null;
+  /**
+   * The Trioloo-issued invoice number, e.g. `TR0001` (`PRN-013`, `INV-39.1`).
+   *
+   * 🔴 NOT `invoiceNumber` — that name belongs to the MARKETPLACE's invoice number on this
+   * same row, which `BR-171` keeps as an external fact. Two numbers, two owners, never
+   * conflated (`PRN-014`).
+   *
+   * ⚠ Nullable in the type because the column is nullable: an order written before `V19`
+   * and not yet issued one would have none. `V19` backfilled every existing row and the
+   * import path issues one on creation, so in practice it is always present.
+   */
+  readonly triolooInvoiceNumber: string | null;
   readonly ownership: string;
   /** The marketplace's own status vocabulary, exactly as reported (`BR-173`). */
   readonly statuses: readonly string[];

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../auth/AuthContext';
 import { PageActionsProvider } from '../shell/PageActions';
@@ -14,6 +14,7 @@ const ORDER_ROW: ChannelOrderRow = {
   channelName: 'Ryzen Builder',
   externalOrderId: '3985600001',
   orderNumber: 'TRL-2026-004176',
+  triolooInvoiceNumber: 'TR0001',
   ownership: 'API_MANAGED',
   statuses: ['pending'],
   canonicalStatuses: ['PENDING_VERIFICATION'],
@@ -31,7 +32,9 @@ const ORDER_ROW: ChannelOrderRow = {
   buyerNote: 'Handle with care',
   itemName: 'Dell OptiPlex 7010 SFF',
   trackingCode: 'DEX-BDN-0072025926',
-  invoiceNumber: null,
+  // ⚠ A REAL invoice number, so the `OSC-056.g` test proves the card WITHHOLDS one rather than
+  // merely having none to show. With `null` here the assertion would pass vacuously.
+  invoiceNumber: 'INV-2026-0041',
   purchaseOrderId: '659537729498894',
 };
 
@@ -115,13 +118,15 @@ const ORDER_DETAIL: ChannelOrderDetail = {
   ],
 };
 
-function renderAt(route: string): { readonly calls: RequestInit[] } {
+function renderAt(route: string): { readonly calls: RequestInit[]; readonly urls: string[] } {
   const calls: RequestInit[] = [];
+  const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push(init ?? {});
       const url = String(input);
+      urls.push(url);
       const json = (body: unknown): Response =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url.includes('/api/auth/me')) {
@@ -136,7 +141,16 @@ function renderAt(route: string): { readonly calls: RequestInit[] } {
       if (url.includes('/api/order/channel-orders/summary')) return json(SUMMARY);
       if (url.includes('/api/order/channel-orders/11111111-1111-1111-1111-111111111111')) return json(ORDER_DETAIL);
       if (url.includes('/api/order/channel-orders')) {
-        return json({ content: [ORDER_ROW], page: 0, size: 50, totalElements: 1, totalPages: 1 });
+        // Two pages of one, so paging is reachable and `OSC-058.d`'s cross-page selection is
+        // testable against a page that does NOT contain the selected order.
+        const second = url.includes('page=1');
+        return json({
+          content: [second ? { ...ORDER_ROW, id: 'page-two-order', triolooInvoiceNumber: 'TR0002' } : ORDER_ROW],
+          page: second ? 1 : 0,
+          size: 5,
+          totalElements: 2,
+          totalPages: 2,
+        });
       }
       return json({});
     }),
@@ -154,7 +168,7 @@ function renderAt(route: string): { readonly calls: RequestInit[] } {
       </PageActionsProvider>
     </AuthProvider>,
   );
-  return { calls };
+  return { calls, urls };
 }
 
 afterEach(() => {
@@ -170,9 +184,13 @@ describe('Orders first slice', () => {
     expect(screen.queryByText(/BLOCKED/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'New order' })).toBeNull();
     expect(screen.getByPlaceholderText('Order no., ref, customer')).not.toBeNull();
-    expect(await screen.findByText('TRL-2026-004176')).not.toBeNull();
+    // 🔴 `OSC-057.b` — the card carries the TRIOLOO-issued number. The `order_number` column
+    // holds a copy of Daraz's own id in production and is deliberately not rendered.
+    expect(await screen.findByText('INV: TR0001')).not.toBeNull();
     expect(screen.getByText('Tanvir Enterprise')).not.toBeNull();
-    expect(screen.getByText('API-managed')).not.toBeNull();
+    // 🔴 `OSC-056.d` — the authority chip is NOT on the card. `UX-183` requires it legible on
+    // INSPECTION, which is `FRAME 02`, and `OrderDetailPage` carries it twice.
+    expect(screen.queryByText('API-managed')).toBeNull();
     expect(screen.getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
       '/sales/orders/11111111-1111-1111-1111-111111111111',
     );
@@ -225,9 +243,193 @@ describe('Orders first slice', () => {
     renderAt('/sales/orders');
 
     const card = await screen.findByTestId('order-card');
-    // `BR-171` / `UX-182` / `OSC-036` — two owners, never merged into one chip.
-    expect(card.textContent).toContain('Pending verification');
-    expect(card.textContent).toContain('Marketplace · pending');
+
+    // `BR-171` / `UX-182` / `OSC-036` — two owners, NEVER MERGED INTO ONE CHIP.
+    // 🔴 The prefix word is gone (`OSC-056.c`), so this test can no longer lean on it. What it
+    // asserts instead is the property the rule actually names: the two words live in SEPARATE
+    // elements, neither containing the other.
+    // ⚠ Scoped to the CARD: the status tab is also named `Pending verification`, and a
+    // document-wide query would match the tab rather than the chip.
+    const inCard = within(card);
+    const canonical = inCard.getByText('Pending verification');
+    const external = inCard.getByText('pending');
+    expect(canonical).not.toBe(external);
+    expect(canonical.contains(external)).toBe(false);
+    expect(external.contains(canonical)).toBe(false);
+
+    // ⚠ `UX-185` — the external word stays VISIBLY EXTERNAL by GROUPING: it sits inside the
+    // marketplace's own identity cluster, after the shop that reported it and the id that shop
+    // gave it. `BR-002` — the shop instance is named, never the channel type alone.
+    const cluster = external.parentElement;
+    expect(cluster?.textContent).toContain('Ryzen Builder');
+    expect(cluster?.textContent).toContain('3985600001');
+    expect(cluster?.textContent).not.toContain('Pending verification');
+
+    // ⚠ The marketplace's word is printed as the marketplace spelled it — not title-cased.
+    expect(external.textContent).toBe('pending');
+  });
+
+  it('states the SM-5 payment position and never claims one it cannot derive', async () => {
+    renderAt('/sales/orders');
+
+    const card = await screen.findByTestId('order-card');
+
+    // 🔴 The fixture order is `PENDING_VERIFICATION` — goods NOT delivered — so `SM-5` is
+    // `NOT_DUE` by `OM §11.3` and `BR-033`. Anything else would claim an obligation that
+    // `SM-5.4` prohibits before delivery.
+    expect(card.textContent).toContain('Payment not due');
+
+    // 🔴 NOTHING PAST `DUE` IS EVER RENDERED. Every later `SM-5` state needs an `E-040`
+    // Receivable that has been collected, matched or settled, and no such record exists here.
+    for (const never of ['Received', 'Reconciled', 'Refunded', 'Collected', 'Paid']) {
+      expect(card.textContent).not.toContain(`Payment ${never.toLowerCase()}`);
+    }
+  });
+
+  it('renders More Actions without pretending it can act, and drops the invoice number', async () => {
+    renderAt('/sales/orders');
+
+    const card = await screen.findByTestId('order-card');
+
+    // ⚠ `OSC-056.f` — the owner ratified the control's PRESENCE; no action exists behind it yet,
+    // so it must not present itself as usable (`OSC-051.b`).
+    const more = screen.getByTestId('order-more-actions');
+    expect(more.getAttribute('aria-disabled')).toBe('true');
+    expect(more.getAttribute('title')).toContain('No order action is built yet');
+
+    // ⚠ `OSC-056.g` — the invoice element in the bottom strip is an ACTION, not a caption, and
+    // the MARKETPLACE's invoice number is not printed beside it.
+    expect(card.textContent).toContain('INVOICE');
+    expect(card.textContent).not.toContain('not issued');
+    expect(card.textContent).not.toContain('INV-2026-0041');
+  });
+
+  it('shows the Trioloo invoice number top right and never the marketplace copy', async () => {
+    renderAt('/sales/orders');
+
+    const card = await screen.findByTestId('order-card');
+    const invoice = screen.getByTestId('order-invoice-number');
+
+    // ✅ `OSC-057.b` — the Trioloo-issued number, prefixed and upper-cased for display.
+    expect(invoice.textContent).toBe('INV: TR0001');
+    expect(invoice.style.textTransform).toBe('uppercase');
+    expect(invoice.style.fontWeight).toBe('700');
+
+    // 🔴 The `order_number` column holds a COPY of Daraz's own id on every production row, so
+    // showing it would print the marketplace's number twice and dress the copy as a Trioloo
+    // reference. The fixture's distinct value proves the card is not reading that column.
+    expect(card.textContent).not.toContain('TRL-2026-004176');
+
+    // ⚠ It sits AFTER the payment method, which is the divider the owner named.
+    const text = card.textContent ?? '';
+    expect(text.indexOf('Cash on Delivery')).toBeLessThan(text.indexOf('INV: TR0001'));
+  });
+
+  it('selects an order without implying a bulk action exists', async () => {
+    renderAt('/sales/orders');
+
+    await screen.findByTestId('order-card');
+    const box = screen.getByTestId('order-select') as HTMLInputElement;
+
+    // ✅ The checkbox leads the row, before the customer icon.
+    expect(box.type).toBe('checkbox');
+    expect(box.checked).toBe(false);
+    expect(box.getAttribute('aria-label')).toContain('Tanvir Enterprise');
+
+    fireEvent.click(box);
+    expect((screen.getByTestId('order-select') as HTMLInputElement).checked).toBe(true);
+
+    // 🔴 `PRM-025` / `SYS-073` / `GAP-034` — no permitted-bulk-transition inventory exists, so
+    // selecting must not summon a bulk bar. `OSC-051.b` forbids the control until it can act.
+    for (const forbidden of ['Change status', 'Print invoices', 'Export selected', 'Send to Steadfast']) {
+      expect(screen.queryByText(forbidden)).toBeNull();
+    }
+  });
+
+  it('renders the three page-header actions with exactly one primary', async () => {
+    renderAt('/sales/orders');
+    await screen.findByRole('heading', { name: 'Orders' });
+
+    // `UX-016` / `UX-045` - surface-level actions belong to the page-header region.
+    const header = screen.getByTestId('page-header');
+    for (const id of ['orders-export', 'orders-print', 'orders-create']) {
+      expect(header.contains(screen.getByTestId(id))).toBe(true);
+    }
+
+    // `RULE 3.11` - the dark primary is RIGHTMOST of the action set.
+    const create = screen.getByTestId('orders-create');
+    const exportBtn = screen.getByTestId('orders-export');
+    expect(create.compareDocumentPosition(exportBtn) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+
+    // A DISABLED primary must NOT keep its ink fill. A black "Create Order" that cannot be
+    // pressed reads as the one thing on the page you are meant to press, which is the opposite
+    // of what the disabled state means.
+    expect(create.style.background).not.toBe('var(--color-ink)');
+  });
+
+  it('refuses Print and Create Order and says why in visible text', async () => {
+    renderAt('/sales/orders');
+    await screen.findByRole('heading', { name: 'Orders' });
+
+    // BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRN-023`/`INV-39.2` for the printable,
+    // `PRM-091` for the capability. Neither is invented to make a button work.
+    const print = screen.getByTestId('orders-print') as HTMLButtonElement;
+    const create = screen.getByTestId('orders-create') as HTMLButtonElement;
+    expect(print.disabled).toBe(true);
+    expect(create.disabled).toBe(true);
+
+    // The reason is VISIBLE text a screen reader reaches, never a tooltip: a `title` is
+    // unreachable by keyboard and invisible on touch.
+    const printReason = document.getElementById(print.getAttribute('aria-describedby')!);
+    const createReason = document.getElementById(create.getAttribute('aria-describedby')!);
+    expect(printReason?.textContent).toContain('INV-39.2');
+    expect(createReason?.textContent).toContain('PRM-091');
+  });
+
+  it('keeps a selection when the page changes and drops it when the filter changes', async () => {
+    renderAt('/sales/orders');
+
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('orders-select-page'));
+    expect(screen.getByTestId('orders-selection-count').textContent).toBe('1 selected');
+
+    // `OSC-058.d` - paging is NAVIGATION within one result set, so the ticks survive it.
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('orders-selection-count').textContent).toBe('1 selected');
+    });
+
+    // A FILTER replaces the result set, so it does not. A tick that outlived this would leave
+    // the operator holding records the new set does not contain.
+    fireEvent.click(screen.getAllByRole('tab').find((t) => (t.textContent ?? '').startsWith('Delivered'))!);
+    await waitFor(() => {
+      expect(screen.queryByTestId('orders-selection-count')).toBeNull();
+    });
+  });
+
+  it('asks the server for five orders a page', async () => {
+    const { urls } = renderAt('/sales/orders');
+    await screen.findByTestId('order-card');
+
+    // `OSC-058.c` - five is a product-owner decision and a constant. `RULE 7.3.a` / `UX-266`
+    // forbid page size responding to viewport or zoom, and nothing here reads either.
+    expect(urls.some((url) => url.includes('size=5'))).toBe(true);
+  });
+
+  it('clears the selection when the result set changes', async () => {
+    renderAt('/sales/orders');
+
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-select'));
+    expect((screen.getByTestId('order-select') as HTMLInputElement).checked).toBe(true);
+
+    // 🔴 A selection surviving a filter change would leave the operator holding records they
+    // can no longer see.
+    fireEvent.click(screen.getAllByRole('tab').find((tab) => (tab.textContent ?? '').startsWith('Delivered'))!);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('order-select') as HTMLInputElement).checked).toBe(false);
+    });
   });
 
   it('keeps both control rows on ONE row and offers no horizontal-scroll escape', async () => {

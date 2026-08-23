@@ -399,6 +399,92 @@ class ChannelOrderImportServiceTest {
     }
 
     @Test
+    @DisplayName("issues one immutable Trioloo invoice number per order and never reissues it")
+    void issuesOneImmutableInvoiceNumber() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-910", "OI-910"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        String issued = jdbc.queryForObject("""
+                SELECT trioloo_invoice_number FROM channel_order WHERE external_order_id = 'O-910'
+                """, String.class);
+
+        // ✅ PRN-013 / INV-39.1 — a Trioloo-issued human-facing number in the ratified shape.
+        assertThat(issued).isNotNull().matches("TR[0-9]{4,}");
+
+        // 🔴 NEVER REGENERATED. Re-importing the same order is the ordinary case — the scheduler
+        // does it every cadence — and it must not move the number.
+        PAGES.clear();
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-910", "OI-910"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        assertThat(jdbc.queryForObject("""
+                SELECT trioloo_invoice_number FROM channel_order WHERE external_order_id = 'O-910'
+                """, String.class)).isEqualTo(issued);
+    }
+
+    @Test
+    @DisplayName("consumes no invoice number when re-importing an order that already has one")
+    void reimportConsumesNoInvoiceNumber() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-920", "OI-920"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        long afterFirst = jdbc.queryForObject(
+                "SELECT last_value FROM trioloo_invoice_number_seq", Long.class);
+
+        // 🔴 THE DEFECT THIS GUARDS IS EXPENSIVE AND SILENT. A column DEFAULT of nextval(), or a
+        // BEFORE INSERT trigger, is evaluated for the PROPOSED row of an INSERT … ON CONFLICT
+        // before the conflict is found — so every poll of every already-numbered order would burn
+        // a value. At the deployed PT2M cadence that is roughly 113,000 a day, and the numbering
+        // would run away from TR0001 within hours. Issuing in a guarded UPDATE is what prevents it.
+        for (int i = 0; i < 3; i++) {
+            PAGES.clear();
+            PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-920", "OI-920"))));
+            service.importWindow(shop, AFTER, BEFORE, 100);
+        }
+
+        assertThat(jdbc.queryForObject(
+                "SELECT last_value FROM trioloo_invoice_number_seq", Long.class))
+                .isEqualTo(afterFirst);
+    }
+
+    @Test
+    @DisplayName("refuses at the table to change an issued invoice number")
+    void refusesToChangeAnIssuedInvoiceNumber() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-930", "OI-930"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        UUID id = jdbc.queryForObject("""
+                SELECT id FROM channel_order WHERE external_order_id = 'O-930'
+                """, UUID.class);
+
+        // 🔴 DB-012 / PRN-013 — the guarantee lives in the database, not in the calling code. A
+        // repair script, a console session or a future ON CONFLICT clause must fail too.
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE channel_order SET trioloo_invoice_number = 'TR9999' WHERE id = ?", id))
+                .hasMessageContaining("immutable");
+
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE channel_order SET trioloo_invoice_number = NULL WHERE id = ?", id))
+                .hasMessageContaining("immutable");
+    }
+
+    @Test
+    @DisplayName("gives every order its own invoice number and repeats none")
+    void issuesADistinctNumberPerOrder() {
+        PAGES.add(new ChannelOrderProvider.Page(3, 3, List.of(
+                order("O-941", "OI-941"), order("O-942", "OI-942"), order("O-943", "OI-943"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        List<String> numbers = jdbc.queryForList("""
+                SELECT trioloo_invoice_number FROM channel_order
+                 WHERE external_order_id IN ('O-941', 'O-942', 'O-943')
+                """, String.class);
+
+        // ⚠ "kono order bad jabe na" — none skipped — and INV-39.1 — none reused.
+        assertThat(numbers).hasSize(3).doesNotContainNull().doesNotHaveDuplicates();
+    }
+
+    @Test
     @DisplayName("returns detail with items for a viewer")
     void detailReturnsItemsForViewer() {
         PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-800", "OI-800"))));

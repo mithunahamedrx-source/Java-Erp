@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom';
 import type { ChannelOrderRow } from './orderApi';
-import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
+import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
   canonicalStatus,
   canonicalStatusLabel,
   customerName,
   displayMoment,
   displayMoney,
-  orderTitle,
-  ownershipLabel,
+  paymentPosition,
   primaryStatus,
 } from './orderView';
 
@@ -33,10 +32,24 @@ import {
  *
  * <p>🔴 THE `Not Released` CHIP IS NOT RENDERED. `BR-080` WITHDREW `NOT_RELEASED` outright — *"the
  * state is not to be implemented"* — so the design's second chip is a visual pattern to keep and a
- * business claim to discard. The slot carries the ORDER AUTHORITY instead (`BR-168`, `UX-183`),
- * which is a real fact this order holds.
+ * business claim to discard. The slot carries the `SM-5` PAYMENT POSITION instead (`OSC-056.e`),
+ * which is a real fact this order holds and the one an operator reads a card to find.
+ *
+ * <p>🔴 THE AUTHORITY CHIP IS NOT ON THE CARD, BY THE OWNER'S DECISION (`OSC-056.d`). `UX-183`
+ * requires the authority to be legible in business language and `BR-174`'s actor and timestamp to
+ * be *"visible on inspection"* — INSPECTION, which is `FRAME 02`. `OrderDetailPage.tsx` carries it
+ * in both its header badge and its fact list, so the fact is not lost, only moved off a list card
+ * where every imported order reads the same.
  */
-export default function OrderCard({ order }: { readonly order: ChannelOrderRow }): React.JSX.Element {
+export default function OrderCard({
+  order,
+  selected,
+  onSelectedChange,
+}: {
+  readonly order: ChannelOrderRow;
+  readonly selected: boolean;
+  readonly onSelectedChange: (selected: boolean) => void;
+}): React.JSX.Element {
   /*
     🔴 TWO STATUSES, TWO OWNERS, NEVER MERGED (`BR-171`, `UX-182`, `OSC-036`). The header chip
     carries the canonical lifecycle reading; the marketplace's own word rides beside the shop name.
@@ -44,11 +57,31 @@ export default function OrderCard({ order }: { readonly order: ChannelOrderRow }
   const canonical = canonicalStatus(order.canonicalStatuses);
   const reported = primaryStatus(order.statuses);
   const role = canonical ? semanticRoleOf(ORDER_LIFECYCLE_ROLE, canonical) : 'neutral';
+  const payment = paymentPosition(canonical);
+  const paymentRole = semanticRoleOf(PAYMENT_POSITION_ROLE, payment.state);
 
   return (
     <article style={cardStyle} data-testid="order-card">
       {/* ── Band 1 — identity, time, origin, state ─────────────────────── */}
       <div className="operational-row" style={headerStyle}>
+        {/*
+          ⚠ THE CHECKBOX SELECTS; IT DOES NOT PROMISE A BULK ACTION. `PRM-025` requires every
+          record to be authorised individually with per-record results (`SYS-073`), and `GAP-034`
+          records that NO permitted-bulk-transition inventory exists — so no bulk bar is drawn
+          and none is implied. Selection is a reading aid until the owner ratifies what may be
+          done to a set (`OSC-057.c`).
+
+          🔴 The accessible name carries the CUSTOMER, not "row 3". A screen-reader user choosing
+          between fourteen checkboxes named "Select order" has been told nothing.
+        */}
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(event) => onSelectedChange(event.target.checked)}
+          style={checkboxStyle}
+          data-testid="order-select"
+          aria-label={`Select order ${order.triolooInvoiceNumber ?? order.externalOrderId} for ${customerName(order)}`}
+        />
         <span style={avatarStyle} aria-hidden="true">
           <PersonIcon />
         </span>
@@ -62,10 +95,21 @@ export default function OrderCard({ order }: { readonly order: ChannelOrderRow }
         <span style={{ ...metaStyle, color: 'var(--color-text-demoted)', marginLeft: 'var(--space-6)' }}>
           {displayMoment(order.providerCreatedAt, true)}
         </span>
-        {/* `BR-002` — channel type is never sufficient; the INSTANCE is named. */}
-        <span style={{ ...metaStyle, marginLeft: 'var(--space-6)' }}>
+        {/*
+          🔴 THE EXTERNAL CLUSTER — SHOP, THE MARKETPLACE'S OWN ORDER ID, THE MARKETPLACE'S OWN WORD.
+          `BR-002` — channel type is never sufficient attribution, so the INSTANCE is named.
+          `UX-185` requires an externally-authoritative fact to be VISIBLY EXTERNAL, and here that
+          is carried by GROUPING rather than by a prefix word: the chip sits inside the marketplace's
+          own identity, between the shop that reported it and the id that shop gave it.
+          `UX-182` — the two statuses are never MERGED into one chip, and they are not: this one is
+          outlined and lower-case, the ERP's is filled and semantic, and they never touch.
+        */}
+        <span style={{ ...metaStyle, marginLeft: 'var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {order.channelName ?? 'Shop not recorded'} ·{' '}
           <span style={monoStyle}>{order.externalOrderId}</span>
+          <span style={externalChipStyle} title="The marketplace's own status for this order, as it reported it (BR-171).">
+            {reported}
+          </span>
         </span>
 
         <div style={headerRightStyle}>
@@ -74,20 +118,30 @@ export default function OrderCard({ order }: { readonly order: ChannelOrderRow }
           </span>
           {/*
             🔴 NOT the design's `Not Released` chip — `BR-080` withdrew that state. This slot
-            carries the AUTHORITY state, in business language (`UX-183`): "the marketplace still
-            updates this order" versus "Trioloo now controls it".
+            carries the `SM-5` PAYMENT POSITION, derived only where `SM-5` itself makes the
+            derivation automatic. See `paymentPosition` for why nothing past `DUE` is ever claimed.
           */}
-          <span style={chipStyle('neutral')}>{ownershipLabel(order.ownership)}</span>
+          <span style={chipStyle(paymentRole)} title={payment.title}>{payment.label}</span>
           <Divider height={16} />
           <span style={metaStyle}>{order.paymentMethod || 'Payment not recorded'}</span>
           <Divider height={16} />
-          <span style={orderNumberStyle}>{orderTitle(order)}</span>
           {/*
-            🔴 THE MARKETPLACE'S OWN WORD, NAMED AS SUCH. `BR-171` requires the external status to
-            stay visibly distinct from the ERP's operational reading, and an unlabelled `· pending`
-            beside the order number would leave the reader guessing which system said it.
+            🔴 THE TRIOLOO INVOICE NUMBER — top right, after the payment-method divider, bold and
+            upper-case (`OSC-057.b`). `PRN-013` / `INV-39.1`: ONE sequence, never reused, and once
+            issued never regenerated, which `V19` enforces with a table trigger rather than trusting
+            the application.
+
+            ⚠ THE `order_number` COLUMN IS DELIBERATELY NOT SHOWN HERE. It holds a COPY of Daraz's
+            own id on all 158 production rows — `order_number = external_order_id` for every one —
+            so rendering it would print the marketplace's number twice and dress the second copy as
+            a Trioloo reference. This is the first Trioloo-issued human-facing number the order has
+            ever had (`PRN-014`).
+
+            ⚠ An unissued number says so rather than showing a blank (`BR-134`, `SYS-034`).
           */}
-          <span style={{ ...metaStyle, fontSize: '11.5px' }}>Marketplace · {reported}</span>
+          <span style={invoiceNumberStyle} data-testid="order-invoice-number">
+            {order.triolooInvoiceNumber ? `INV: ${order.triolooInvoiceNumber}` : 'INVOICE NOT ISSUED'}
+          </span>
         </div>
       </div>
 
@@ -138,26 +192,50 @@ export default function OrderCard({ order }: { readonly order: ChannelOrderRow }
           <Primary label="Margin" value="Unknown" />
         </div>
 
+        {/*
+          🔴 THE ECONOMICS AND THE ACTIONS ARE SEPARATED BY A RULE, NOT BY A GAP. `Margin` is the
+          figure an operator's eye lands on last, and a button pressed against it reads as that
+          button acting ON it. The divider states the boundary the spacing alone only implied.
+        */}
+        <Divider height={30} />
+
         <div style={actionsStyle}>
           <Link to={`/sales/orders/${order.id}`} style={buttonStyle}>
             View
           </Link>
           {/*
-            🔴 NO `More Actions` CONTROL. Every action it would open — amend, release, hold,
-            cancel, push — is either outside this read-only slice or blocked in `OSC-050`, and
-            `OSC-051.b` forbids rendering a future write control. A disabled menu advertises
-            authority the operator does not have.
+            ⚠ `More Actions` IS RENDERED BY THE OWNER'S DECISION (`OSC-056.f`), AND IT CARRIES NO
+            ACTIONS YET. `OSC-051.b` withholds a future write control until the owner ratifies the
+            missing rule AND the slice can show a real permitted action; the first condition is met
+            and the SECOND IS NOT. 🔴 So it does not pretend: it is marked `aria-disabled`, it is not
+            a menu that opens on nothing, and its title says plainly that the actions are not built.
+            An operator who clicks it learns the truth rather than meeting silence.
           */}
+          <button
+            type="button"
+            style={moreActionsStyle}
+            aria-disabled="true"
+            data-testid="order-more-actions"
+            title="No order action is built yet. Amend, release, hold, cancel and push are each either outside this read-only slice or blocked in OSC-050."
+          >
+            More Actions
+            <ChevronIcon />
+          </button>
         </div>
       </div>
 
       {/* ── Band 3 — document, destination, note ────────────────────────── */}
       <div className="operational-row" style={stripStyle}>
+        {/*
+          ⚠ THE INVOICE NUMBER IS NOT PRINTED HERE. The owner's decision (`OSC-056.g`) is that this
+          element becomes the PRINTABLE INVOICE action, and an action does not caption itself with
+          the identifier of the document it would produce. 🔴 The number is not lost — `FRAME 02`
+          carries it as a fact of the order, which is where an identifier belongs.
+        */}
         <span style={invoiceStyle}>
           <DownloadIcon />
           INVOICE
         </span>
-        <span style={monoStyle}>{order.invoiceNumber || 'not issued'}</span>
         <Divider height={14} />
         <span style={addressStyle}>
           <PinIcon />
@@ -220,6 +298,15 @@ function DownloadIcon(): React.JSX.Element {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon-stroke-header)"
          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" />
+    </svg>
+  );
+}
+
+function ChevronIcon(): React.JSX.Element {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" />
     </svg>
   );
 }
@@ -315,13 +402,59 @@ function chipStyle(tone: string): React.CSSProperties {
   };
 }
 
-const orderNumberStyle: React.CSSProperties = {
+/*
+  🔴 THE MARKETPLACE'S CHIP IS DELIBERATELY NOT A SEMANTIC CHIP. `chipStyle` paints a filled
+  `--color-semantic-*` pair and states the ERP's own reading; this one is an OUTLINE in muted ink,
+  so the two can never be mistaken for the same class of fact (`UX-182` — never merged) and the
+  external one stays visibly external (`UX-185`).
+
+  ⚠ The word is printed as the marketplace spelled it. It is NOT title-cased, mapped or tidied:
+  `BR-171` keeps it an external fact, and `BR-005` puts vocabulary translation in the adapter,
+  which has already produced the canonical chip beside it.
+*/
+const externalChipStyle: React.CSSProperties = {
+  border: '1px solid var(--color-border-card)',
+  background: 'transparent',
+  color: 'var(--color-text-muted)',
+  fontSize: '11px',
+  fontWeight: 600,
+  padding: '2px var(--space-2)',
+  borderRadius: 'var(--radius-control)',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
+};
+
+/*
+  ⚠ UPPER-CASE BY `textTransform`, NOT BY UPPER-CASING THE DATA. The stored number is `TR0001` and
+  stays that way; a surface that capitalised the VALUE would make the displayed text differ from
+  the one a person types into search.
+*/
+const invoiceNumberStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
   fontFamily: 'ui-monospace, monospace',
   fontSize: '13px',
   fontWeight: 700,
+  letterSpacing: '0.03em',
+  textTransform: 'uppercase',
   whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
+
+/*
+  ⚠ SIZED IN `px` AND NOT TOKENISED, DELIBERATELY. `DESIGN_CONSTITUTION.md` carries no control-size
+  token for a checkbox and `UX-260` forbids inventing a component specification; 15px matches the
+  28px avatar's optical weight beside it. `accentColor` paints the native control with the canonical
+  ink rather than the browser's blue, which is the one part `RULE 15.1` does reach.
+*/
+const checkboxStyle: React.CSSProperties = {
+  width: '15px',
+  height: '15px',
+  margin: 0,
+  accentColor: 'var(--color-ink)',
+  cursor: 'pointer',
+  flexShrink: 0,
+};
+
 
 const bodyStyle: React.CSSProperties = {
   display: 'flex',
@@ -446,6 +579,18 @@ const buttonStyle: React.CSSProperties = {
   alignItems: 'center',
   textDecoration: 'none',
   cursor: 'pointer',
+};
+
+/*
+  ⚠ IT LOOKS LIKE ITS SIBLING AND IS DIMMED, WHICH IS THE HONEST COMBINATION. Matching `buttonStyle`
+  keeps the design's pairing; the muted ink and `not-allowed` cursor keep the promise small until a
+  real action exists to put behind it (`OSC-056.f`).
+*/
+const moreActionsStyle: React.CSSProperties = {
+  ...buttonStyle,
+  color: 'var(--color-text-muted)',
+  cursor: 'not-allowed',
+  gap: 'var(--space-2)',
 };
 
 const stripStyle: React.CSSProperties = {

@@ -68,12 +68,14 @@ smuggled into a component.
 
 | The design shows | Why it is not implemented |
 |---|---|
-| **`Not Released` chip** | 🔴 `BR-080` **WITHDREW** `NOT_RELEASED` — *"the state is not to be implemented"*. The slot carries the ORDER AUTHORITY instead (`BR-168`, `UX-183`), which is a fact the order holds |
+| **`Not Released` chip** | 🔴 `BR-080` **WITHDREW** `NOT_RELEASED` — *"the state is not to be implemented"*. ⚠ **Amended 2026-08-24 (`OSC-056.e`)** — the slot first carried the order AUTHORITY and now carries the `SM-5` PAYMENT POSITION, which is the fact an operator reads a card to find |
 | **`Cost ৳0`, `Charges 0`** | 🔴 `INV-32.4` — an unknown cost renders UNKNOWN, never zero |
 | **`Received ৳41,490`** | 🔴 `BR-033` — the obligation follows DELIVERED goods, and no receipt or settlement record exists in this slice |
 | **`Margin ৳41,490` in green** | 🔴 `BR-007` / `SYS-034` — a margin over an unknown cost is UNKNOWN. `E-032` records this exact defect from live experience: a line showing a margin figure that was in fact unknown. The positive token is also withheld: `RULE 3.14.a.a` — a value takes the role its meaning deserves, never the one it resembles |
-| **`More Actions ▾`** | 🔴 Every action it would open is outside the read-only slice or blocked in `OSC-050`; `OSC-051.b` forbids rendering a future write control |
+| **`More Actions ▾`** | ⚠ **AMENDED 2026-08-24 (`OSC-056.f`) — NOW RENDERED, by the product owner's decision.** 🔴 **Still no action behind it**: amend, release, hold, cancel and push remain outside the read-only slice or blocked in `OSC-050`, so `OSC-051.b` is only half satisfied. ✅ It therefore carries `aria-disabled`, opens no menu onto nothing, and its title says the actions are not built |
 | **`Parcel {id}`** | ⚠ The stored field is Daraz's `purchase_order_id`; `DZC-047.c` names a SEPARATE `package_id` this slice does not import. `UX-271.a` — a visual reference never renames a canonical fact |
+| **`Marketplace · pending`** | ⚠ **AMENDED 2026-08-24 (`OSC-056.c`)** — the prefix is WITHDRAWN and the marketplace's word is a bare outlined chip. `UX-185`'s *visibly external* is now carried by GROUPING: it sits between the shop that reported it and the id that shop gave it |
+| **`INVOICE {number}`** | ⚠ **AMENDED 2026-08-24 (`OSC-056.g`)** — the number is dropped; the element becomes the printable-invoice action slot. An action does not caption itself with the identifier of the document it would produce, and the number lives on `FRAME 02` |
 | **`Direct ERP · SBID …`** | ⚠ Sample origin. The card names the CHANNEL INSTANCE and the external order id, because `BR-002` makes channel type alone insufficient attribution |
 
 ## Layout obligations this card inherits

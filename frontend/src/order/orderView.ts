@@ -111,6 +111,66 @@ export function canonicalStatusLabel(status: string | null | undefined): string 
   return tab ? tab.label : displayStatus(status);
 }
 
+/**
+ * The `SM-5` payment position an imported order can be shown to hold.
+ *
+ * 🔴 DERIVED FROM `SM-1`, AND ONLY WHERE `SM-5` ITSELF MAKES THE DERIVATION AUTOMATIC.
+ * `SM-5`'s `NOT_DUE → DUE` transition is `Automatic — on delivery` (`EVT-013`), and `OM §11.3`
+ * defines the two states by delivery alone: `NOT_DUE` is "goods not yet delivered", `DUE` is
+ * "delivered; payment expected". Nothing is invented here — this is the SAME derivation the
+ * shipped `Total collectable` figure already makes (`OSC-053`, `BR-033`).
+ *
+ * 🔴 EVERY STATE PAST `DUE` IS REFUSED, NOT GUESSED. `COLLECTED_BY_INTERMEDIARY`,
+ * `PARTIALLY_RECEIVED`, `RECEIVED`, `RECONCILED`, `SHORT_SETTLED`, `OVER_SETTLED`, `REFUND_DUE`,
+ * `REFUNDED` and `WRITTEN_OFF` each require an `E-040 Receivable` to have been collected,
+ * matched or settled. No such record exists in this slice, so claiming one would be exactly the
+ * fabrication `SYS-034` forbids.
+ *
+ * ⚠ `DUE` DOES NOT MEAN THE BUYER HAS NOT PAID. `BR-035` — money held by a courier or a
+ * marketplace is not money received by Trioloo — so an order the buyer settled in cash on the
+ * doorstep is still legitimately `DUE` until it reaches Trioloo.
+ *
+ * ⚠ `RETURNED` AND `CLOSED` ARE UNKNOWN RATHER THAN `NOT_DUE`, AND THAT IS THE CAREFUL CASE.
+ * `OM §6.2` defines `RETURNED` as "goods came back to Trioloo", so they reached the buyer first
+ * and a receivable may well have been raised; `SM-5` only reaches `REFUND_DUE` from `RECONCILED`,
+ * which cannot be evidenced here. `CLOSED` means "all sub-processes terminal", so `SM-5` is at
+ * one of three terminals and nothing held says which. 🔴 Calling either "not due" would state a
+ * position the architecture does not support.
+ *
+ * ⚠ AN UNTRANSLATED `SM-1` STATE IS ALSO UNKNOWN. A payment position derived from a lifecycle
+ * state nobody could read is not a position at all.
+ */
+export type PaymentPosition = {
+  readonly state: 'NOT_DUE' | 'DUE' | 'UNKNOWN';
+  readonly label: string;
+  readonly title: string;
+};
+
+export function paymentPosition(canonical: string | null | undefined): PaymentPosition {
+  if (canonical === 'DELIVERED') {
+    return {
+      state: 'DUE',
+      label: 'Payment due',
+      title: 'SM-5 DUE — delivered, payment expected. Money held by a courier or marketplace '
+        + 'is not money received by Trioloo (BR-035).',
+    };
+  }
+  if (canonical === 'RETURNED' || canonical === 'CLOSED' || !canonical) {
+    return {
+      state: 'UNKNOWN',
+      label: 'Payment unknown',
+      title: 'The SM-5 position cannot be derived from what this slice holds. No receivable, '
+        + 'receipt, remittance or settlement record exists (SYS-034).',
+    };
+  }
+  return {
+    state: 'NOT_DUE',
+    label: 'Payment not due',
+    title: 'SM-5 NOT_DUE — goods not yet delivered. An obligation follows delivered goods and '
+      + 'never ordered goods (BR-033).',
+  };
+}
+
 export function addressLines(address: AddressView | null | undefined): readonly string[] {
   if (!address) {
     return [];

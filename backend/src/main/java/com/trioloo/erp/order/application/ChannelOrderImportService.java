@@ -342,9 +342,45 @@ public class ChannelOrderImportService {
                 address1(order.shippingAddress()), address2(order.shippingAddress()), address3(order.shippingAddress()),
                 address4(order.shippingAddress()), address5(order.shippingAddress()), city(order.shippingAddress()),
                 postCode(order.shippingAddress()), country(order.shippingAddress()))).orElseThrow();
+        issueInvoiceNumber(id);
+
         return new Upsert(id, jdbc.queryForObject("""
                 SELECT version = 0 FROM channel_order WHERE id = ?
                 """, Boolean.class, id) == Boolean.TRUE);
+    }
+
+    /**
+     * Issues the Trioloo invoice number, once, to an order that has none.
+     *
+     * <p>🔴 {@code PRN-013} / {@code INV-39.1} — ONE sequence, NEVER REUSED, and once issued a
+     * number is never regenerated. {@code V19}'s trigger refuses any change at the table, so this
+     * method is the ISSUING path rather than the guarantee.
+     *
+     * <p>🔴 THIS IS A SEPARATE STATEMENT, AND THAT IS THE WHOLE POINT. The obvious
+     * implementation — a column {@code DEFAULT nextval(…)} — is wrong here, and expensively so:
+     * PostgreSQL evaluates a DEFAULT for the PROPOSED row of an {@code INSERT … ON CONFLICT}
+     * BEFORE it discovers the conflict, so every re-import poll of an order that already has a
+     * number would still burn a sequence value. At the deployed {@code PT2M} cadence over 158
+     * orders that is roughly 113,000 wasted values a day, and the numbering would run away from
+     * {@code TR0001} within hours. ⚠ A {@code BEFORE INSERT} trigger has the same defect.
+     *
+     * <p>✅ {@code nextval} is inside the {@code SET}, so it is evaluated ONLY for a row the
+     * {@code WHERE} actually matches. A re-imported order matches nothing and consumes nothing.
+     *
+     * <p>⚠ NUMBERS ARE ISSUE-ORDERED, NOT DATE-ORDERED, AND THAT IS NOT A DEFECT. {@code V19}
+     * backfilled the existing orders oldest to newest; an order imported LATER takes the next
+     * number even if the marketplace created it earlier. Re-sorting to keep the sequence in date
+     * order would mean reissuing numbers, which {@code DB-012} and the owner's instruction both
+     * forbid outright.
+     */
+    private void issueInvoiceNumber(UUID orderId) {
+        jdbc.update("""
+                UPDATE channel_order
+                   SET trioloo_invoice_number =
+                           'TR' || lpad(nextval('trioloo_invoice_number_seq')::text, 4, '0')
+                 WHERE id = ?
+                   AND trioloo_invoice_number IS NULL
+                """, orderId);
     }
 
     private Upsert upsertItem(UUID orderId, ChannelOrderItemSnapshot item) {

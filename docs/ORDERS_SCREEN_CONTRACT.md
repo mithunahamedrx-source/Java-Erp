@@ -1,6 +1,6 @@
 # Orders — Screen Contract
 
-**Status:** ✅ **Ratified** · **Version:** 1.6.0 · **Amended:** 2026-08-24 (**`OSC-055` — the ORDER CARD visual authority registered and built. The Claude Design project was NOT readable (`HTTP 404`), so the owner supplied the bundle and the specification is transcribed from its markup, never imagined (`OSC-012`'s discipline). Every colour resolved to an existing token; the design's sample figures for Cost, Charges, Received and Margin are REFUSED as unknown, and its `Not Released` chip is not rendered because `BR-080` withdrew the state**) · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (**KPI ROW AND STATUS TABS RATIFIED** — `OSC-053` names the four summary figures the product owner chose, closing `GAP-004` for this workspace and WITHDRAWING the shipped `Total Revenue`/`Total Margin` pair; `OSC-054` records that the tabs are `SM-1` states filled by the §4.3 adapter translation, so `GAP-017`'s legacy-label mapping stays blocked without blocking the tab set; `OSC-030.a` gains `Returned`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
+**Status:** ✅ **Ratified** · **Version:** 1.9.0 · **Amended:** 2026-08-24 (**`OSC-058` — the PAGE-HEADER ACTIONS, the page size and the selection. The owner asked for Export, Print and Create Order; ✅ EXPORT IS BUILT IN FULL and 🔴 THE OTHER TWO ARE BLOCKED — `Create Order` because `PRM-091` ratifies no Order-mutation capability and `PRM-089.b` is a spelling rule and not a generator, `Print` because `PRN-023` sources the printable from an `E-039` record that does not exist and `INV-39.2` requires its content snapshotted. Both are rendered disabled with the reason in VISIBLE text. Page size is five; `Select all` takes the current page and a selection now SURVIVES paging, amending `OSC-057.c.i`**) · **Amended:** 2026-08-24 (**`OSC-057` — the TRIOLOO-ISSUED INVOICE NUMBER. The product owner supplied the numbering rule `GAP-035` recorded as missing: ONE sequence, `TR0001` upward, oldest to newest, every order, never regenerated. `V19` backfills all 158 and enforces immutability with a TABLE TRIGGER rather than trusting the application. 🔴 REPORTED, NOT RESOLVED — the number is issued AHEAD of the document: `E-039`'s snapshotted content (`INV-39.2`) does not exist, and 117 of the 158 numbered orders are CANCELLED. `GAP-035` stays open on what an invoice CONTAINS and WHEN it is issued. Order cards gain a selection checkbox with NO bulk bar, because `GAP-034` still records no permitted-bulk-transition inventory**) · **Amended:** 2026-08-24 (**`OSC-056` — the ORDER CARD amended by the PRODUCT OWNER. The `SM-5` payment position is now a chip, and only three of its eleven states may ever be rendered because every state past `DUE` needs an `E-040` Receivable this slice does not hold. The marketplace's word loses its prefix and stays visibly external by GROUPING. The authority chip moves off the card — admissible only because `FRAME 02` already carries it, and `OSC-056.d.i` reports that `FRAME 02` states it in the internal terminology `UX-183` forbids. `More Actions` is rendered with the owner's ratification but NO action behind it, so it is `aria-disabled` and says so**) · **Amended:** 2026-08-24 (**`OSC-055` — the ORDER CARD visual authority registered and built. The Claude Design project was NOT readable (`HTTP 404`), so the owner supplied the bundle and the specification is transcribed from its markup, never imagined (`OSC-012`'s discipline). Every colour resolved to an existing token; the design's sample figures for Cost, Charges, Received and Margin are REFUSED as unknown, and its `Not Released` chip is not rendered because `BR-080` withdrew the state**) · **Ratified:** 2026-08-23 (`DOC-094`) · **Amended:** 2026-08-23 (**KPI ROW AND STATUS TABS RATIFIED** — `OSC-053` names the four summary figures the product owner chose, closing `GAP-004` for this workspace and WITHDRAWING the shipped `Total Revenue`/`Total Margin` pair; `OSC-054` records that the tabs are `SM-1` states filled by the §4.3 adapter translation, so `GAP-017`'s legacy-label mapping stays blocked without blocking the tab set; `OSC-030.a` gains `Returned`) · **Amended:** 2026-08-23 (`OSC-051.a`–`.c` — unresolved blocker placeholders and nonfunctional action chrome are removed from the live read-only Orders UI; the blocked register remains canonical) · **Amended:** 2026-08-23 (`FRAME 01`/`FRAME 02` read-only Orders UI implemented — `OrdersPage.tsx`, `OrderDetailPage.tsx`, 2 tests; no write path) · **Amended:** 2026-08-23 (`OSC-060.d`–`.f` — the `V15` position is RESOLVED and TAKEN by `DEP-125`, so the migration bar is lifted; still only after the `DEP-031` pre-flight) · **Amended:** 2026-08-23 (`OSC-052.c`–`.e` — the `order.*` codes are RATIFIED by `PRM-091`; gating was unblocked before the read-only UI slice) · **Rule prefix:** `OSC-`
 
 > 🔴 **THIS DOCUMENT CREATES NO DESIGN.** It records the **approved** Orders visual authority, fixes which
 > frames exist and which are built, and states the implementation constraints so later frames extend one
@@ -451,6 +451,235 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > **g.** 🔴 **ALL THREE BANDS ARE STRUCTURED OPERATIONAL ROWS** (`RULE 7.4`, `UX-266`, `OSC-046`)
 > **and none carries `overflow-x`** (`UX-265`).
 
+> **`OSC-056` — ✅ THE ORDER CARD, AMENDED BY THE PRODUCT OWNER. 2026-08-24.**
+>
+> ⚠ **EVERY CLAUSE HERE IS THE OWNER'S DECISION, NOT A DESIGN FINDING.** **`OSC-055` built the card
+> from the approved design; this rule records where the owner has since moved it, and the reasoning
+> attached to each clause is the CANONICAL BASIS for implementing that decision — never a
+> substitute for it.**
+>
+> **a.** ✅ **THE ECONOMIC ORDER STANDS: `Sale · Cost · Charges`, THEN `Received · Margin`.**
+> 🔴 **`Margin` NO LONGER SITS AGAINST THE ACTION CONTROLS.** ⚠ **A button pressed against the last
+> figure reads as a button acting ON it**; a vertical divider now states the boundary that spacing
+> alone only implied. ✅ **All four demoted-and-primary values still render UNKNOWN** — `OSC-055.d`
+> is untouched.
+> **b.** 🔴 **THE `SM-5` PAYMENT POSITION IS SHOWN AS A CHIP BESIDE THE LIFECYCLE CHIP, AND ONLY
+> THREE OF ITS ELEVEN STATES MAY EVER BE RENDERED.**
+>
+> | Rendered | When | Basis |
+> |---|---|---|
+> | **`Payment not due`** | any `SM-1` state before delivery | `OM §11.3` — `NOT_DUE` is *"goods not yet delivered"*; `SM-5.4` prohibits `NOT_DUE → RECEIVED` before delivery (`BR-033`) |
+> | **`Payment due`** | `DELIVERED` | `SM-5`'s `NOT_DUE → DUE` is **Automatic — on delivery** (`EVT-013`); `OM §11.3` — *"delivered; payment expected"* |
+> | **`Payment unknown`** | `RETURNED`, `CLOSED`, or an untranslated state | `SYS-034` |
+>
+> **b.i.** 🔴 **NOTHING PAST `DUE` IS EVER CLAIMED.** **`COLLECTED_BY_INTERMEDIARY`,
+> `PARTIALLY_RECEIVED`, `RECEIVED`, `RECONCILED`, `SHORT_SETTLED`, `OVER_SETTLED`, `REFUND_DUE`,
+> `REFUNDED` and `WRITTEN_OFF` each require an `E-040 Receivable` that has been collected, matched
+> or settled**, ⚠ **and no receipt, remittance or settlement record exists in this slice** — the
+> same absence `OSC-053` recorded when `Total collectable` subtracts nothing.
+> **b.ii.** ⚠ **`Payment due` DOES NOT ASSERT THE BUYER HAS NOT PAID.** **`BR-035` — money held by
+> a courier or a marketplace is not money received by Trioloo** — so a COD order settled on the
+> doorstep is still legitimately `DUE`. 🔴 **This is also why the chip is INFO and never SUCCESS:
+> `OM §11.1` states outright that an order marked paid at delivery is a false statement on every
+> channel Trioloo operates.**
+> **b.iii.** 🔴 **`RETURNED` AND `CLOSED` ARE `UNKNOWN`, NOT `NOT_DUE`, AND THIS IS THE CAREFUL
+> CASE.** **`OM §6.2` defines `RETURNED` as *"goods came back to Trioloo"*, so they reached the
+> buyer and a receivable may well have been raised; `SM-5` reaches `REFUND_DUE` only from
+> `RECONCILED`, which cannot be evidenced here.** **`CLOSED` means *"all sub-processes terminal"*,
+> so `SM-5` is at one of three terminals and nothing held says which.** ⚠ **Calling either *not
+> due* would state a position the architecture does not support.**
+> **c.** ✅ **THE MARKETPLACE'S OWN STATUS IS A BARE CHIP INSIDE THE MARKETPLACE'S OWN CLUSTER —
+> shop name, external order id, then the word.** 🔴 **THE `Marketplace · ` PREFIX IS WITHDRAWN.**
+> ⚠ **`UX-185` still requires the fact to be VISIBLY EXTERNAL, and it is — by GROUPING rather than
+> by a prefix word: the chip sits between the shop that reported it and the id that shop gave it
+> (`BR-002` names the instance, never the channel type alone).** 🔴 **`UX-182`'s prohibition is on
+> MERGING the two into one chip, and they are not merged: the external chip is OUTLINED in muted
+> ink and prints the marketplace's own spelling, the ERP's is FILLED and semantic, and they never
+> touch.** ⚠ **The external word is not title-cased, mapped or tidied** — `BR-171` keeps it an
+> external fact and `BR-005` puts vocabulary translation in the adapter, which has already produced
+> the canonical chip.
+> **d.** 🔴 **THE AUTHORITY CHIP IS REMOVED FROM THE CARD.** ✅ **The fact is NOT lost, and that is
+> what makes the removal admissible: `UX-183` requires `BR-174`'s causing action, actor and
+> timestamp to be *"visible on inspection"* — INSPECTION IS `FRAME 02` — and `OrderDetailPage.tsx`
+> carries the authority in both its header badge and its fact list.** ⚠ **On a list where every
+> imported order is `API_MANAGED`, the chip distinguished nothing** (`RULE 3.3.d.e`).
+> **d.i.** 🔴 **A DEFECT IS REPORTED, NOT FIXED HERE.** **`ownershipLabel` renders `API-managed`
+> and `ERP-managed` — INTERNAL TERMINOLOGY, which is exactly what `UX-183` forbids.** ⚠ **The
+> ratified wording is *"The marketplace still updates this order"* / *"Trioloo now controls this
+> order; marketplace updates will not overwrite it"*.** **Removing the chip from the card leaves
+> `FRAME 02` as the sole carrier of a fact it states in the wrong vocabulary; the fix belongs to a
+> `FRAME 02` task and is owed.**
+> **e.** ✅ **THE `Not Released` SLOT NOW CARRIES THE PAYMENT POSITION.** **`OSC-055.d` withdrew the
+> design's chip because `BR-080` withdrew the state; the slot now holds a fact the order really
+> has.**
+> **f.** ⚠ **`More Actions` IS RENDERED, AND `OSC-051.b` IS ONLY HALF SATISFIED — WHICH IS RECORDED
+> RATHER THAN GLOSSED.** **That clause admits a withheld control when the owner ratifies the
+> missing rule AND the slice can show a real permitted action.** ✅ **The owner has ratified the
+> control.** 🔴 **NO ACTION EXISTS BEHIND IT** — amend, release, hold, cancel and push are each
+> outside this read-only slice or blocked in `OSC-050`. ✅ **So it does not pretend: it carries
+> `aria-disabled`, it opens no menu onto nothing, and its title states plainly that the actions are
+> not built.** ⚠ **An operator who clicks it learns the truth instead of meeting silence.**
+> 🔴 **THE ACTION SET IT WILL CARRY IS A BUSINESS DECISION AND IS NOT INVENTED HERE.**
+> **g.** ✅ **THE INVOICE ELEMENT SHEDS ITS NUMBER AND BECOMES THE PRINTABLE-INVOICE ACTION SLOT.**
+> ⚠ **An action does not caption itself with the identifier of the document it would produce**, and
+> `not issued` on every imported order was a blank pretending to be information. 🔴 **The number is
+> not lost — `FRAME 02` carries it as a fact of the order, which is where an identifier belongs.**
+> ⚠ **The print action itself is NOT built and `DOCUMENT_PRINTABLE_ARCHITECTURE.md` owns it.**
+> **h.** 🔴 **ALL THREE BANDS REMAIN STRUCTURED OPERATIONAL ROWS** (`RULE 7.4`, `UX-265`,
+> `UX-266`). **Nothing added here wraps or introduces `overflow-x`.**
+
+> **`OSC-057` — ✅ THE TRIOLOO-ISSUED INVOICE NUMBER, AND THE ORDER SELECTION. 2026-08-24.**
+>
+> ⚠ **THE PRODUCT OWNER SUPPLIED A BUSINESS RULE THAT `GAP-035` RECORDED AS MISSING.** **`GAP-035`
+> stated that no document specified invoice numbering, invoice content, or when a number is
+> assigned.** ✅ **The numbering half is now answered by the owner; the other two halves are NOT,
+> and `GAP-035` stays open in a narrower place.**
+>
+> **a.** ✅ **ONE SEQUENCE, `TR0001` UPWARD, OLDEST TO NEWEST, EVERY ORDER, NEVER REGENERATED.**
+>
+> | | |
+> |---|---|
+> | **Shape** | `TR` + a zero-padded ordinal, minimum four digits — `TR0001` … `TR9999`, then `TR10000` |
+> | **Displayed** | `INV: TR0001`, top right of the card, after the payment-method divider, bold and upper-cased |
+> | **Stored** | `channel_order.trioloo_invoice_number` — the bare number, without the `INV: ` label |
+> | **Backfill** | `V19`, ordered `provider_created_at`, then `imported_at`, then `external_order_id` |
+> | **Issued** | in the import path, once, to an order that has none |
+>
+> **a.i.** ✅ **THIS IS NOT A SECOND SEQUENCE, WHICH MATTERS BECAUSE A SECOND ONE IS FORBIDDEN.**
+> **`BD-443` and `INV-39.1` ratify exactly ONE Sales Invoice number sequence and prohibit creating
+> another.** ⚠ **`V19` creates one sequence, and it is that one.**
+> **a.ii.** 🔴 **THE `INV: ` PREFIX IS A LABEL, NOT PART OF THE IDENTIFIER.** **A colon and a space
+> inside a stored business key would make every search, export and join carry them.** ✅ **The
+> stored value is `TR0001`; the surface renders the prefix.** ⚠ **Upper-casing is `textTransform`,
+> not an upper-cased VALUE — a surface that capitalised the data would make the displayed text
+> differ from what a person types into search.**
+> **a.iii.** 🔴 **IMMUTABILITY IS ENFORCED AT THE TABLE, NOT BY THE ISSUING CODE.** **`V19` adds a
+> `BEFORE UPDATE` trigger that raises on any change to an issued number, including to `NULL`.**
+> ⚠ **The owner said *no invoice will be regenerated*; an application-side guard is a weaker promise
+> than that, because a repair script, a console session or a future `ON CONFLICT` clause would each
+> slip past it.**
+> **a.iv.** ⚠ **NUMBERS ARE ISSUE-ORDERED, NOT DATE-ORDERED, AFTER THE BACKFILL.** **An order
+> imported later takes the next number even where the marketplace created it earlier.** 🔴 **The
+> alternative is reissuing numbers to keep the sequence in date order, which `DB-012` forbids
+> outright and the owner's instruction forbids again.**
+> **a.v.** ⚠ **A GAP IN THE RUN IS NOT AN ORDER LEFT OUT.** **`DB-012` retires a number rather than
+> recycling it, so `TR0007` may one day have no order.** ✅ **What the owner required is that no
+> ORDER is skipped, and every order carries one.**
+> **b.** ✅ **PLACEMENT — top right, after the `COD` / payment-method divider, bold and capital**,
+> as the owner specified.
+> **b.i.** 🔴 **THE `order_number` COLUMN IS NOT RENDERED, AND THE READ THAT SETTLED IT IS
+> RECORDED.** **All 158 production rows satisfy `order_number = external_order_id`: the column
+> holds a COPY of Daraz's own id, not a Trioloo reference.** ⚠ **Showing it would print the
+> marketplace's number twice and dress the second copy as Trioloo's** (`PRN-014` — an internal
+> reference is not a human-facing document number, and the two are never conflated). ✅ **This is
+> the FIRST Trioloo-issued human-facing number these orders have ever carried.**
+> **b.ii.** ✅ **THE NUMBER IS SEARCHABLE.** **It is the reference a person reads off the card, so
+> it is the one they will type**; the list query matches it alongside the external id, the order
+> number and the customer name.
+> **c.** ✅ **EVERY ORDER CARD CARRIES A SELECTION CHECKBOX, LEADING THE ROW, BEFORE THE CUSTOMER
+> ICON.** 🔴 **NO BULK BAR IS DRAWN AND NONE IS IMPLIED.** ⚠ **`PRM-025` requires every record to
+> be authorised individually with per-record results (`SYS-073`), and `GAP-034` records that NO
+> permitted-bulk-transition inventory exists** — **`GAP-034` names the exact controls that must not
+> appear: `Change status to…`, `Send to Steadfast`, `Print invoices`, `Export selected`.** ✅ **The
+> selection is a reading aid until the owner ratifies what may be done to a set.**
+> **c.i.** 🔴 **THE SELECTION IS CLEARED WHENEVER THE RESULT SET CHANGES** — filter, tab, search or
+> page. ⚠ **A selection that survived would leave the operator holding records they can no longer
+> see, which is the class of mistake per-record authorisation exists to prevent.**
+> **c.ii.** ✅ **THE CHECKBOX'S ACCESSIBLE NAME CARRIES THE INVOICE NUMBER AND THE CUSTOMER.**
+> ⚠ **Fourteen checkboxes all named *"Select order"* tell a screen-reader user nothing.**
+> **d.** 🔴 **REPORTED, NOT RESOLVED — THE NUMBER IS ISSUED AHEAD OF THE DOCUMENT.** **`E-039 Sales
+> Invoice` is an ENTITY carrying an issue date, a customer snapshot, line detail and totals, and
+> `INV-39.2` requires that content be snapshotted so the invoice stays reproducible years later.**
+> ⚠ **None of that is created here.** **A number now exists for 158 orders — 117 of them
+> `CANCELLED` and never delivered — with no invoice behind it.** ✅ **This is the owner's explicit
+> instruction (*every existing and future order, none skipped*) and `DB-012` accommodates it: a
+> cancelled number is retired, not recycled.** 🔴 **What `GAP-035` still leaves open is what an
+> invoice CONTAINS and WHEN it is properly issued, and the owner is owed that question.**
+> **e.** 🔴 **NO PRINT ACTION IS BUILT.** **`DOCUMENT_ARCHITECTURE.md` owns the printable, and
+> `OSC-056.g`'s invoice slot remains an action with nothing behind it.**
+
+> **`OSC-058` — ⚠ THE PAGE-HEADER ACTIONS, THE PAGE SIZE AND THE SELECTION. 2026-08-24.**
+>
+> **The product owner asked for three header actions — Export, Print, Create Order.** ✅ **ONE IS
+> BUILT.** 🔴 **TWO ARE BLOCKED, and they are blocked on canonical grounds that no amount of
+> implementation can remove.**
+>
+> **a.** 🔴 **`Create Order` — BLOCKED — MISSING CANONICAL BUSINESS RULE.**
+> **`PRM-091` ratifies exactly two Order capability codes and states in terms that NEITHER grants
+> Order mutation.** ⚠ **`PRM-089.b` is a SPELLING RULE AND NOT A GENERATOR — *a code exists only
+> where a canonical capability does* — so a create permission cannot be minted to make a button
+> work.** 🔴 **A write path with no ratified authority behind it is exactly what `CLAUDE.md` §8
+> forbids: frontend hiding is not authorization, and backend enforcement needs a code to enforce.**
+> ⚠ **Three further gaps sit under the same modal**: **`GAP-035`** — no document states what an
+> invoice contains, when a number is assigned, or whether partial payment at creation is permitted
+> (and `§11.3`'s `NOT_DUE` says payment is not due before delivery); **`GAP-023`** — an abandoned
+> modal's disposition is unspecified; **`GAP-003`** — the modal produces a tax-bearing document
+> with no tax model behind it.
+> **a.i.** ⚠ **WHAT IS NOT IN DOUBT is that manual order capture is a real business capability**
+> (`OM §22` — *"Owns | Manual order capture"*) **and that a manual line is priced by staff**
+> (`PRD-139`, `BR-145`, `BR-148`). 🔴 **The capability existing is not the same as the authority,
+> the states and the document being specified, and only the first is settled.**
+> **b.** 🔴 **`Print` — BLOCKED — MISSING CANONICAL BUSINESS RULE.**
+> **`PRN-023` sources the Sales Invoice printable from `E-039` (Accounting) and marks it
+> `SNAPSHOT` — `INV-39.2` requires the content snapshotted so the invoice stays reproducible years
+> later.** ⚠ **No `E-039` record exists. `OSC-057` issued the NUMBER; the DOCUMENT was not
+> created, and a printable cannot render from a record that is not there** (`PRN-022` — every
+> printable has exactly one deterministic authoritative source). 🔴 **`DOCUMENT_ARCHITECTURE.md`
+> also decides NO layout, paper size, typography or print CSS by its own scope statement, and
+> `GAP-003` leaves the tax detail undefined on a tax-bearing document.**
+> **b.i.** ⚠ **BULK PRINTING WOULD ALSO NEED `GAP-034`.** **`Print invoices` is one of the four
+> bulk controls `GAP-034` names as having no permitted-action inventory.**
+> **c.** ✅ **BOTH ARE RENDERED, DISABLED, WITH THE REASON IN VISIBLE TEXT.** ⚠ **`OSC-051.b`
+> would withhold them entirely; the owner asked for the header, so the compromise is the one
+> `OSC-056.f` already set — the control appears, it does not pretend, and it says why.** 🔴 **The
+> reason is VISIBLE TEXT bound by `aria-describedby`, never a `title` alone: a tooltip is
+> unreachable by keyboard and invisible on touch, so a disabled action explained only by hover is
+> explained to nobody.**
+> **d.** ✅ **`Export` IS BUILT IN FULL.** **`RPT-046` already makes every business table
+> exportable and `UX-045` names Export among the page actions.**
+> **d.i.** 🔴 **SCOPE IS NEVER THE VISIBLE PAGE** (`UX-044.b` — *exporting only the visible page is
+> a silent truncation*). ⚠ **At five rows a page that failure would be near-total.** ✅ **A
+> SELECTION exports exactly what was ticked; NO selection exports the ACTIVE RESULT SET under the
+> current search and filters** (`UX-044.a`), **fetched in full rather than read off the screen.**
+> **d.ii.** ✅ **THE LABEL STATES THE SCOPE BEFORE THE CLICK — `Export 3` or `Export all`.**
+> **`UX-044.c` permits an all-records export as a DELIBERATE choice and never as a silent
+> default.**
+> **d.iii.** 🔴 **A PARTIAL EXPORT IS REPORTED, NEVER WRITTEN.** **`RPT-047` and `SYS-073` require
+> partial success reported per record and never hidden in an aggregate** — ⚠ **and a CSV that is
+> quietly short is the purest form of that failure, because it looks complete.**
+> **d.iv.** 🔴 **THE TWO STATUSES STAY TWO COLUMNS** (`BR-171`, `UX-182`, `UX-044.e`). ⚠ **A
+> spreadsheet is where merging them would do the most damage: no chip, no tooltip, no page to
+> correct the reader.**
+> **d.v.** 🔴 **UNKNOWN IS WRITTEN AS THE WORD, NEVER AS AN EMPTY CELL** (`INV-32.4`, `SYS-034`).
+> ⚠ **An empty cell SUMS AS ZERO — a reader totalling the `Margin` column would get a confident,
+> wrong number with nothing on screen to warn them.** ✅ **Money is the exact authoritative string,
+> ungrouped and unrounded** (`TEC-015`, `OSC-043`).
+> **d.vi.** 🔴 **BUYER-SUPPLIED TEXT IS NEUTRALISED AGAINST SPREADSHEET FORMULA INJECTION.** **The
+> buyer note, the customer name and the delivery address are typed by a stranger on a marketplace,
+> and a cell beginning `=`, `+`, `-`, `@` or a control character is EXECUTED on open by Excel,
+> Sheets and LibreOffice alike.** ⚠ **A leading apostrophe defuses it; the value is otherwise
+> intact, because the operator still needs to read what the buyer wrote.**
+> **e.** ✅ **THE PAGE SIZE IS FIVE**, a product-owner decision and a CONSTANT. 🔴 **It is not a
+> viewport response: `RULE 7.3.a` and `UX-266` forbid page size, record count or information
+> existence changing with zoom or width, and nothing here reads either.**
+> **f.** ✅ **`Select all` SELECTS THE CURRENT PAGE, AND A SELECTION SURVIVES PAGING.** ⚠ **This
+> AMENDS `OSC-057.c.i`, which cleared the selection on every result-set change including a page
+> turn.** 🔴 **The distinction the owner drew is right and is now the rule: TURNING THE PAGE is
+> navigation within one result set; CHANGING a filter, a tab or the search REPLACES the result
+> set, and a tick that outlived that would leave the operator holding records the new set does not
+> contain.**
+> **f.i.** ⚠ **`Select all` NEVER MEANS ALL 158.** **A control that silently ticked records the
+> operator has never seen would claim a review that did not happen** (`PRM-025` — per-record
+> authorisation).
+> **f.ii.** ✅ **THE SELECTION HOLDS WHOLE ROWS, NOT IDS.** **With five to a page, orders ticked on
+> pages 1–3 are no longer loaded; keeping ids alone would force a refetch or — far worse — silently
+> export only the rows the browser still happened to hold.**
+> **f.iii.** ✅ **THE COUNT STATES THE WHOLE SELECTION**, including pages no longer on screen.
+> 🔴 **STILL NO BULK BAR** (`GAP-034`, `OSC-057.c`).
+> **g.** ⚠ **A DEFECT FIXED IN PASSING, REPORTED HERE.** **The two pager buttons carried no
+> accessible name at all — their labels were bare chevron glyphs.** ✅ **They now carry
+> `Previous page` and `Next page`.**
+
 ---
 
 # 6. The blocked register
@@ -618,6 +847,9 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.9.0** | **2026-08-24** | ⚠ **THE PAGE-HEADER ACTIONS — `OSC-058`. THE OWNER ASKED FOR THREE; ONE IS BUILT AND TWO ARE BLOCKED.** 🔴 **`Create Order` — BLOCKED: `PRM-091` ratifies exactly two Order capability codes and states that NEITHER grants Order mutation, and `PRM-089.b` is a spelling rule and not a generator, so no create permission may be minted to make a button work. `GAP-035`, `GAP-023` and `GAP-003` leave the modal's invoice content, abandonment and tax model unspecified.** 🔴 **`Print` — BLOCKED: `PRN-023` sources the Sales Invoice printable from an `E-039` record with content snapshotted per `INV-39.2`, and no such record exists — `OSC-057` issued the NUMBER, not the DOCUMENT. `DOCUMENT_ARCHITECTURE.md` decides no layout at all.** ✅ **Both render DISABLED with the reason in VISIBLE text bound by `aria-describedby`, never a tooltip — a `title` is unreachable by keyboard and invisible on touch.** ✅ **`Export` IS BUILT IN FULL: scope is the SELECTION, or the ACTIVE RESULT SET when nothing is ticked — never the visible page, which `UX-044.b` names a silent truncation and which at five rows a page would be near-total. The label states the scope before the click; a partial read is REPORTED, never written (`RPT-047`, `SYS-073`); the two statuses stay two columns; unknown is the WORD because an empty cell sums as zero; money is the exact string.** 🔴 **Buyer-supplied text is neutralised against spreadsheet formula injection — a marketplace buyer's delivery note beginning `=` is code that runs on an operator's machine.** ✅ **Page size is FIVE, a constant and not a viewport response (`RULE 7.3.a`, `UX-266`).** ✅ **`Select all` takes the CURRENT PAGE and a selection SURVIVES paging — amending `OSC-057.c.i`, because turning the page is navigation within one result set while a filter REPLACES it. The selection holds whole ROWS, so a cross-page export cannot silently shrink to what the browser still holds.** 🔴 **Still no bulk bar (`GAP-034`).** ⚠ **Defect fixed in passing: the pager buttons had no accessible name.** |
+| **1.8.0** | **2026-08-24** | ✅ **THE TRIOLOO-ISSUED INVOICE NUMBER — `OSC-057`.** ⚠ **The product owner SUPPLIED a business rule `GAP-035` recorded as missing**: ONE sequence, `TR0001` upward, oldest to newest, every existing and future order, none skipped, none ever regenerated. ✅ **`V19` backfills all 158 rows in a total, reproducible order and enforces immutability with a TABLE TRIGGER** — 🔴 **not an application guard, because the owner's *never regenerated* must also survive a repair script, a console session and a future `ON CONFLICT` clause.** ✅ **`BD-443`/`INV-39.1` permit exactly ONE Sales Invoice sequence and prohibit a second; this is that one.** ⚠ **The number is issued by a GUARDED UPDATE, not a column `DEFAULT`: PostgreSQL evaluates a DEFAULT for the proposed row of an `INSERT … ON CONFLICT` before finding the conflict, so at the deployed `PT2M` cadence a DEFAULT would burn roughly 113,000 values a day and run the numbering away from `TR0001` within hours.** 🔴 **REPORTED, NOT RESOLVED — THE NUMBER IS ISSUED AHEAD OF THE DOCUMENT: `E-039`'s snapshotted, reproducible content (`INV-39.2`) does not exist, and 117 of the 158 numbered orders are `CANCELLED` and were never delivered. `GAP-035` stays open on what an invoice CONTAINS and WHEN it is properly issued.** ✅ **Placement: top right, after the payment-method divider, bold and upper-cased by `textTransform` — never by upper-casing the stored value.** 🔴 **The `order_number` column is NOT rendered: a production read proved `order_number = external_order_id` on all 158 rows, so it holds a COPY of Daraz's id and showing it would dress the marketplace's number as Trioloo's (`PRN-014`).** ✅ **Order cards gain a SELECTION CHECKBOX leading the row, cleared whenever the result set changes** — 🔴 **with NO bulk bar, because `PRM-025` requires per-record authorisation and `GAP-034` still records no permitted-bulk-transition inventory.** 🔴 **No print action built; `DOCUMENT_ARCHITECTURE.md` owns the printable.** |
+| **1.7.0** | **2026-08-24** | ✅ **THE ORDER CARD, AMENDED BY THE PRODUCT OWNER — `OSC-056`.** 🔴 **THE `SM-5` PAYMENT POSITION IS NOW A CHIP, AND ONLY THREE OF ELEVEN STATES MAY EVER BE RENDERED**: `Payment not due` before delivery (`OM §11.3`, `BR-033`, and `SM-5.4` prohibits `NOT_DUE → RECEIVED` before delivery), `Payment due` on `DELIVERED` (`SM-5`'s automatic `EVT-013`), `Payment unknown` for `RETURNED`, `CLOSED` or an untranslated state. ⚠ **Everything past `DUE` needs an `E-040` Receivable that has been collected, matched or settled, and no such record exists — the same absence `OSC-053` recorded when `Total collectable` subtracts nothing.** ⚠ **`Payment due` does not assert the buyer has not paid (`BR-035`), and is INFO not SUCCESS because `OM §11.1` calls paid-at-delivery a false statement on every channel Trioloo operates.** ✅ **The marketplace's own word loses its `Marketplace · ` prefix and stays VISIBLY EXTERNAL by GROUPING** — it sits between the shop that reported it and the id that shop gave it; `UX-182` forbids MERGING the two chips, not placing them apart, and the external one is outlined and lower-case against the ERP's filled semantic chip. 🔴 **The authority chip leaves the card, admissible only because `FRAME 02` already carries it twice** — ⚠ **and `OSC-056.d.i` REPORTS that `FRAME 02` states it as `API-managed`, the internal terminology `UX-183` explicitly forbids; the fix is owed to a `FRAME 02` task and is not made here.** ⚠ **`More Actions` is rendered with the owner's ratification but NO action behind it, so `OSC-051.b` is only half satisfied: it is `aria-disabled`, opens no menu onto nothing, and its title says the actions are not built.** ✅ **The invoice element sheds its number and becomes the printable-invoice action slot; the number lives on `FRAME 02`, where an identifier belongs.** ✅ **`Margin` no longer sits against the action controls. All four economic figures still render UNKNOWN.** 🔴 **No lifecycle, permission, endpoint, event or migration created.** |
 | **1.6.0** | **2026-08-24** | ✅ **THE ORDER CARD IS REGISTERED AND BUILT FROM ITS APPROVED DESIGN.** **`OSC-055`** registers *Order Card DS* as the visual authority for the Orders card and records [`design-reference/Order Card DS.md`](design-reference/Order%20Card%20DS.md) as its written specification, implemented in `OrderCard.tsx`. 🔴 **THE PROJECT WAS NOT READABLE — `DesignSync` returned `HTTP 404` for `get_project` and `list_files`, the same condition `OSC-012` recorded** — so the product owner supplied the rendered bundle and the specification is TRANSCRIBED FROM ITS OWN MARKUP, never imagined from a screenshot. ✅ **Every `oklch(…)` in the design resolved to an existing token**; ⚠ **the one value with no token (`oklch(0.55 0.015 290)`) is RECORDED and the nearest token used, because `RULE 15.1` forbids the literal.** 🔴 **THE DESIGN'S SAMPLE DATA IS REFUSED WHILE ITS COMPOSITION IS KEPT**: `Cost`, `Charges`, `Received` and `Margin` render UNKNOWN (`INV-32.4`, `BR-033`, `BR-007`, `SYS-034`), the `Not Released` chip is not drawn because `BR-080` WITHDREW the state, `More Actions` is not drawn (`OSC-051.b`), and the marketplace's own word is labelled `Marketplace · {reported}` (`BR-171`). ✅ **`design-reference/README.md` now REGISTERS its packs**, discharging the `OSC-011.c` observation; ⚠ **`OSC-011` stays open for the two URL-only `OSC-010` artboards.** 🔴 **No lifecycle, permission, endpoint or event created.** |
 | **1.5.0** | **2026-08-23** | ✅ **THE KPI ROW AND THE STATUS TABS ARE RATIFIED AND BUILT.** **`OSC-053`** names the four summary figures the product owner chose — **Total orders · Today's orders · Today's dispatched · Total collectable** — closing `GAP-004` for this workspace. 🔴 **The shipped KPIs were not defined, they were WITHDRAWN: `Total Revenue` and `Total Margin` are gone, which is the substance of the resolution, because `BR-007` uncosted lines and `SYS-034` unknown-is-not-zero make a pre-settlement margin confidently wrong and undetectable from the screen.** **`OSC-054`** records that the tabs are `SM-1` state names filled by the §4.3 ADAPTER translation (`BR-005`, `DZC-045.c.ii`), so the surface never touches a channel's own vocabulary — ⚠ **`GAP-017` stays blocked and becomes irrelevant to the tab set rather than being closed.** ✅ **`OSC-030.a` gains `Returned`**, an `SM-1` state `OM §6.2`, `SMA §5.2` and `§6.3`'s own diagram all carry and the v1.0.0 list omitted by oversight. ✅ **`OSC-051.b.i`** amends the withhold rule by its own test: both regions now show real data. 🔴 **TWO LIMITATIONS RECORDED RATHER THAN DESIGNED AROUND** — `Total collectable` subtracts nothing because no receipt or settlement record exists, and `Today's dispatched` counts an ERP OBSERVATION because `DZC-045.e`/`DZC-047.c` prove the provider publishes no dispatch timestamp, so the first backfill's count is the backlog. 🔴 **No lifecycle, permission, endpoint or event created; `FRAME 09` still not built; every other entry in `OSC-050` stands.** |
 | **1.4.0** | **2026-08-23** | ✅ **LIVE READ-ONLY UI CLEANUP.** Unresolved blocker placeholders, legacy status tabs, disabled future buttons and KPI shells are removed from the operator-facing Orders list/detail pages. `OSC-050` remains the canonical blocked register, but `OSC-051` now requires the MVP UI to withhold unresolved controls rather than render documentation as product chrome. Frontend only: no backend, no migration, no Daraz call. |

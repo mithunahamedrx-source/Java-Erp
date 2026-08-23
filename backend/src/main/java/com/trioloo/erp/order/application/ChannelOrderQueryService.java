@@ -46,7 +46,7 @@ public class ChannelOrderQueryService {
         Object[] args = args(f);
         List<ChannelOrderRow> rows = jdbc.query("""
                 SELECT o.id, o.channel_instance_id, ci.name AS channel_name,
-                       o.external_order_id, o.order_number, o.ownership, o.statuses_json::text,
+                       o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.statuses_json::text,
                        o.canonical_statuses_json::text, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
                        o.price, o.payment_method, o.items_count, o.customer_first_name, o.customer_last_name,
@@ -265,6 +265,10 @@ public class ChannelOrderQueryService {
                      AND (
                        lower(o.external_order_id) LIKE ?
                        OR lower(coalesce(o.order_number, '')) LIKE ?
+                       -- ⚠ The Trioloo invoice number is the reference a person READS off the
+                       -- card, so it is the one they will type. Omitting it would make the
+                       -- number searchable nowhere.
+                       OR lower(coalesce(o.trioloo_invoice_number, '')) LIKE ?
                        OR lower(coalesce(o.customer_first_name, '') || ' ' || coalesce(o.customer_last_name, '')) LIKE ?
                      )
                     """);
@@ -288,6 +292,8 @@ public class ChannelOrderQueryService {
         }
         if (present(f.search())) {
             String needle = "%" + f.search().trim().toLowerCase() + "%";
+            // Four placeholders: external id, order number, Trioloo invoice number, customer name.
+            values.add(needle);
             values.add(needle);
             values.add(needle);
             values.add(needle);
@@ -303,7 +309,8 @@ public class ChannelOrderQueryService {
     private ChannelOrderRow row(ResultSet rs) throws SQLException {
         return new ChannelOrderRow(
                 uuid(rs, "id"), uuid(rs, "channel_instance_id"), rs.getString("channel_name"),
-                rs.getString("external_order_id"), rs.getString("order_number"), rs.getString("ownership"),
+                rs.getString("external_order_id"), rs.getString("order_number"),
+                rs.getString("trioloo_invoice_number"), rs.getString("ownership"),
                 statuses(rs.getString("statuses_json")),
                 statuses(rs.getString("canonical_statuses_json")), instant(rs, "dispatch_observed_at"),
                 instant(rs, "provider_created_at"),
@@ -532,7 +539,14 @@ public class ChannelOrderQueryService {
      * {@code DISPATCHED}, not when the carrier took it — Daraz publishes no such timestamp.
      */
     public record ChannelOrderRow(UUID id, UUID channelInstanceId, String channelName,
-                                  String externalOrderId, String orderNumber, String ownership,
+                                  String externalOrderId, String orderNumber,
+                                  /*
+                                    🔴 THE TRIOLOO-ISSUED NUMBER, AND IT IS NOT `invoiceNumber`.
+                                    That name already belongs on this row to the MARKETPLACE's
+                                    invoice number, which `BR-171` keeps as an external fact.
+                                    Two invoice numbers, two owners, never conflated (`PRN-014`).
+                                  */
+                                  String triolooInvoiceNumber, String ownership,
                                   List<String> statuses, List<String> canonicalStatuses,
                                   Instant dispatchObservedAt, Instant providerCreatedAt,
                                   Instant providerUpdatedAt, Instant lastSeenAt,
