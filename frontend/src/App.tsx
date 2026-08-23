@@ -25,6 +25,8 @@ import ChannelListingBatchEditPage from './product/ChannelListingBatchEditPage';
 import ChannelListingSyncPage from './product/ChannelListingSyncPage';
 import ShopsWorkspacePage from './system/ShopsWorkspacePage';
 import ShopDetailPage from './system/ShopDetailPage';
+import OrdersPage from './order/OrdersPage';
+import OrderDetailPage from './order/OrderDetailPage';
 
 /**
  * Application routes.
@@ -120,10 +122,16 @@ export default function App(): React.JSX.Element {
         <Route path="/administration/shops" element={<ShopsWorkspacePage />} />
         <Route path="/administration/shops/:id" element={<ShopDetailPage />} />
 
+        {/* `OSC-061` - Orders first slice: read-only FRAME 01 and FRAME 02 over API-managed channel orders. */}
+        <Route path="/sales/orders" element={<OrdersPage />} />
+        <Route path="/sales/orders/:id" element={<OrderDetailPage />} />
+
         {allDestinations()
           .filter(
             (destination) =>
-              destination.path !== '/inventory/products' && destination.path !== '/administration/shops',
+              destination.path !== '/inventory/products' &&
+              destination.path !== '/administration/shops' &&
+              destination.path !== '/sales/orders',
           )
           .map((destination) => (
           <Route
