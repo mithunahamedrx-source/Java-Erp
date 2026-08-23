@@ -87,7 +87,7 @@ class ChannelOrderMoneyWireContractTest {
     @DisplayName("the collectable total serialises as a quoted exact decimal")
     void collectableTotalIsAQuotedString() {
         var summary = new ChannelOrderQueryService.Summary(
-                4, 2, 1, new BigDecimal("842300.55"), 9, List.of(), List.of());
+                4, 2, 1, new BigDecimal("842300.55"), 9, List.of(), List.of(), List.of());
 
         String json = objectMapper.writeValueAsString(summary);
 
@@ -103,7 +103,7 @@ class ChannelOrderMoneyWireContractTest {
     @Test
     @DisplayName("trailing zeros survive - 2.50 never arrives as 2.5")
     void scaleIsPreserved() {
-        var summary = new ChannelOrderQueryService.Summary(1, 1, 0, new BigDecimal("2.50"), 1, List.of(), List.of());
+        var summary = new ChannelOrderQueryService.Summary(1, 1, 0, new BigDecimal("2.50"), 1, List.of(), List.of(), List.of());
 
         assertThat(objectMapper.writeValueAsString(summary)).contains("\"totalCollectable\":\"2.50\"");
     }

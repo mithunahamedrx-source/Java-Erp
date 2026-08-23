@@ -47,6 +47,19 @@ export type ChannelOrderSummary = {
    * sum to `totalOrders` — that is correct, not a defect.
    */
   readonly statusCounts: readonly { readonly status: string; readonly orderCount: number }[];
+  /**
+   * The shops that actually have orders.
+   *
+   * 🔴 `BR-002` — reporting, settlement and reconciliation all operate at INSTANCE level, and
+   * "Daraz" is never a sufficient attribution because settlement arrives per shop and margin
+   * differs per shop. The channel-type filter cannot answer "which shop"; this can.
+   */
+  readonly shops: readonly {
+    readonly channelInstanceId: string;
+    readonly code: string;
+    readonly name: string | null;
+    readonly orderCount: number;
+  }[];
 };
 
 export type AddressView = {

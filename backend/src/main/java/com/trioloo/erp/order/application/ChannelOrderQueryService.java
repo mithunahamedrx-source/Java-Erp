@@ -172,9 +172,24 @@ public class ChannelOrderQueryService {
                 """, args(withoutStatus),
                 (rs, rowNum) -> new StatusFacet(rs.getString("status"), rs.getLong("order_count")));
 
+        // Shops keep f.channelType() (a Daraz-only view should list Daraz shops) but drop the
+        // shop filter itself, so choosing one never hides the others.
+        Filter withoutShop = new Filter(null, f.channelType(), f.status(), f.search(), f.period());
+        String shopWhere = where(withoutShop);
+        List<ShopFacet> shops = jdbc.query("""
+                SELECT ci.id, ci.code, ci.name, count(*) AS order_count
+                  FROM channel_order o
+                  JOIN channel_instance ci ON ci.id = o.channel_instance_id
+                """ + shopWhere + """
+                 GROUP BY ci.id, ci.code, ci.name
+                 ORDER BY ci.code ASC
+                """, args(withoutShop),
+                (rs, rowNum) -> new ShopFacet(rs.getString("id"), rs.getString("code"),
+                        rs.getString("name"), rs.getLong("order_count")));
+
         return new Summary(n(total), n(todaysOrders), n(todaysDispatched),
                 collectable == null ? BigDecimal.ZERO : collectable, n(items), channelTypes,
-                statusCounts);
+                statusCounts, shops);
     }
 
     @Transactional(readOnly = true)
@@ -428,7 +443,8 @@ public class ChannelOrderQueryService {
     public record Summary(long totalOrders, long todaysOrders, long todaysDispatched,
                           @MonetaryAmount BigDecimal totalCollectable, long totalItems,
                           List<ChannelTypeFacet> channelTypes,
-                          List<StatusFacet> statusCounts) {}
+                          List<StatusFacet> statusCounts,
+                          List<ShopFacet> shops) {}
 
     /**
      * A channel type that actually has orders, with how many.
@@ -455,6 +471,19 @@ public class ChannelOrderQueryService {
      * counts therefore need not sum to the order total, which is correct rather than a defect.
      */
     public record StatusFacet(String status, long orderCount) {}
+
+    /**
+     * One shop that actually has orders, with how many.
+     *
+     * <p>🔴 {@code BR-002} — <em>"Reporting, settlement, and reconciliation all operate at
+     * instance level. 'Daraz' is NEVER A SUFFICIENT ATTRIBUTION, because settlement arrives per
+     * shop and margin differs per shop."</em> A channel-type filter therefore cannot answer
+     * "which shop did this order come from"; only this one can.
+     *
+     * <p>⚠ Computed ignoring the active shop filter, for the same reason the other facets are:
+     * a control that erased its own other options once one was chosen would be unusable.
+     */
+    public record ShopFacet(String channelInstanceId, String code, String name, long orderCount) {}
 
     /**
      * One Orders card.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { EmptyState, SegmentedControl, StatusPill, buttonStyle } from '../ui/primitives';
+import { EmptyState, SegmentedControl, Select, StatusPill, buttonStyle } from '../ui/primitives';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
@@ -59,6 +59,14 @@ export default function OrdersPage(): React.JSX.Element {
   const [channelOptions, setChannelOptions] = useState<
     readonly { readonly channelType: string; readonly orderCount: number }[]
   >([]);
+  const [shopOptions, setShopOptions] = useState<
+    readonly {
+      readonly channelInstanceId: string;
+      readonly code: string;
+      readonly name: string | null;
+      readonly orderCount: number;
+    }[]
+  >([]);
   /*
     ⚠ A status with no entry is ABSENT from the map, so its segment renders NO count rather than
     a fabricated `0` (`SYS-034`, `OSC-045`). A status the server reports as `0` renders `0`.
@@ -81,6 +89,7 @@ export default function OrdersPage(): React.JSX.Element {
       setTotalPages(orders.totalPages);
       setSummary(totals);
       setChannelOptions(totals.channelTypes ?? []);
+      setShopOptions(totals.shops ?? []);
     } catch (cause) {
       if (cause instanceof ApiError && cause.isForbidden) {
         setForbidden(true);
@@ -215,6 +224,37 @@ export default function OrdersPage(): React.JSX.Element {
             setFilters((current) => ({ ...current, channelType: next === ALL ? undefined : next }));
           }}
         />
+        {/*
+          🔴 `BR-002` — every order records its channel type AND its channel INSTANCE, and
+          "Daraz" is never a sufficient attribution: settlement arrives per shop and margin
+          differs per shop. The channel control above cannot answer "which shop"; this does.
+
+          ⚠ A SELECT, not a segmented control, and deliberately. `RULE 3.13` gives the segmented
+          control to status, channel and period — three CLOSED sets. Shops are an OPEN set:
+          `BR-128` already records seven Daraz seller accounts as seven independent
+          counterparties, and seven segments would break `UX-266`'s no-wrap contract on this row.
+          `RULE 3.18` geometry applies to the select instead.
+        */}
+        <span style={filterLabelStyle}>SHOP</span>
+        <div style={{ flex: '0 0 auto', width: '196px' }}>
+          <Select
+            value={filters.channelInstanceId ?? ALL}
+            onChange={(next) => {
+              setPage(0);
+              setFilters((current) => ({
+                ...current,
+                channelInstanceId: next === ALL ? undefined : next,
+              }));
+            }}
+          >
+            <option value={ALL}>All shops</option>
+            {shopOptions.map((shop) => (
+              <option key={shop.channelInstanceId} value={shop.channelInstanceId}>
+                {(shop.name ?? shop.code) + ' · ' + shop.orderCount}
+              </option>
+            ))}
+          </Select>
+        </div>
         <span style={filterLabelStyle}>PERIOD</span>
         {/*
           🔴 THE PERIOD FILTER USES THE SAME TIMESTAMP THE `Today's orders` CARD COUNTS — the
@@ -273,7 +313,7 @@ export default function OrdersPage(): React.JSX.Element {
           <EmptyState title="No orders imported yet" guidance="Run the approved Daraz order pull, then this workspace will show the imported channel orders." />
         </OrdersSurface>
       ) : (
-        <div style={{ display: 'grid', gap: 'var(--space-6)' }}>
+        <div style={orderListStyle}>
           {items.map((order) => (
             <OrderCard key={order.id} order={order} />
           ))}
@@ -304,7 +344,9 @@ export default function OrdersPage(): React.JSX.Element {
 }
 
 function OrdersSurface({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
-  return <section style={ordersSurfaceStyle}>{children}</section>;
+  // The same separation the card list gets, so an empty workspace does not sit tighter than a
+  // full one and the page does not shift when the first order arrives.
+  return <section style={{ ...ordersSurfaceStyle, marginTop: 'var(--space-7)' }}>{children}</section>;
 }
 
 /**
@@ -447,6 +489,19 @@ function Metric({ label, value, strong = false }: { readonly label: string; read
     </div>
   );
 }
+
+/*
+  The order collection. `marginTop` separates the card list from the control row above it —
+  the controls are chrome and the cards are the record set, and they read as one block without
+  it (product-owner request, 2026-08-24).
+
+  ⚠ Both values are canonical spacing tokens, not eyeballed pixels (`RULE 5.1`, `RULE 15.1`).
+*/
+const orderListStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: 'var(--space-6)',
+  marginTop: 'var(--space-7)',
+};
 
 const ordersSurfaceStyle: React.CSSProperties = {
   background: 'var(--color-surface)',

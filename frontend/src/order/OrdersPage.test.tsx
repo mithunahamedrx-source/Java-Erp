@@ -39,6 +39,8 @@ const SUMMARY: ChannelOrderSummary = {
   channelTypes: [{ channelType: 'DARAZ', orderCount: 1 }],
   // ⚠ Only the statuses that HAVE orders. Every other tab renders no count rather than a `0`.
   statusCounts: [{ status: 'PENDING_VERIFICATION', orderCount: 1 }],
+  // 🔴 `BR-002` — attribution is at channel INSTANCE level, not channel type.
+  shops: [{ channelInstanceId: '067774fc-c4d6-4618-a590-f85ff055d2ab', code: 'CHN-000001', name: 'Ryzen Builder', orderCount: 1 }],
 };
 
 const ORDER_DETAIL: ChannelOrderDetail = {
@@ -360,6 +362,46 @@ describe('Orders first slice', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
     await waitFor(() => expect(urls.some((url) => url.includes('period=MONTH'))).toBe(true));
+  });
+
+  it('filters by SHOP, not only by channel type', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        urls.push(url);
+        const json = (body: unknown): Response =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url.includes('/api/auth/me')) {
+          return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: ['order.channel-order.view'] });
+        }
+        if (url.includes('/summary')) return json(SUMMARY);
+        return json({ content: [ORDER_ROW], page: 0, size: 50, totalElements: 1, totalPages: 1 });
+      }),
+    );
+    render(
+      <AuthProvider>
+        <PageActionsProvider>
+          <MemoryRouter initialEntries={['/sales/orders']}>
+            <Routes>
+              <Route path="/sales/orders" element={<OrdersPage />} />
+            </Routes>
+          </MemoryRouter>
+        </PageActionsProvider>
+      </AuthProvider>,
+    );
+    await screen.findByRole('heading', { name: 'Orders' });
+
+    // 🔴 `BR-002` — "Daraz" is never a sufficient attribution; the shop must be selectable.
+    const shopSelect = screen.getByDisplayValue('All shops') as HTMLSelectElement;
+    expect(Array.from(shopSelect.options).some((o) => o.textContent?.includes('Ryzen Builder'))).toBe(true);
+
+    fireEvent.change(shopSelect, { target: { value: '067774fc-c4d6-4618-a590-f85ff055d2ab' } });
+
+    await waitFor(() =>
+      expect(urls.some((url) => url.includes('channelInstanceId=067774fc-c4d6-4618-a590-f85ff055d2ab'))).toBe(true),
+    );
   });
 
   it('renders FRAME 02 detail with independent rail panels and stored snapshots', async () => {
