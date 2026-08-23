@@ -1,7 +1,7 @@
 # Daraz Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.13.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-057` — the confirmed `/orders/get` read; `limit` accepted so `DZC-050.d` is SETTLED, `_trace_id_` widened to a general envelope field, and the documented order field set confirmed as a CEILING) · **Amended:** 2026-08-23 (`DZC-051`–`DZC-056` — §13 the ORDER NOTIFICATION protocol; a webhook exists and CANNOT replace the read, so periodic reconciliation remains necessary) · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
+**Version:** 1.14.0 · **Established:** 2026-08-17 · **Amended:** 2026-08-23 (`DZC-057` — the confirmed `/orders/get` read; `limit` accepted so `DZC-050.d` is SETTLED, `_trace_id_` widened to a general envelope field, and the documented order field set confirmed as a CEILING) · **Amended:** 2026-08-23 (`DZC-051`–`DZC-056` — §13 the ORDER NOTIFICATION protocol; a webhook exists and CANNOT replace the read, so periodic reconciliation remains necessary) · **Amended:** 2026-08-23 (`DZC-043`–`DZC-050` — §12 the ORDER READ protocol, rendered from the Daraz reference; nothing implemented, no seller API called) · **Amended:** 2026-08-21 (`DZC-042` — live probe accepted; `DZC-035.e` amended: `code` 0 is success with no `data`) · **Amended:** 2026-08-21 (`DZC-041` — the controlled same-value probe, built and NOT run) · **Amended:** 2026-08-21 (`DZC-033`–`DZC-040` — §11 listing WRITE protocol recorded from the official reference; nothing implemented) · **Amended:** 2026-08-19 (`DZC-032` — §10 product review protocol recorded from the official reference) · **Amended:** 2026-08-18 (`DZC-031.h` — bounded generic attributes) · **Amended:** 2026-08-18 (`DZC-031` — reported stock source) · **Amended:** 2026-08-18 (§9 clarified from first implementation) · **Amended:** 2026-08-18 (§9 — listing read, `DZC-020`–`DZC-030`) · **Amended:** 2026-08-17 (`DZC-010` local-seller branch) · **Source:** Daraz / Lazada Open Platform official documentation, plus one live production observation
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** read from the provider's own
 > documentation so that implementation does not guess them. Business rules remain with their owning canonical
@@ -1183,6 +1183,22 @@ reference links directly for signing details** — the two ventures share one pl
 > Daraz set governs.**
 > **c.i.** ⚠ **`canceled` IS SPELLED WITH ONE `l` IN THE PROVIDER'S OWN VOCABULARY.** **Recorded because a
 > corrected spelling would not match.**
+>
+> **c.iii.** 🔴 **THE PUBLISHED SET IS NOT EXHAUSTIVE — OBSERVED 2026-08-23 ON A LIVE BANGLADESH
+> ACCOUNT.** ✅ **`shipped_back_success` WAS RETURNED BY `/orders/get` AND APPEARS IN NO DARAZ
+> REFERENCE**, published or otherwise. ⚠ **This is the mirror of `DZC-045.e`'s ceiling warning:
+> that rule records a DOCUMENTED field arriving ABSENT; this records an UNDOCUMENTED VALUE
+> arriving PRESENT.** 🔴 **A status list read from a provider reference is therefore a FLOOR, not a
+> closed set, and an adapter must carry an unknown value untranslated rather than approximate it**
+> (`BR-134`, `SYS-034`).
+>
+> **c.iv.** ✅ **ITS CANONICAL MAPPING IS A BUSINESS DECISION AND WAS TAKEN BY THE PRODUCT OWNER
+> ON 2026-08-23: `shipped_back_success` → `FAILED_DELIVERY`.** ⚠ **NOT `RETURNED`, and the
+> distinction is load-bearing: `OM §6.2` gives `RETURNED` the meaning *"Goods came back to
+> Trioloo"* — a customer's decision — while a parcel shipped back to the seller is the OUTCOME OF A
+> FAILED DELIVERY, the RTO path `OM §10.4` describes. `OM §6.3` draws `FAILED_DELIVERY → RETURNED`
+> as a later, separate step.** 🔴 **Nothing here maps `topack` or `toship`; `DZC-050.f` keeps them
+> unassumed.**
 > **c.ii.** 🔴 **THIS IS THE CHANNEL'S VOCABULARY AND IT IS NOT TRIOLOO'S** (`BR-005`, `BR-171`). **Mapping it
 > to `SM-1` is ADAPTER WORK and is not performed here.**
 >

@@ -139,7 +139,20 @@ public class DarazChannelOrderProvider implements ChannelOrderProvider {
             "delivered", CanonicalOrderStatus.DELIVERED,
             "failed", CanonicalOrderStatus.FAILED_DELIVERY,
             "returned", CanonicalOrderStatus.RETURNED,
-            "canceled", CanonicalOrderStatus.CANCELLED);
+            "canceled", CanonicalOrderStatus.CANCELLED,
+            // 🔴 UNDOCUMENTED BY THE PROVIDER, FOUND IN PRODUCTION 2026-08-23, MAPPED BY BUSINESS
+            // DECISION. `shipped_back_success` appears in NO Daraz reference and is absent from
+            // `DZC-045.c`'s published set of eight, so no mapping could be derived from the
+            // contract — it was carried untranslated and its orders sat under no status tab.
+            //
+            // ⚠ THE OWNER CHOSE `FAILED_DELIVERY`, NOT `RETURNED`, AND THE DISTINCTION IS REAL.
+            // §6.2 gives `RETURNED` the meaning "Goods came back to Trioloo" and `FAILED_DELIVERY`
+            // "Delivery attempted and failed". A parcel shipped back to the seller is the OUTCOME
+            // OF A FAILED DELIVERY — the RTO path §10.4 describes — not a customer-initiated
+            // return, and §6.3's own diagram draws `FAILED_DELIVERY → RETURNED` as a later,
+            // separate step. Filing it under `RETURNED` would merge a courier failure with a
+            // customer's decision, which is exactly the collision `BR-079` warns about.
+            "shipped_back_success", CanonicalOrderStatus.FAILED_DELIVERY);
 
     @Override
     public List<CanonicalOrderStatus> canonicalStatuses(List<String> channelStatuses) {

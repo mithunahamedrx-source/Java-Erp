@@ -1,5 +1,6 @@
 package com.trioloo.erp.integration.infrastructure.daraz;
 
+import com.trioloo.erp.order.domain.CanonicalOrderStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -137,6 +138,35 @@ class DarazChannelOrderProviderTest {
         assertThat(page.orders().getFirst().providerCreatedAt()).isNull();
         // 🔴 The order itself still imports. A bad timestamp never costs the order.
         assertThat(page.orders().getFirst().externalOrderId()).isEqualTo("57244869716603");
+    }
+
+    @Test
+    @DisplayName("shipped_back_success maps to FAILED_DELIVERY, not RETURNED")
+    void shippedBackSuccessIsAFailedDelivery() {
+        DarazChannelOrderProvider provider = provider(orderResponse(), itemResponse());
+
+        // 🔴 UNDOCUMENTED BY DARAZ, FOUND IN PRODUCTION, MAPPED BY BUSINESS DECISION 2026-08-23.
+        // ⚠ `RETURNED` is "Goods came back to Trioloo" (§6.2) — a customer's decision. A parcel
+        // shipped back to the seller is the OUTCOME OF A FAILED DELIVERY, the RTO path §10.4
+        // describes, and §6.3 draws FAILED_DELIVERY → RETURNED as a later, separate step.
+        assertThat(provider.canonicalStatuses(List.of("shipped_back_success")))
+                .containsExactly(CanonicalOrderStatus.FAILED_DELIVERY);
+        assertThat(provider.canonicalStatuses(List.of("shipped_back_success")))
+                .doesNotContain(CanonicalOrderStatus.RETURNED);
+
+        // A customer return still maps to RETURNED — the two stay distinct.
+        assertThat(provider.canonicalStatuses(List.of("returned")))
+                .containsExactly(CanonicalOrderStatus.RETURNED);
+    }
+
+    @Test
+    @DisplayName("a still-unknown channel status is carried untranslated, never approximated")
+    void unknownStatusIsNotApproximated() {
+        DarazChannelOrderProvider provider = provider(orderResponse(), itemResponse());
+
+        // BR-134 / SYS-034 — the raw value survives on the order; the canonical mirror stays
+        // empty rather than borrowing the nearest-looking state.
+        assertThat(provider.canonicalStatuses(List.of("some_future_daraz_status"))).isEmpty();
     }
 
     private static String orderResponseWith(String createdAt) {
