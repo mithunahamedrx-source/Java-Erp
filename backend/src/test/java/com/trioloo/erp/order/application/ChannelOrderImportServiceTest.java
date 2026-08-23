@@ -1,22 +1,31 @@
 package com.trioloo.erp.order.application;
 
+import com.trioloo.erp.access.domain.AccountLifecycleState;
+import com.trioloo.erp.access.infrastructure.security.AccessUserDetails;
 import com.trioloo.erp.integration.domain.ConnectionState;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionEntity;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionRepository;
+import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,10 +70,12 @@ class ChannelOrderImportServiceTest {
     }
 
     @Autowired private ChannelOrderImportService service;
+    @Autowired private ChannelOrderQueryService queries;
     @Autowired private ChannelConnectionRepository connections;
     @Autowired private JdbcTemplate jdbc;
 
     private UUID shop;
+    private UUID actorId;
 
     @BeforeEach
     void setUp() {
@@ -73,12 +84,15 @@ class ChannelOrderImportServiceTest {
         OFFSETS.clear();
         LIMITS.clear();
         failure = null;
+        actorId = UUID.randomUUID();
+        actingWith(OrderPermissions.CHANNEL_ORDER_SYNC);
         shop = insertShop("ORDER-IMPORT-A", "ACTIVE");
         connections.save(ChannelConnectionEntity.observed(shop, ConnectionState.CONNECTED, Instant.now()));
     }
 
     @AfterEach
     void tearDown() {
+        SecurityContextHolder.clearContext();
         clean();
         PAGES.clear();
         OFFSETS.clear();
@@ -109,6 +123,19 @@ class ChannelOrderImportServiceTest {
         assertThat(jdbc.queryForObject("""
                 SELECT price FROM channel_order WHERE external_order_id = 'O-100'
                 """, BigDecimal.class)).isEqualByComparingTo("104500.00");
+    }
+
+    @Test
+    @DisplayName("requires sync permission to import")
+    void requiresSyncPermission() {
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-110", "OI-110"))));
+
+        assertThatThrownBy(() -> service.importWindow(shop, AFTER, BEFORE, 100))
+                .isInstanceOf(AccessDeniedByPermissionException.class)
+                .hasMessageContaining(OrderPermissions.CHANNEL_ORDER_SYNC);
+        assertThat(OFFSETS).isEmpty();
+        assertThat(count("channel_order")).isZero();
     }
 
     @Test
@@ -202,6 +229,68 @@ class ChannelOrderImportServiceTest {
         assertThat(count("channel_listing_operation")).isEqualTo(listingOperationsBefore);
     }
 
+    @Test
+    @DisplayName("lists imported API-managed orders for a viewer")
+    void listsImportedOrdersForViewer() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-600", "OI-600"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        var page = queries.list(new ChannelOrderQueryService.Filter(shop, "pending", "ORD-O-600"),
+                PageRequest.of(0, 20));
+
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        assertThat(page.getContent().getFirst().externalOrderId()).isEqualTo("O-600");
+        assertThat(page.getContent().getFirst().statuses()).containsExactly("pending");
+        assertThat(page.getContent().getFirst().ownership()).isEqualTo("API_MANAGED");
+    }
+
+    @Test
+    @DisplayName("summarises imported orders without inventory or settlement facts")
+    void summarisesImportedOrders() {
+        PAGES.add(new ChannelOrderProvider.Page(2, 2, List.of(
+                order("O-701", "OI-701"),
+                order("O-702", "OI-702"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        ChannelOrderQueryService.Summary summary =
+                queries.summary(new ChannelOrderQueryService.Filter(shop, null, null));
+
+        assertThat(summary.totalOrders()).isEqualTo(2);
+        assertThat(summary.pendingOrders()).isEqualTo(2);
+        assertThat(summary.totalItems()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("returns detail with items for a viewer")
+    void detailReturnsItemsForViewer() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-800", "OI-800"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+        UUID orderId = jdbc.queryForObject("""
+                SELECT id FROM channel_order WHERE external_order_id = 'O-800'
+                """, UUID.class);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        ChannelOrderQueryService.ChannelOrderDetail detail = queries.detail(orderId);
+
+        assertThat(detail.externalOrderId()).isEqualTo("O-800");
+        assertThat(detail.billingAddress().phone()).isEqualTo("01700000000");
+        assertThat(detail.items()).hasSize(1);
+        assertThat(detail.items().getFirst().shopSku()).isEqualTo("ELT002-SHOP");
+    }
+
+    @Test
+    @DisplayName("requires view permission to read imported orders")
+    void queryRequiresViewPermission() {
+        actingWith(OrderPermissions.CHANNEL_ORDER_SYNC);
+
+        assertThatThrownBy(() -> queries.list(new ChannelOrderQueryService.Filter(null, null, null),
+                PageRequest.of(0, 20)))
+                .isInstanceOf(AccessDeniedByPermissionException.class)
+                .hasMessageContaining(OrderPermissions.CHANNEL_ORDER_VIEW);
+    }
+
     private static ChannelOrderSnapshot order(String orderId, String itemId) {
         var address = new ChannelOrderSnapshot.AddressSnapshot(
                 "Rashedul", "Islam", "01700000000", null, "House 42",
@@ -273,6 +362,14 @@ class ChannelOrderImportServiceTest {
     private long count(String table) {
         Long value = jdbc.queryForObject("SELECT count(*) FROM " + table, Long.class);
         return value == null ? 0L : value;
+    }
+
+    private void actingWith(String... permissions) {
+        var authorities = Arrays.stream(permissions).map(SimpleGrantedAuthority::new).toList();
+        var principal = new AccessUserDetails(actorId, "order-tester", "Order Tester",
+                "unused", AccountLifecycleState.ACTIVE, Set.of(), Set.of(permissions));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private void clean() {

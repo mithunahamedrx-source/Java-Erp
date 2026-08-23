@@ -1,7 +1,9 @@
 package com.trioloo.erp.order.application;
 
+import com.trioloo.erp.access.application.CurrentActor;
 import com.trioloo.erp.integration.domain.ConnectionState;
 import com.trioloo.erp.integration.infrastructure.persistence.ChannelConnectionRepository;
+import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import com.trioloo.erp.product.domain.RecordStatus;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelInstanceEntity;
 import com.trioloo.erp.product.infrastructure.persistence.ChannelInstanceRepository;
@@ -29,6 +31,7 @@ public class ChannelOrderImportService {
     private final ChannelInstanceRepository channels;
     private final ChannelConnectionRepository connections;
     private final List<ChannelOrderProvider> providers;
+    private final CurrentActor currentActor;
     private final ObjectMapper json = new ObjectMapper();
     private final Clock clock;
 
@@ -36,17 +39,20 @@ public class ChannelOrderImportService {
                                      ChannelInstanceRepository channels,
                                      ChannelConnectionRepository connections,
                                      List<ChannelOrderProvider> providers,
+                                     CurrentActor currentActor,
                                      Clock clock) {
         this.jdbc = jdbc;
         this.channels = channels;
         this.connections = connections;
         this.providers = providers == null ? List.of() : List.copyOf(providers);
+        this.currentActor = currentActor;
         this.clock = clock == null ? Clock.systemUTC() : clock;
     }
 
     @Transactional
     public ImportOutcome importWindow(UUID channelInstanceId, Instant createdAfter, Instant createdBefore,
                                       int requestedPageSize) {
+        requireSync();
         ChannelInstanceEntity channel = requireActiveDarazShop(channelInstanceId);
         ChannelOrderProvider provider = providerFor(channel.getChannelType());
         Window window = window(createdAfter, createdBefore);
@@ -95,6 +101,12 @@ public class ChannelOrderImportService {
                         itemsSeen, itemsCreated, itemsUpdated, null);
             }
             offset += orders.size();
+        }
+    }
+
+    private void requireSync() {
+        if (currentActor.current().filter(a -> a.hasPermission(OrderPermissions.CHANNEL_ORDER_SYNC)).isEmpty()) {
+            throw new AccessDeniedByPermissionException(OrderPermissions.CHANNEL_ORDER_SYNC);
         }
     }
 
