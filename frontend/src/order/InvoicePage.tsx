@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { PageHeader } from '../shell/AppShell';
+import { Button } from '../ui/primitives';
 import { apiRequest } from '../platform/api';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
@@ -17,9 +19,34 @@ import { formatMoment } from '../platform/datetime';
  * APPLICATION UI; `DOCUMENT_ARCHITECTURE.md` §15 decides no typography for printables at all, so
  * the document face was genuinely undecided and the approved design proposes these two
  * (`design-reference/TrioLoo Invoice.md` §1).
+ *
+ * 🔴 THE PROTOTYPE'S *"What prints on this invoice"* CONTROL IS NOT BUILT, AND ITS ABSENCE IS THE
+ * RULE RATHER THAN AN OMISSION. That control lets an operator swap the order's own lines for a
+ * marketplace listing's title and edit the printed quantities and prices, recomputing the subtotal
+ * and the balance due from the result. ⚠ `PRN-022` makes the rendering the one thing that is NEVER
+ * the source, and `INV-39.2` requires the content snapshotted so the document stays reproducible
+ * years later — a printable that recomputed from operator-edited lines would print a figure the
+ * `E-039` record does not hold, and would print a different one next year.
+ *
+ * ✅ THE PAGE SITS IN THE APPLICATION SHELL, WITH ITS BREADCRUMB AND ITS BACK BUTTON, AND THE
+ * SHEET DOES NOT. The chrome is `invoice-no-print`; what reaches paper is the A4 sheet alone.
  */
+
+/** Where the operator came from, so `Back` returns there rather than guessing (prototype §P4). */
+export type InvoiceOrigin = 'list' | 'detail';
 export default function InvoicePage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  /*
+    ⚠ THE ORIGIN IS CARRIED BY THE NAVIGATION, NOT GUESSED FROM HISTORY. `navigate(-1)` would send
+    an operator who arrived by pasting a link somewhere outside the application entirely, and a
+    fixed destination would strand the one who came from the workspace.
+  */
+  const origin: InvoiceOrigin =
+    (location.state as { from?: InvoiceOrigin } | null)?.from === 'list' ? 'list' : 'detail';
+  const backTo = origin === 'list' ? '/sales/orders' : `/sales/orders/${id}`;
+  const backLabel = origin === 'list' ? 'Back to orders' : 'Back to order';
   const [invoice, setInvoice] = useState<InvoiceView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,8 +71,46 @@ export default function InvoicePage(): React.JSX.Element {
     void load();
   }, [load]);
 
+  const header = (title: string, number: string | null): React.JSX.Element => (
+    <PageHeader
+      title={title}
+      breadcrumb={
+        <>
+          <span>Sales &amp; Orders</span>
+          <span>/</span>
+          <Link to="/sales/orders" style={crumbLinkStyle}>Orders</Link>
+          <span>/</span>
+          <Link to={`/sales/orders/${id}`} style={crumbLinkStyle}>{number ?? 'Order'}</Link>
+          <span>/</span>
+          <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>Invoice</span>
+        </>
+      }
+      subtitle="Renders the invoice snapshot taken at issue · nothing on this page is recalculated"
+      actions={
+        <>
+          {/*
+            🔴 THE BACK BUTTON RETURNS WHERE THE OPERATOR CAME FROM, AND IT IS A ROUTE, NOT
+            `history.back()`. `RULE 3.11` — exactly one primary, and Print is it, rightmost.
+          */}
+          <Button variant="secondary" size="page-header" onClick={() => navigate(backTo)} testId="invoice-back">
+            {backLabel}
+          </Button>
+          <Button variant="primary" size="page-header" onClick={() => window.print()} testId="invoice-print">
+            <PrinterIcon />
+            Print
+          </Button>
+        </>
+      }
+    />
+  );
+
   if (loading) {
-    return <p style={messageStyle}>Loading the invoice…</p>;
+    return (
+      <>
+        {header('Sales invoice', null)}
+        <p style={messageStyle}>Loading the invoice…</p>
+      </>
+    );
   }
   if (error || !invoice) {
     /*
@@ -53,9 +118,12 @@ export default function InvoicePage(): React.JSX.Element {
       page says so rather than showing an empty document that looks like a rendering failure.
     */
     return (
-      <p style={messageStyle} data-testid="invoice-absent">
-        No invoice has been issued for this order yet.
-      </p>
+      <>
+        {header('Sales invoice', null)}
+        <p style={messageStyle} data-testid="invoice-absent">
+          No invoice has been issued for this order yet.
+        </p>
+      </>
     );
   }
 
@@ -68,13 +136,9 @@ export default function InvoicePage(): React.JSX.Element {
       */}
       <style>{PRINT_CSS}</style>
 
-      <div style={pageStyle}>
-        <div style={actionBarStyle} className="invoice-no-print">
-          <button type="button" style={printButtonStyle} onClick={() => window.print()}>
-            Print
-          </button>
-        </div>
+      <div className="invoice-no-print">{header(`Sales invoice ${invoice.invoiceNumber}`, invoice.invoiceNumber)}</div>
 
+      <div style={pageStyle}>
         <article style={sheetStyle} data-testid="invoice-sheet">
           {/* ── Header ─────────────────────────────────────────────── */}
           <div style={headerStyle}>
@@ -315,35 +379,32 @@ const PRINT_CSS = `
   body { background: #ffffff !important; }
   .invoice-no-print { display: none !important; }
   /* The shell is not part of the document. */
-  nav, aside, header.app-header { display: none !important; }
+  nav, aside, header.app-header, [data-testid="page-header"] { display: none !important; }
 }
 `;
 
+/*
+  ⚠ THE SHEET SITS ON THE APPLICATION BACKGROUND, NOT IN A GREY BOX OF ITS OWN. It previously
+  painted `#f0f0f0` behind itself, which put a second, slightly different grey inside the page's
+  own `--color-app-background` and read as a panel the document was trapped in.
+*/
 const pageStyle: React.CSSProperties = {
-  background: '#f0f0f0',
-  padding: '24px',
   display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '16px',
+  justifyContent: 'center',
 };
 
-const actionBarStyle: React.CSSProperties = {
-  width: '794px',
-  display: 'flex',
-  justifyContent: 'flex-end',
-};
+function PrinterIcon(): React.JSX.Element {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 9V4h12v5" /><rect x="4" y="9" width="16" height="7" rx="1.5" /><path d="M7 16h10v4H7z" />
+    </svg>
+  );
+}
 
-const printButtonStyle: React.CSSProperties = {
-  background: 'var(--color-ink)',
-  color: 'var(--color-surface)',
-  border: 'none',
-  borderRadius: '9px',
-  height: '36px',
-  padding: '0 16px',
-  fontSize: '13px',
-  fontWeight: 700,
-  cursor: 'pointer',
+const crumbLinkStyle: React.CSSProperties = {
+  color: 'var(--color-text-muted)',
+  textDecoration: 'underline',
 };
 
 /** A4 at 96dpi, which is what the approved design fixes. */

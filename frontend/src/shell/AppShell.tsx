@@ -68,10 +68,22 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  breadcrumb,
+  badge,
 }: {
   readonly title: string;
   readonly subtitle?: string;
   readonly actions?: React.ReactNode;
+  /**
+   * The trail above the title, on a surface reached FROM another one.
+   *
+   * <p>⚠ It is a slot rather than a `string[]`: a breadcrumb segment is a LINK on every
+   * surface that has one, and a component that took strings would either drop the links or
+   * invent a routing convention this shell does not own.
+   */
+  readonly breadcrumb?: React.ReactNode;
+  /** An inline state badge beside the title — `RULE 7.8.a` permits it in the title REGION. */
+  readonly badge?: React.ReactNode;
 }): React.JSX.Element {
   // UX-016.b - a surface may pass actions directly, or publish them from a nested route via
   // usePageActions. The header renders whichever exists; it never learns which module sent it.
@@ -92,18 +104,36 @@ export function PageHeader({
       }}
     >
       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-        <h1
-          style={{
-            fontSize: '25px',
-            lineHeight: '32px',
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: 'var(--color-heading-ink)',
-            margin: 0,
-          }}
-        >
-          {title}
-        </h1>
+        {breadcrumb && (
+          <div
+            data-testid="page-header-breadcrumb"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              fontSize: '12px',
+              color: 'var(--color-text-muted)',
+              marginBottom: '8px',
+            }}
+          >
+            {breadcrumb}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', minWidth: 0 }}>
+          <h1
+            style={{
+              fontSize: '25px',
+              lineHeight: '32px',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-heading-ink)',
+              margin: 0,
+            }}
+          >
+            {title}
+          </h1>
+          {badge}
+        </div>
         {subtitle && (
           <div style={{ fontSize: '13.5px', color: 'var(--color-text-muted)', marginTop: 'var(--space-2)' }}>
             {subtitle}

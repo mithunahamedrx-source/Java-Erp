@@ -85,6 +85,12 @@ export function buttonStyle(
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    /*
+      ⚠ `§3.8` — `6px` between an icon and the label it belongs to. `UX-045.f` fixes that an icon
+      never REPLACES a label, so a button that carries one always carries both, and this is the
+      gap between them. A label-only button has nothing to space and is unaffected.
+    */
+    gap: 'var(--space-2)',
     whiteSpace: 'nowrap',
     flexShrink: 0,
   };
@@ -490,11 +496,23 @@ export function Card({
  * `RULE 8.6.c` — the permanently-present ink-filled active segment is what identifies this
  * control and its state (17.33:1). Inactive segments deliberately carry no boundary, which
  * is why the container hairline needs no remediation.
+ *
+ * <p>⚠ TWO GEOMETRIES, ONE COMPONENT (`RULE 5.2` — reuse, never re-cut). The Order module
+ * prototype draws the CHANNEL and PERIOD filters as the seamless control this component has
+ * always rendered, and the STATUS tabs as a padded container of separated segments. They are
+ * the same control with the same active treatment, so the difference is a `variant` here
+ * rather than a second component copied beside this one.
+ *
+ * <p>🔴 NEITHER VARIANT WRAPS AND NEITHER SCROLLS (`UX-266`, `UX-265`). `flexWrap: nowrap` is
+ * declared on both containers and no `overflow-x` is offered on either.
  */
+export type SegmentedVariant = 'seamless' | 'tabs';
+
 export function SegmentedControl({
   options,
   value,
   onChange,
+  variant = 'seamless',
 }: {
   readonly options: readonly {
     readonly value: string;
@@ -517,15 +535,21 @@ export function SegmentedControl({
   }[];
   readonly value: string;
   readonly onChange: (value: string) => void;
+  /** `seamless` — the filter control. `tabs` — the padded status-tab container. */
+  readonly variant?: SegmentedVariant;
 }): React.JSX.Element {
+  const tabs = variant === 'tabs';
   return (
     <div
       role="tablist"
       style={{
         display: 'flex',
-        border: '1px solid var(--color-border-control)',
-        borderRadius: 'var(--radius-control)',
-        overflow: 'hidden',
+        flexWrap: 'nowrap',
+        border: tabs ? '1px solid var(--color-border-card)' : '1px solid var(--color-border-control)',
+        borderRadius: tabs ? 'var(--radius-card-small)' : 'var(--radius-control)',
+        overflow: tabs ? 'visible' : 'hidden',
+        padding: tabs ? 'var(--space-1)' : 0,
+        gap: tabs ? '3px' : 0,
         background: 'var(--color-surface)',
         width: 'fit-content',
         flexShrink: 0,
@@ -541,9 +565,14 @@ export function SegmentedControl({
             type="button"
             onClick={() => onChange(option.value)}
             style={{
-              padding: '6px 14px',
-              fontSize: '13px',
-              fontWeight: active ? 600 : 500,
+              padding: tabs ? '0 11px' : '6px 14px',
+              height: tabs ? '28px' : undefined,
+              display: tabs ? 'inline-flex' : undefined,
+              alignItems: tabs ? 'center' : undefined,
+              lineHeight: tabs ? 1 : undefined,
+              borderRadius: tabs ? 'var(--radius-control-small)' : 0,
+              fontSize: tabs ? '12px' : '13px',
+              fontWeight: tabs ? 600 : active ? 600 : 500,
               fontFamily: 'inherit',
               border: 'none',
               cursor: 'pointer',
@@ -566,9 +595,12 @@ export function SegmentedControl({
               */
               <sup
                 style={{
-                  marginLeft: '4px',
-                  fontSize: '10px',
+                  marginLeft: tabs ? '3px' : '4px',
+                  fontSize: tabs ? '9.5px' : '10px',
                   fontWeight: 700,
+                  lineHeight: tabs ? 1 : undefined,
+                  position: tabs ? 'relative' : undefined,
+                  top: tabs ? '-4px' : undefined,
                   fontVariantNumeric: 'tabular-nums',
                   color: active
                     ? 'var(--color-surface)'
@@ -578,6 +610,89 @@ export function SegmentedControl({
                 {option.count}
               </sup>
             )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- Detail tabs (§3.13.a) */
+
+/**
+ * The WHITE-RAISED detail tab strip — `RULE 3.13.a`.
+ *
+ * <p>🔴 A DIFFERENT CONTROL FROM {@link SegmentedControl}, NOT A VARIANT OF IT, AND THE
+ * DIFFERENCE IS THE ACTIVE TREATMENT. `RULE 3.13.a` fixes the detail tab as WHITE-RAISED on a
+ * tinted container and *never dark-filled*; the segmented control's identity is precisely its
+ * permanently-present ink fill (`RULE 8.6.c`). Collapsing them would destroy the one cue that
+ * tells an operator whether they are FILTERING a set or MOVING BETWEEN PANELS of one record.
+ *
+ * <p>⚠ RECORDED AS OWED: `ProductWorkspace.tsx` draws this same geometry inline over `Link`s,
+ * because its panels are routed and these are in-page. `RULE 5.2` wants one component; migrating
+ * the Products workspace is out of this task's scope and is reported rather than done quietly.
+ *
+ * <p>🔴 `UX-266` — the strip does not wrap, and no `overflow-x` escape is offered (`UX-265`).
+ */
+export function DetailTabs({
+  options,
+  value,
+  onChange,
+  testId = 'detail-tabs',
+}: {
+  readonly options: readonly string[];
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly testId?: string;
+}): React.JSX.Element {
+  return (
+    <div
+      role="tablist"
+      data-testid={testId}
+      style={{
+        display: 'inline-flex',
+        gap: 'var(--space-2)',
+        padding: '5px',
+        borderRadius: 'var(--radius-card)',
+        background: 'var(--color-tab-container)',
+        width: 'fit-content',
+        flexWrap: 'nowrap',
+      }}
+    >
+      {options.map((option) => {
+        const active = option === value;
+        return (
+          <button
+            key={option}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(option)}
+            data-testid={`detail-tab-${option}`}
+            /*
+              🔴 `RULE 3.21.d` — the selected surface fades in place. There is deliberately NO
+              sliding indicator: nothing travels across the control and no layout property moves.
+            */
+            className="state-transition"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: 'var(--control-height-button)',
+              padding: '0 var(--space-6)',
+              borderRadius: 'var(--radius-control)',
+              border: 'none',
+              fontFamily: 'inherit',
+              fontSize: '13.5px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              // RULE 3.13.a — white-raised active, never dark-filled.
+              background: active ? 'var(--color-surface)' : 'transparent',
+              boxShadow: active ? 'var(--elevation-active-tab)' : 'none',
+              color: active ? 'var(--color-ink)' : 'var(--color-text-muted)',
+            }}
+          >
+            {option}
           </button>
         );
       })}

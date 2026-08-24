@@ -235,6 +235,16 @@ export type MenuAction = {
   readonly disabled?: boolean;
   /** The one-line explanation shown under a dimmed item. */
   readonly reason?: string;
+  /**
+   * A standing one-line note under an OFFERED item, saying what choosing it does.
+   *
+   * <p>⚠ NOT {@link reason}, and the distinction matters. `reason` explains why an item is
+   * DIMMED and appears only when it is; this appears whether or not the item is offered, and
+   * describes the act itself. An operator choosing between `Send to Steadfast` and
+   * `Place hold` is choosing between consequences, and `UX-184` requires a consequence to be
+   * stated BEFORE the act rather than discovered after it.
+   */
+  readonly description?: string;
   /** The item the menu exists to offer, given the row's state. */
   readonly emphasis?: boolean;
   readonly testId?: string;
@@ -456,7 +466,9 @@ export function ActionMenu({
                 }}
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: action.description ? 'column' : 'row',
+                  alignItems: action.description ? 'flex-start' : 'center',
+                  gap: action.description ? '2px' : 0,
                   width: '100%',
                   padding: '8px 10px',
                   borderRadius: 'var(--radius-control-small)',
@@ -479,6 +491,19 @@ export function ActionMenu({
                 }}
               >
                 {action.label}
+                {action.description && (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      lineHeight: 1.45,
+                      textAlign: 'left',
+                      color: 'var(--color-text-demoted)',
+                    }}
+                  >
+                    {action.description}
+                  </span>
+                )}
               </button>
               {action.disabled && action.reason && (
                 <div style={{ padding: '0 10px 8px', fontSize: '10.5px', color: 'var(--color-placeholder)', lineHeight: 1.4 }}>

@@ -231,7 +231,9 @@ describe('Orders first slice', () => {
     renderAt('/sales/orders');
 
     const strip = await screen.findByTestId('order-summary-strip');
-    for (const label of ["Total orders", "Today's orders", "Today's dispatched", 'Total collectable']) {
+    // ⚠ The prototype captions each figure in caps beside its icon tile. The four FIGURES are
+    // what `OSC-053` ratifies; the casing is composition.
+    for (const label of ['TOTAL ORDERS', "TODAY'S ORDERS", "TODAY'S DISPATCHED", 'TOTAL COLLECTABLE']) {
       expect(screen.getByText(label)).not.toBeNull();
     }
 
@@ -352,21 +354,40 @@ describe('Orders first slice', () => {
     }
   });
 
-  it('renders More Actions without pretending it can act, and drops the invoice number', async () => {
+  it('offers navigation in More Actions and dims every item that would change the order', async () => {
     renderAt('/sales/orders');
 
     const card = await screen.findByTestId('order-card');
 
-    // ⚠ `OSC-056.f` — the owner ratified the control's PRESENCE; no action exists behind it yet,
-    // so it must not present itself as usable (`OSC-051.b`).
-    const more = screen.getByTestId('order-more-actions');
-    expect(more.getAttribute('aria-disabled')).toBe('true');
-    expect(more.getAttribute('title')).toContain('No order action is built yet');
+    // ⚠ `OSC-056.f` — the owner ratified the control's PRESENCE, and the prototype fills it. The
+    // trigger opens a real menu now rather than advertising a dead control.
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    const menu = await screen.findByTestId('order-actions-menu');
+
+    // ✅ NAVIGATION IS REAL — these reach surfaces this application holds.
+    for (const offered of ['Open order', 'Print invoice', 'View activity']) {
+      const item = within(menu).getByRole('menuitem', { name: new RegExp(offered) });
+      expect(item.hasAttribute('disabled')).toBe(false);
+    }
+
+    /*
+      🔴 EVERY MUTATING ITEM IS DIMMED WITH ITS PRECONDITION NAMED. `GAP-034` records no
+      permitted-action inventory, `PRM-025` requires per-record authority, and courier booking is
+      `ORDER_MODULE_ROADMAP.md` Phase 2 — NEXT, not built. The prototype's own version reports the
+      act as recorded; nothing is recorded, so nothing here says it was.
+    */
+    for (const refused of ['Send to Steadfast', 'Place hold', 'Amend order', 'Release to warehouse']) {
+      const item = within(menu).getByRole('menuitem', { name: new RegExp(refused) });
+      expect(item.hasAttribute('disabled')).toBe(true);
+    }
+
+    // 🔴 `BR-011` — `Cancel` is ABSENT after dispatch, not disabled. This order is pre-dispatch,
+    // so the item is present, and it is dimmed for the same reason as its siblings.
+    expect(within(menu).getByRole('menuitem', { name: /Cancel order/ }).hasAttribute('disabled')).toBe(true);
 
     // ⚠ `OSC-056.g` — the invoice element in the bottom strip is an ACTION, not a caption, and
     // the MARKETPLACE's invoice number is not printed beside it.
     expect(card.textContent).toContain('INVOICE');
-    expect(card.textContent).not.toContain('not issued');
     expect(card.textContent).not.toContain('INV-2026-0041');
   });
 
@@ -391,7 +412,7 @@ describe('Orders first slice', () => {
     expect(text.indexOf('Cash on Delivery')).toBeLessThan(text.indexOf('INV: TR0001'));
   });
 
-  it('selects an order without implying a bulk action exists', async () => {
+  it('opens the bulk region on selection and offers only what may act on a record', async () => {
     renderAt('/sales/orders');
 
     await screen.findByTestId('order-card');
@@ -402,14 +423,34 @@ describe('Orders first slice', () => {
     expect(box.checked).toBe(false);
     expect(box.getAttribute('aria-label')).toContain('Tanvir Enterprise');
 
+    // ⚠ THE REGION IS CLOSED UNTIL SOMETHING IS SELECTED, exactly as the prototype folds it.
+    expect(screen.queryByTestId('orders-bulk-region')).toBeNull();
+
     fireEvent.click(box);
     expect((screen.getByTestId('order-select') as HTMLInputElement).checked).toBe(true);
 
-    // 🔴 `PRM-025` / `SYS-073` / `GAP-034` — no permitted-bulk-transition inventory exists, so
-    // selecting must not summon a bulk bar. `OSC-051.b` forbids the control until it can act.
-    for (const forbidden of ['Change status', 'Print invoices', 'Export selected', 'Send to Steadfast']) {
-      expect(screen.queryByText(forbidden)).toBeNull();
+    const region = await screen.findByTestId('orders-bulk-region');
+
+    /*
+      ✅ TWO ACTIONS ACT ENTIRELY IN THIS BROWSER on records already fetched, so they need no
+      permitted-action inventory and are offered.
+    */
+    for (const offered of ['Export selected', 'Clear selection']) {
+      expect((within(region).getByRole('button', { name: offered }) as HTMLButtonElement).disabled).toBe(false);
     }
+
+    /*
+      🔴 EVERY ACTION THAT WOULD TOUCH A RECORD IS DIMMED. `PRM-025` requires each record
+      authorised on its own with per-record results (`SYS-073`), and `GAP-034` — carried as
+      `ORDER_MODULE_ROADMAP.md` open question 4, naming `Send to Steadfast` and `Print invoices`
+      by name — records that no inventory of permitted bulk transitions exists.
+    */
+    for (const refused of ['Send to Steadfast', 'Place hold', 'Cancel orders']) {
+      expect((within(region).getByRole('button', { name: refused }) as HTMLButtonElement).disabled).toBe(true);
+    }
+
+    // ⚠ The region states the per-record rule in words, not only by dimming.
+    expect(region.textContent).toContain('Each selected order is authorised on its own');
   });
 
   it('renders the three page-header actions with exactly one primary', async () => {
@@ -703,23 +744,83 @@ describe('Orders first slice', () => {
     );
   });
 
-  it('renders FRAME 02 detail with independent rail panels and stored snapshots', async () => {
+  it('renders FRAME 02 as eight lifecycle rows that are never merged into one status', async () => {
+    renderAt('/sales/orders/11111111-1111-1111-1111-111111111111');
+
+    // ✅ The Trioloo invoice number names the order, not the marketplace's `order_number` copy.
+    expect(await screen.findByRole('heading', { name: 'Order TR0001' })).not.toBeNull();
+
+    /*
+      🔴 `OSC-031` — ONE ROW PER LIFECYCLE, NEVER MERGED. A single merged status field is the
+      failure `OM §18.1` exists to prevent, and eight rows are the whole point of this page.
+    */
+    for (const machine of ['SM-1', 'SM-2', 'SM-3', 'SM-4', 'SM-5', 'SM-6', 'SM-7', 'SM-8']) {
+      expect(screen.getByText(machine)).not.toBeNull();
+    }
+    expect(screen.getByText('Eight independent state machines · never merged')).not.toBeNull();
+
+    /*
+      🔴 `BR-164` / `BR-166` — `Confirmed By` IS NEVER DERIVED, AND ITS ABSENCE IS THE FACT. It is
+      not filled from an assigned agent, an owner or the audit history.
+    */
+    expect(screen.getByText(/Not recorded — no confirmer is held/)).not.toBeNull();
+
+    /*
+      🔴 THE PROTOTYPE'S SAMPLE DATA IS NOT PRINTED. It shows a warehouse, a named picker, a pick
+      task and a courier scan; no such record exists, and `SYS-034` / `BR-134` require an absent
+      fact to say so in words rather than be invented to fill the shape.
+    */
+    for (const fabricated of ['Sabbir Rahman', 'Mirpur', 'PT-3391', 'SF-90233118']) {
+      expect(screen.queryByText(new RegExp(fabricated))).toBeNull();
+    }
+  });
+
+  it('moves between FRAME 03-09 as PANELS of one surface, never as separate routes', async () => {
     const { calls } = renderAt('/sales/orders/11111111-1111-1111-1111-111111111111');
 
-    expect(await screen.findByRole('heading', { name: 'Order TRL-2026-004176' })).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'Release to warehouse' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Overview' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Fulfilment' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Customer' })).not.toBeNull();
-    expect(screen.getByText(/House 42, Road 11, Banani, Dhaka/)).not.toBeNull();
-    expect(screen.getByRole('heading', { name: 'Items' })).not.toBeNull();
-    expect(screen.getByText('Dell OptiPlex 7010 SFF')).not.toBeNull();
-    expect(screen.getByRole('heading', { name: 'Status' })).not.toBeNull();
-    expect(screen.getByText('Verification')).not.toBeNull();
-    expect(screen.getByText('Not progressed in Trioloo')).not.toBeNull();
-    expect(screen.getByRole('heading', { name: 'Channel references' })).not.toBeNull();
-    expect(screen.getByText('External order ID')).not.toBeNull();
-    expect(screen.queryByText(/BLOCKED/)).toBeNull();
+    /*
+      🔴 `OSC-020.a` — `FRAME 03` THROUGH `FRAME 09` ARE PANELS OF THE `FRAME 02` SURFACE. Eight
+      tabs on one route, not eight routes.
+    */
+    const tabs = await screen.findByTestId('order-panels');
+    for (const panel of ['Overview', 'Items', 'Buyer', 'Payment', 'Fulfilment', 'Marketplace', 'Activity', 'Exceptions']) {
+      expect(within(tabs).getByRole('tab', { name: panel })).not.toBeNull();
+    }
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Items' }));
+    expect(await screen.findByText('Dell OptiPlex 7010 SFF')).not.toBeNull();
+    /*
+      🔴 `INV-32.4` / `BR-007` — an unknown cost renders UNKNOWN, never `0`, and an order whose
+      cost is unknown has a margin that is unknown. `INV-31.5` — a line with no Sellable Product
+      reference makes the order economically incomplete, which the panel states outright.
+    */
+    expect(screen.getByText(/Economically incomplete/)).not.toBeNull();
+    expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Buyer' }));
+    // 🔴 `INV-31.7` — the ORDER'S OWN SNAPSHOT, never a live customer lookup.
+    expect(await screen.findByText(/House 42, Road 11, Banani, Dhaka/)).not.toBeNull();
+    expect(screen.getByText(/not a live customer lookup/)).not.toBeNull();
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Exceptions' }));
+    // 🔴 `BR-151` — hold ageing, expiry and auto-release are PROHIBITED, not merely omitted.
+    expect(await screen.findByText(/No hold is placed on this order/)).not.toBeNull();
+
+    // 🔴 Nothing on this surface writes. It is a read-only slice over imported orders.
     expect(calls.filter((call) => call.method === 'POST' || call.method === 'PUT')).toHaveLength(0);
+  });
+
+  it('refuses the controls no ratified rule authorises, and says why in visible text', async () => {
+    renderAt('/sales/orders/11111111-1111-1111-1111-111111111111');
+
+    /*
+      🔴 DIMMED, NOT FAKED. No hold endpoint exists and `GAP-034` records no permitted-action
+      inventory. ⚠ The reason is VISIBLE text, never tooltip-only: a tooltip is unreachable by
+      keyboard and invisible on touch.
+    */
+    const hold = (await screen.findByTestId('order-place-hold')) as HTMLButtonElement;
+    expect(hold.disabled).toBe(true);
+    expect(hold.getAttribute('aria-describedby')).toBe('order-hold-reason');
+    expect(document.getElementById('order-hold-reason')?.textContent).toContain('no hold endpoint exists');
   });
 });

@@ -30,3 +30,11 @@ dev-local/
 *.iml
 .DS_Store
 Thumbs.db
+
+# --- Claude Design working cache (never committed) ---
+# A .dc.html bundle ships with an `uploads/` tree holding the assets and DOCUMENT COPIES the
+# design session was given. For the Order module prototype that is 13 MB — every architecture
+# document duplicated twice, plus pasted screenshots. The design itself is the .dc.html beside
+# it; the cache is a second, silently diverging register of documents docs/ already owns.
+docs/design-reference/*/uploads/
+docs/design-reference/*/.thumbnail

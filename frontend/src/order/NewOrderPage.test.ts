@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sumMinorUnits } from './NewOrderPage';
+import { splitName, sumMinorUnits } from './NewOrderPage';
 
 /**
  * The order total on the capture page.
@@ -35,5 +35,32 @@ describe('order total', () => {
   it('is zero when nothing has been entered', () => {
     // ⚠ A genuine 0.00, which is what an empty capture form legitimately totals.
     expect(sumMinorUnits([])).toBe('0.00');
+  });
+});
+
+/**
+ * One typed name into the two columns the order snapshot holds.
+ *
+ * ⚠ `channel_order` carries `customer_first_name` and `customer_last_name`; the prototype's
+ * capture form asks for ONE name. The split happens here rather than by asking an operator to
+ * parse their own customer, and `ManualOrderService.validate` refuses an order with neither.
+ */
+describe('customer name capture', () => {
+  it('keeps a multi-part name intact rather than discarding the middle', () => {
+    // ⚠ THE CASE THAT DECIDES THE RULE. A Bangladeshi name commonly has three parts, and a
+    // last-token split would drop `Ahmed` from `Mohammad Rifat Ahmed` entirely.
+    expect(splitName('Mohammad Rifat Ahmed')).toEqual({ first: 'Mohammad', last: 'Rifat Ahmed' });
+  });
+
+  it('puts a single name in the first column, where validation looks', () => {
+    expect(splitName('Rifat')).toEqual({ first: 'Rifat', last: '' });
+  });
+
+  it('normalises stray spacing rather than creating an empty part', () => {
+    expect(splitName('  Rifat   Hasan  ')).toEqual({ first: 'Rifat', last: 'Hasan' });
+  });
+
+  it('returns two empty parts for an empty field, so the server refuses rather than storing a blank name', () => {
+    expect(splitName('   ')).toEqual({ first: '', last: '' });
   });
 });

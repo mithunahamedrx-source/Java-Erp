@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ChannelOrderRow } from './orderApi';
+import { ActionMenu } from '../ui/Overlay';
+import type { MenuAction } from '../ui/Overlay';
 import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
   canonicalStatus,
@@ -14,32 +16,32 @@ import {
 /**
  * FRAME 01 — the Orders card.
  *
- * <p>🔴 BUILT FROM THE APPROVED `Order Card DS` DESIGN. Its composition, geometry and typography
- * are transcribed, not designed: the three-band card (identity header · line and economics ·
- * document strip), every size, weight, radius and gap.
+ * <p>🔴 BUILT FROM THE `Order Module` PROTOTYPE (`design-reference/Order module prototype/`).
+ * Its composition, geometry and typography are transcribed, not designed: the three-band card
+ * (identity header · line, centred economics and actions · document strip), every size, weight,
+ * radius and gap.
  *
- * <p>✅ EVERY COLOUR RESOLVED TO AN EXISTING CANONICAL TOKEN. The design was authored from the
+ * <p>✅ EVERY COLOUR RESOLVED TO AN EXISTING CANONICAL TOKEN. The prototype was authored from the
  * same token matrix, so `RULE 15.1`'s prohibition on eye-matched colours and hex substitutes cost
  * nothing to honour — each `oklch(…)` in the source is a token this file names instead
- * (`OSC-041`). ⚠ ONE exception is recorded at `RECEIVED_LABEL` below.
+ * (`OSC-041`). ⚠ TWO exceptions are recorded at `primaryLabelStyle` and `invoiceStyle` below.
  *
- * <p>🔴 WHERE THE DESIGN SHOWS A FIGURE THE SYSTEM DOES NOT HOLD, THE FIGURE IS NOT DRAWN. The
- * mock is populated with sample data; a mock's sample values are not evidence of a business fact
- * (`design-reference/README.md`). Cost, Charges, Received and Margin are all UNKNOWN for an
- * imported order, and `INV-32.4` / `BR-007` / `SYS-034` require unknown to render as unknown —
- * never as `৳0`. `E-032` records the exact defect this prevents: a line that showed `Margin ৳0`
- * when the margin was in fact unknown.
+ * <p>🔴 WHERE THE PROTOTYPE SHOWS A FIGURE THE SYSTEM DOES NOT HOLD, THE FIGURE IS NOT DRAWN.
+ * The prototype is populated with sample data, and the brief it was built from says so outright:
+ * *"Any number you invent is a VISUAL PATTERN, not a business fact. I will keep your composition
+ * and discard your figures"* (`ORDER_MODULE_PAGE_CONTRACT.md` §7.1). Cost, Charges, Received and
+ * Margin are all UNKNOWN for an imported order, and `INV-32.4` / `BR-007` / `SYS-034` require
+ * unknown to render as unknown — never as `৳0`. `E-032` records the exact defect this prevents.
  *
  * <p>🔴 THE `Not Released` CHIP IS NOT RENDERED. `BR-080` WITHDREW `NOT_RELEASED` outright — *"the
- * state is not to be implemented"* — so the design's second chip is a visual pattern to keep and a
- * business claim to discard. The slot carries the `SM-5` PAYMENT POSITION instead (`OSC-056.e`),
- * which is a real fact this order holds and the one an operator reads a card to find.
+ * state is not to be implemented"*. The slot carries the `SM-5` PAYMENT POSITION instead
+ * (`OSC-056.e`), which is a real fact this order holds and the one an operator reads a card to find.
  *
  * <p>🔴 THE AUTHORITY CHIP IS NOT ON THE CARD, BY THE OWNER'S DECISION (`OSC-056.d`). `UX-183`
  * requires the authority to be legible in business language and `BR-174`'s actor and timestamp to
  * be *"visible on inspection"* — INSPECTION, which is `FRAME 02`. `OrderDetailPage.tsx` carries it
- * in both its header badge and its fact list, so the fact is not lost, only moved off a list card
- * where every imported order reads the same.
+ * on both its Overview and its Marketplace panel, so the fact is not lost, only moved off a list
+ * card where every imported order reads the same.
  */
 export default function OrderCard({
   order,
@@ -50,6 +52,8 @@ export default function OrderCard({
   readonly selected: boolean;
   readonly onSelectedChange: (selected: boolean) => void;
 }): React.JSX.Element {
+  const navigate = useNavigate();
+
   /*
     🔴 TWO STATUSES, TWO OWNERS, NEVER MERGED (`BR-171`, `UX-182`, `OSC-036`). The header chip
     carries the canonical lifecycle reading; the marketplace's own word rides beside the shop name.
@@ -65,12 +69,6 @@ export default function OrderCard({
       {/* ── Band 1 — identity, time, origin, state ─────────────────────── */}
       <div className="operational-row" style={headerStyle}>
         {/*
-          ⚠ THE CHECKBOX SELECTS; IT DOES NOT PROMISE A BULK ACTION. `PRM-025` requires every
-          record to be authorised individually with per-record results (`SYS-073`), and `GAP-034`
-          records that NO permitted-bulk-transition inventory exists — so no bulk bar is drawn
-          and none is implied. Selection is a reading aid until the owner ratifies what may be
-          done to a set (`OSC-057.c`).
-
           🔴 The accessible name carries the CUSTOMER, not "row 3". A screen-reader user choosing
           between fourteen checkboxes named "Select order" has been told nothing.
         */}
@@ -85,180 +83,166 @@ export default function OrderCard({
         <span style={avatarStyle} aria-hidden="true">
           <PersonIcon />
         </span>
-        <Link to={`/sales/orders/${order.id}`} style={customerLinkStyle}>
-          {customerName(order)}
-        </Link>
-        {/* ⚠ An absent contact says so. It never renders as an empty gap. */}
-        <span className="tabular-nums" style={metaStyle}>
-          · {order.shippingPhone || 'Contact not recorded'}
-        </span>
-        <span style={{ ...metaStyle, color: 'var(--color-text-demoted)', marginLeft: 'var(--space-6)' }}>
-          {displayMoment(order.providerCreatedAt, true)}
-        </span>
+
         {/*
-          🔴 THE EXTERNAL CLUSTER — SHOP, THE MARKETPLACE'S OWN ORDER ID, THE MARKETPLACE'S OWN WORD.
+          🔴 THE IDENTITY RUN — CUSTOMER, CONTACT, TIME, THEN THE MARKETPLACE'S OWN CLUSTER.
           `BR-002` — channel type is never sufficient attribution, so the INSTANCE is named.
           `UX-185` requires an externally-authoritative fact to be VISIBLY EXTERNAL, and here that
           is carried by GROUPING rather than by a prefix word: the chip sits inside the marketplace's
           own identity, between the shop that reported it and the id that shop gave it.
           `UX-182` — the two statuses are never MERGED into one chip, and they are not: this one is
-          outlined and lower-case, the ERP's is filled and semantic, and they never touch.
+          outlined, the ERP's is filled and semantic, and they never touch.
         */}
-        <span style={{ ...metaStyle, marginLeft: 'var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          {order.channelName ?? 'Shop not recorded'} ·{' '}
-          <span style={monoStyle}>{order.externalOrderId}</span>
-          <span style={externalChipStyle} title="The marketplace's own status for this order, as it reported it (BR-171).">
+        <div style={identityRunStyle}>
+          <Link to={`/sales/orders/${order.id}`} style={customerLinkStyle}>
+            {customerName(order)}
+          </Link>
+          {/* ⚠ An absent contact says so. It never renders as an empty gap (`BR-134`). */}
+          <span className="tabular-nums" style={metaStyle}>
+            {order.shippingPhone || 'Contact not recorded'}
+          </span>
+          <span style={metaStyle}>{displayMoment(order.providerCreatedAt, true)}</span>
+          <span style={metaStyle}>{order.channelName ?? 'Shop not recorded'}</span>
+          <span style={externalIdStyle}>{order.externalOrderId}</span>
+          <span
+            style={externalChipStyle}
+            title="The marketplace's own status for this order, as it reported it (BR-171)."
+          >
             {reported}
           </span>
-        </span>
-
-        <div style={headerRightStyle}>
-          <span style={chipStyle(role)}>
-            {canonical ? canonicalStatusLabel(canonical) : 'Status not translated'}
-          </span>
-          {/*
-            🔴 NOT the design's `Not Released` chip — `BR-080` withdrew that state. This slot
-            carries the `SM-5` PAYMENT POSITION, derived only where `SM-5` itself makes the
-            derivation automatic. See `paymentPosition` for why nothing past `DUE` is ever claimed.
-          */}
-          <span style={chipStyle(paymentRole)} title={payment.title}>{payment.label}</span>
-          <Divider height={16} />
-          <span style={metaStyle}>{order.paymentMethod || 'Payment not recorded'}</span>
-          <Divider height={16} />
-          {/*
-            🔴 THE TRIOLOO INVOICE NUMBER — top right, after the payment-method divider, bold and
-            upper-case (`OSC-057.b`). `PRN-013` / `INV-39.1`: ONE sequence, never reused, and once
-            issued never regenerated, which `V19` enforces with a table trigger rather than trusting
-            the application.
-
-            ⚠ THE `order_number` COLUMN IS DELIBERATELY NOT SHOWN HERE. It holds a COPY of Daraz's
-            own id on all 158 production rows — `order_number = external_order_id` for every one —
-            so rendering it would print the marketplace's number twice and dress the second copy as
-            a Trioloo reference. This is the first Trioloo-issued human-facing number the order has
-            ever had (`PRN-014`).
-
-            ⚠ An unissued number says so rather than showing a blank (`BR-134`, `SYS-034`).
-          */}
-          <span style={invoiceNumberStyle} data-testid="order-invoice-number">
-            {order.triolooInvoiceNumber ? `INV: ${order.triolooInvoiceNumber}` : 'INVOICE NOT ISSUED'}
-          </span>
         </div>
+
+        <span style={chipStyle(role)}>
+          {canonical ? canonicalStatusLabel(canonical) : 'Status not translated'}
+        </span>
+        {/*
+          🔴 NOT the prototype's `Not Released` chip — `BR-080` withdrew that state. This slot
+          carries the `SM-5` PAYMENT POSITION, derived only where `SM-5` itself makes the
+          derivation automatic. See `paymentPosition` for why nothing past `DUE` is ever claimed.
+        */}
+        <span style={chipStyle(paymentRole)} title={payment.title}>{payment.label}</span>
+        <span style={{ ...metaStyle, flexShrink: 0 }}>{order.paymentMethod || 'Payment not recorded'}</span>
+        <Divider height={20} />
+        {/*
+          🔴 THE TRIOLOO INVOICE NUMBER — top right, after the payment-method divider, bold
+          (`OSC-057.b`). `PRN-013` / `INV-39.1`: ONE sequence, never reused, and once issued never
+          regenerated, which `V19` enforces with a table trigger rather than trusting the
+          application.
+
+          ⚠ THE `order_number` COLUMN IS DELIBERATELY NOT SHOWN HERE. It holds a COPY of Daraz's
+          own id on all 158 production rows, so rendering it would print the marketplace's number
+          twice and dress the second copy as a Trioloo reference (`PRN-014`).
+        */}
+        <span style={invoiceNumberStyle} data-testid="order-invoice-number">
+          {order.triolooInvoiceNumber ? `INV: ${order.triolooInvoiceNumber}` : 'INVOICE NOT ISSUED'}
+        </span>
       </div>
 
       {/* ── Band 2 — the line, its economics, its actions ───────────────── */}
       <div className="operational-row" style={bodyStyle}>
+        <span style={thumbnailStyle} aria-hidden="true" />
         <div style={lineBlockStyle}>
-          <span style={thumbnailStyle} aria-hidden="true" />
-          <div style={{ minWidth: 0 }}>
-            <div style={productNameStyle}>
-              {order.itemName || 'Item name not recorded'}{' '}
-              <span style={qtyStyle}>· {order.itemsCount ?? 0} item{order.itemsCount === 1 ? '' : 's'}</span>
-            </div>
-            {/*
-              🔴 EVERY EXTERNAL IDENTIFIER NAMES THE PARTY THAT ISSUED IT (`DB-013`, and
-              `OSC-030`'s required data says so outright — *external references with their issuing
-              party*). ⚠ THIS CARD PREVIOUSLY DID NOT, and once a courier exists the omission stops
-              being cosmetic: `Tracking` was Daraz's code, the shipment now carries STEADFAST's, and
-              two parties may legitimately issue the same string. An operator who cannot tell whose
-              number they are reading cannot tell who to ask about the parcel.
-
-              ⚠ `purchase_order_id` is what Daraz publishes; it is NOT relabelled "Parcel" because
-              `DZC-047.c` names a separate `package_id` this slice does not import (`UX-271.a`).
-            */}
-            <div style={subLineStyle}>
-              Daraz PO <span style={monoStyle}>{order.purchaseOrderId || 'not recorded'}</span>
-              {' · '}
-              Daraz tracking <span style={monoStyle}>{order.trackingCode || 'not recorded'}</span>
-            </div>
-            {/*
-              ✅ THE BOOKING, WHEN ONE EXISTS (product owner, 2026-08-24). 🔴 An order with no
-              consignment says so rather than rendering a blank: `BR-134` — absent is not empty, and
-              `FRAME 06` requires the shipment state or an explicit "not created".
-            */}
-            <div style={subLineStyle} data-testid="order-courier-line">
-              {order.courierConsignmentId ? (
-                <>
-                  Steadfast booking{' '}
-                  <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>
-                    {order.courierConsignmentId}
-                  </span>
-                  {order.courierTrackingCode ? (
-                    <>
-                      {' · '}Steadfast tracking{' '}
-                      <span style={monoStyle}>{order.courierTrackingCode}</span>
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                'Courier not booked'
-              )}
-            </div>
+          <div style={productNameStyle}>
+            {order.itemName || 'Item name not recorded'}{' '}
+            <span style={qtyStyle}>· {order.itemsCount ?? 0} item{order.itemsCount === 1 ? '' : 's'}</span>
           </div>
-        </div>
-
-        {/*
-          ⚠ THE FIVE ECONOMIC FIGURES ARE ONE BLOCK, AND KEEPING THEM SO IS THE POINT OF THIS
-          WRAPPER. `Received` and `Margin` previously sat against the action buttons because the
-          demoted group carried `margin: 0 auto` and pushed itself to the middle, splitting the
-          economics in two. 🔴 A figure adjacent to a button reads as that button's subject, and
-          `§3.15`'s hierarchy is DEMOTED-then-PRIMARY across one run — not two groups separated by
-          the width of the card.
-        */}
-        <div style={economicsStyle} data-testid="order-economics">
           {/*
-            🔴 THE DEMOTED FIGURES. Sale is real — it is what the marketplace reported. Cost and
-            Charges are NOT held for an imported order, and `INV-32.4` requires an unknown cost to
-            render UNKNOWN rather than zero. The design's `৳0` is sample data, not a fact.
-          */}
-          <div style={demotedGroupStyle}>
-            <Demoted label="Sale" value={displayMoney(order.price)} />
-            <Demoted label="Cost" value="Unknown" />
-            <Demoted label="Charges" value="Unknown" />
-          </div>
+            🔴 EVERY EXTERNAL IDENTIFIER NAMES THE PARTY THAT ISSUED IT (`DB-013`, and `OSC-030`'s
+            required data says so outright — *external references with their issuing party*). Once
+            a courier exists the omission stops being cosmetic: `Tracking` was Daraz's code, the
+            shipment now carries STEADFAST's, and two parties may legitimately issue the same
+            string. An operator who cannot tell whose number they are reading cannot tell who to
+            ask about the parcel.
 
-        {/*
-          🔴 RECEIVED AND MARGIN ARE UNKNOWN, AND THAT IS THE POINT OF THIS CARD.
-          `BR-033` — the obligation follows DELIVERED goods; no receipt, remittance or settlement
-          record exists in this slice, so nothing has been received.
-          `BR-007` — an order whose cost is unknown has a margin that is UNKNOWN, not zero, and
-          `SYS-034` forbids summing unknowns as zeros. The design's green figure equals its Sale
-          figure, which is precisely the misreading `E-032` recorded from live experience.
-        */}
-          <div style={primaryGroupStyle}>
-            <Primary label="Received" value="Unknown" />
-            <Primary label="Margin" value="Unknown" />
+            ⚠ `purchase_order_id` is what Daraz publishes; it is NOT relabelled "Parcel" because
+            `DZC-047.c` names a separate `package_id` this slice does not import (`UX-271.a`).
+          */}
+          <div style={subLineStyle}>
+            Daraz PO <span style={monoStyle}>{order.purchaseOrderId || 'not recorded'}</span>
+            {' · '}
+            Daraz tracking <span style={monoStyle}>{order.trackingCode || 'not recorded'}</span>
+          </div>
+          {/*
+            ✅ THE BOOKING, WHEN ONE EXISTS (product owner, 2026-08-24). 🔴 An order with no
+            consignment says so rather than rendering a blank: `BR-134` — absent is not empty, and
+            `FRAME 06` requires the shipment state or an explicit "not created".
+          */}
+          <div style={subLineStyle} data-testid="order-courier-line">
+            {order.courierConsignmentId ? (
+              <>
+                Steadfast booking{' '}
+                <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>
+                  {order.courierConsignmentId}
+                </span>
+                {order.courierTrackingCode ? (
+                  <>
+                    {' · '}Steadfast tracking <span style={monoStyle}>{order.courierTrackingCode}</span>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              'Courier not booked'
+            )}
           </div>
         </div>
 
         {/*
-          🔴 THE ECONOMICS AND THE ACTIONS ARE SEPARATED BY A RULE, NOT BY A GAP. `Margin` is the
-          figure an operator's eye lands on last, and a button pressed against it reads as that
-          button acting ON it. The divider states the boundary the spacing alone only implied.
+          ⚠ THE FIVE ECONOMIC FIGURES ARE ONE BLOCK, CENTRED IN THE SPACE THE LINE AND THE ACTIONS
+          LEAVE. 🔴 A figure adjacent to a button reads as that button's subject, and `§3.15`'s
+          hierarchy is DEMOTED-then-PRIMARY across ONE run — not two groups separated by the width
+          of the card. The centring is done by a `flex: 1` carrier rather than by an auto margin on
+          half the figures, which is what previously split the run in two.
         */}
-        <Divider height={30} />
+        <div style={economicsCarrierStyle}>
+          <div style={economicsStyle} data-testid="order-economics">
+            {/*
+              🔴 THE DEMOTED FIGURES. Sale is real — it is what the marketplace reported. Cost and
+              Charges are NOT held for an imported order, and `INV-32.4` requires an unknown cost to
+              render UNKNOWN rather than zero. The prototype's figures are sample data, not facts.
+            */}
+            <div style={demotedGroupStyle}>
+              <Demoted label="Sale" value={displayMoney(order.price)} />
+              <Demoted label="Cost" value="Unknown" />
+              <Demoted label="Charges" value="Unknown" />
+            </div>
+
+            {/*
+              🔴 RECEIVED AND MARGIN ARE UNKNOWN, AND THAT IS THE POINT OF THIS CARD.
+              `BR-033` — the obligation follows DELIVERED goods; no receipt, remittance or settlement
+              record exists in this slice, so nothing has been received.
+              `BR-007` — an order whose cost is unknown has a margin that is UNKNOWN, not zero, and
+              `SYS-034` forbids summing unknowns as zeros.
+            */}
+            <div style={primaryGroupStyle}>
+              <Primary label="Received" value="Unknown" />
+              <Primary label="Margin" value="Unknown" />
+            </div>
+          </div>
+        </div>
 
         <div style={actionsStyle}>
           <Link to={`/sales/orders/${order.id}`} style={buttonStyle}>
             View
           </Link>
           {/*
-            ⚠ `More Actions` IS RENDERED BY THE OWNER'S DECISION (`OSC-056.f`), AND IT CARRIES NO
-            ACTIONS YET. `OSC-051.b` withholds a future write control until the owner ratifies the
-            missing rule AND the slice can show a real permitted action; the first condition is met
-            and the SECOND IS NOT. 🔴 So it does not pretend: it is marked `aria-disabled`, it is not
-            a menu that opens on nothing, and its title says plainly that the actions are not built.
-            An operator who clicks it learns the truth rather than meeting silence.
+            ⚠ `More Actions` CARRIES THE PROTOTYPE'S ITEM LIST, AND THE ITEMS THAT WOULD CHANGE THE
+            ORDER ARE OFFERED DIMMED WITH THEIR REASON. `OSC-056.f` requires the control; `PRM-025`
+            requires each record authorised individually; `GAP-034` records that NO permitted-action
+            inventory exists yet; and the Steadfast booking itself is `ORDER_MODULE_ROADMAP.md`
+            Phase 2 — NEXT, not built.
+
+            🔴 THE MENU DOES NOT PRETEND. The prototype's mutating items post a message saying the
+            act was recorded; nothing here is recorded, so nothing here says it was. A dimmed item
+            with its precondition named is the presentation `ActionMenu` already fixes for exactly
+            this case, and it keeps the composition the prototype drew.
           */}
-          <button
-            type="button"
-            style={moreActionsStyle}
-            aria-disabled="true"
-            data-testid="order-more-actions"
-            title="No order action is built yet. Amend, release, hold, cancel and push are each either outside this read-only slice or blocked in OSC-050."
-          >
-            More Actions
-            <ChevronIcon />
-          </button>
+          <ActionMenu
+            label="More Actions"
+            menuWidth="264px"
+            testId="order-actions-menu"
+            triggerTestId="order-more-actions"
+            actions={moreActions(order, canonical, navigate)}
+          />
         </div>
       </div>
 
@@ -266,33 +250,148 @@ export default function OrderCard({
       <div className="operational-row" style={stripStyle}>
         {/*
           ⚠ THE INVOICE NUMBER IS NOT PRINTED HERE. The owner's decision (`OSC-056.g`) is that this
-          element becomes the PRINTABLE INVOICE action, and an action does not caption itself with
-          the identifier of the document it would produce. 🔴 The number is not lost — `FRAME 02`
-          carries it as a fact of the order, which is where an identifier belongs.
+          element is the PRINTABLE INVOICE action, and an action does not caption itself with the
+          identifier of the document it would produce. 🔴 The number is not lost — it is on band 1
+          as a fact of the order, which is where an identifier belongs.
         */}
-        <span style={invoiceStyle}>
+        <Link to={`/sales/orders/${order.id}/invoice`} state={{ from: 'list' }} style={invoiceStyle} data-testid="order-invoice-action">
           <DownloadIcon />
           INVOICE
-        </span>
-        <Divider height={14} />
+        </Link>
         <span style={addressStyle}>
           <PinIcon />
           {order.shippingLine || 'Delivery address not recorded'}
         </span>
-        <span style={noteStyle}>
-          Note:{' '}
-          <span style={noteValueStyle}>{order.buyerNote || 'none'}</span>
-        </span>
+        <div style={noteCarrierStyle}>
+          <Divider height={14} />
+          <span style={noteStyle}>
+            Note: <span style={noteValueStyle}>{order.buyerNote || 'none'}</span>
+          </span>
+        </div>
       </div>
     </article>
   );
 }
 
+/* ----------------------------------------------------------------- actions */
+
+/**
+ * The row menu, item for item as the prototype draws it.
+ *
+ * <p>🔴 NAVIGATION IS REAL; MUTATION IS DIMMED. `Open order`, `Print invoice`, `View activity`
+ * and `Open shipment` all reach surfaces this application holds, so they are offered. Every item
+ * that would CHANGE the order is dimmed with the precondition that is not met, because none of
+ * them has a ratified permitted-action inventory (`GAP-034`), a transition endpoint, or — for the
+ * courier booking — a built provider path (`ORDER_MODULE_ROADMAP.md` Phase 2).
+ *
+ * <p>⚠ THE ITEMS STILL DEPEND ON THE ORDER'S STATE, exactly as the prototype's do. `Amend`,
+ * `Release to warehouse` and `Cancel order` appear ONLY pre-dispatch — `BR-011` makes `Cancel`
+ * ABSENT rather than disabled after dispatch, which is a different thing from the dimming above
+ * and is honoured by omitting the item entirely.
+ */
+function moreActions(
+  order: ChannelOrderRow,
+  canonical: string | null,
+  navigate: ReturnType<typeof useNavigate>,
+): readonly MenuAction[] {
+  const preDispatch = PRE_DISPATCH.has(canonical ?? '');
+  const booked = Boolean(order.courierConsignmentId);
+  const items: MenuAction[] = [
+    {
+      label: 'Open order',
+      description: 'The full record and its eight lifecycles',
+      onSelect: () => navigate(`/sales/orders/${order.id}`),
+    },
+    {
+      label: 'Print invoice',
+      description: `Opens the invoice snapshot for ${order.triolooInvoiceNumber ?? 'this order'}`,
+      onSelect: () => navigate(`/sales/orders/${order.id}/invoice`, { state: { from: 'list' } }),
+    },
+    {
+      label: 'View activity',
+      description: 'From-state, to-state, actor and reason',
+      onSelect: () => navigate(`/sales/orders/${order.id}?panel=Activity`),
+    },
+  ];
+  if (booked) {
+    items.push({
+      label: 'Open shipment',
+      description: 'Courier record and tracking events',
+      onSelect: () => navigate(`/sales/orders/${order.id}?panel=Fulfilment`),
+    });
+  }
+
+  if (preDispatch) {
+    items.push({
+      label: 'Amend order',
+      description: 'Permitted before dispatch only',
+      separatorBefore: true,
+      disabled: true,
+      reason: 'No amendment endpoint exists. OM §7.9 permits it pre-dispatch; nothing implements it yet.',
+      onSelect: () => undefined,
+    });
+    items.push({
+      label: 'Release to warehouse',
+      description: 'Manual and permissioned',
+      disabled: true,
+      reason: 'BR-081 makes release a manual permissioned act. No transition endpoint is built.',
+      onSelect: () => undefined,
+    });
+  }
+
+  items.push({
+    label: 'Send to Steadfast',
+    description: booked
+      ? `Already booked as ${order.courierConsignmentId} · resending is refused`
+      : 'Books the courier for this order · Steadfast is the only courier and is assigned for you',
+    separatorBefore: !preDispatch,
+    disabled: true,
+    reason: booked
+      ? 'BR-023 allows one active shipment per order, so a second booking is refused.'
+      : 'Courier booking is ORDER_MODULE_ROADMAP Phase 2 and is not built. A booking is real, costs money and dispatches a rider.',
+    onSelect: () => undefined,
+  });
+  items.push({
+    label: 'Place hold',
+    description: 'Names you as the actor; holds never expire on their own',
+    disabled: true,
+    reason: 'No hold endpoint exists. BR-151 prohibits hold ageing, expiry and auto-release.',
+    onSelect: () => undefined,
+  });
+
+  /*
+    🔴 `BR-011` — `Cancel` IS ABSENT AFTER DISPATCH, NOT DISABLED. A dimmed item still advertises
+    an operation; the rule is that the operation does not exist on a dispatched order.
+  */
+  if (preDispatch) {
+    items.push({
+      label: 'Cancel order',
+      description: 'Pre-dispatch only',
+      separatorBefore: true,
+      destructive: true,
+      disabled: true,
+      reason: 'No cancellation endpoint exists. PRM-025 requires per-record authority before one is offered.',
+      onSelect: () => undefined,
+    });
+  }
+  return items;
+}
+
+/** The `SM-1` states `BR-011` treats as pre-dispatch. */
+const PRE_DISPATCH: ReadonlySet<string> = new Set([
+  'PENDING_VERIFICATION',
+  'CONFIRMED',
+  'RELEASED',
+  'IN_FULFILLMENT',
+  'READY_TO_SHIP',
+  'COURIER_BOOKED',
+]);
+
 /* ------------------------------------------------------------------ pieces */
 
 function Demoted({ label, value }: { readonly label: string; readonly value: string }): React.JSX.Element {
   return (
-    <div style={{ paddingRight: 'var(--space-2)' }}>
+    <div>
       <div style={demotedLabelStyle}>{label}</div>
       <div className="tabular-nums" style={demotedValueStyle}>
         {value}
@@ -306,9 +405,10 @@ function Primary({ label, value }: { readonly label: string; readonly value: str
     <div>
       <div style={primaryLabelStyle}>{label}</div>
       {/*
-        ⚠ The design paints Margin with the positive token. It is deliberately NOT painted here:
-        `--color-positive` states a gain, and an UNKNOWN margin has not been shown to be one
-        (`RULE 3.14.a.a` — a value takes the role its meaning deserves, never the one it resembles).
+        ⚠ The prototype paints a KNOWN margin with the positive token and an unknown one muted. Here
+        the margin is always unknown, so it is never painted: `--color-positive` states a gain, and
+        an UNKNOWN margin has not been shown to be one (`RULE 3.14.a.a` — a value takes the role its
+        meaning deserves, never the one it resembles).
       */}
       <div className="tabular-nums" style={primaryValueStyle}>
         {value}
@@ -318,55 +418,56 @@ function Primary({ label, value }: { readonly label: string; readonly value: str
 }
 
 function Divider({ height }: { readonly height: number }): React.JSX.Element {
-  return <span aria-hidden="true" style={{ width: '1px', height: `${height}px`, background: 'var(--color-divider-vertical)' }} />;
+  return (
+    <span
+      aria-hidden="true"
+      style={{ width: '1px', height: `${height}px`, background: 'var(--color-divider-vertical)', flexShrink: 0 }}
+    />
+  );
 }
 
 function PersonIcon(): React.JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon-stroke-nav)"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+         strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="9" r="3.2" />
+      <path d="M5.5 20c1.4-2.7 3.8-4 6.5-4s5.1 1.3 6.5 4" />
     </svg>
   );
 }
 
 function DownloadIcon(): React.JSX.Element {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon-stroke-header)"
-         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" />
-    </svg>
-  );
-}
-
-function ChevronIcon(): React.JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 9l6 6 6-6" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+      <path d="M12 4v10" />
+      <path d="M8 11l4 4 4-4" />
+      <path d="M5 19h14" />
     </svg>
   );
 }
 
 function PinIcon(): React.JSX.Element {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon-stroke-nav)"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-         style={{ flexShrink: 0 }}>
-      <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
-      <circle cx="12" cy="10" r="2.5" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon-stroke-nav)"
+         strokeWidth="1.5" strokeLinecap="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.4" />
     </svg>
   );
 }
 
 /* ------------------------------------------------------------------ styles */
 
+/*
+  ⚠ NO `overflow: hidden`, AND THAT IS DELIBERATE. The band-2 row menu is anchored inside this
+  card; a clipping card would cut the menu off at the card's own edge. The three bands already
+  carry the corner radii they need.
+*/
 const cardStyle: React.CSSProperties = {
   background: 'var(--color-surface)',
   border: '1px solid var(--color-border-card)',
   borderRadius: 'var(--radius-panel)',
-  overflow: 'hidden',
   boxShadow: 'var(--elevation-card)',
 };
 
@@ -384,6 +485,20 @@ const headerStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
+/*
+  ⚠ SIZED IN `px` AND NOT TOKENISED, DELIBERATELY. `DESIGN_CONSTITUTION.md` carries no control-size
+  token for a checkbox and `UX-260` forbids inventing a component specification. `accentColor`
+  paints the native control with the canonical ink rather than the browser's blue.
+*/
+const checkboxStyle: React.CSSProperties = {
+  width: '16px',
+  height: '16px',
+  margin: 0,
+  accentColor: 'var(--color-ink)',
+  cursor: 'pointer',
+  flexShrink: 0,
+};
+
 const avatarStyle: React.CSSProperties = {
   width: '28px',
   height: '28px',
@@ -395,10 +510,23 @@ const avatarStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
+/*
+  The identity run takes the slack, so the state cluster to its right stays pinned and every card
+  in the list aligns on it regardless of how long a customer name or a shop name runs.
+*/
+const identityRunStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-2)',
+  minWidth: 0,
+  overflow: 'hidden',
+  flex: 1,
+};
+
 const customerLinkStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: '14px',
-  color: 'var(--color-link)',
+  color: 'var(--color-text-primary)',
   textDecoration: 'none',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -406,34 +534,36 @@ const customerLinkStyle: React.CSSProperties = {
 };
 
 const metaStyle: React.CSSProperties = {
-  color: 'var(--color-text-secondary)',
-  fontSize: '12px',
+  color: 'var(--color-text-muted)',
+  fontSize: '12.5px',
   fontWeight: 500,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
 
-const monoStyle: React.CSSProperties = {
-  fontFamily: 'ui-monospace, monospace',
-  fontSize: '11.5px',
+const externalIdStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-family-mono)',
+  fontSize: '13px',
+  color: 'var(--color-text-primary)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 };
 
-const headerRightStyle: React.CSSProperties = {
-  marginLeft: 'auto',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-5)',
-  flexShrink: 0,
+const monoStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-family-mono)',
+  fontSize: '11.5px',
 };
 
 function chipStyle(tone: string): React.CSSProperties {
   return {
+    display: 'inline-flex',
     background: `var(--color-semantic-${tone}-bg)`,
     color: `var(--color-semantic-${tone}-fg)`,
     fontSize: '12px',
     fontWeight: 600,
-    padding: '4px var(--space-3)',
+    padding: '3px var(--space-3)',
     borderRadius: '999px',
     whiteSpace: 'nowrap',
     flexShrink: 0,
@@ -451,13 +581,14 @@ function chipStyle(tone: string): React.CSSProperties {
   which has already produced the canonical chip beside it.
 */
 const externalChipStyle: React.CSSProperties = {
+  display: 'inline-flex',
   border: '1px solid var(--color-border-card)',
-  background: 'transparent',
-  color: 'var(--color-text-muted)',
-  fontSize: '11px',
+  background: 'var(--color-surface)',
+  color: 'var(--color-status-neutral-fg)',
+  fontSize: '12px',
   fontWeight: 600,
-  padding: '2px var(--space-2)',
-  borderRadius: 'var(--radius-control)',
+  padding: '3px var(--space-3)',
+  borderRadius: '999px',
   whiteSpace: 'nowrap',
   flexShrink: 0,
 };
@@ -469,30 +600,13 @@ const externalChipStyle: React.CSSProperties = {
 */
 const invoiceNumberStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
-  fontFamily: 'ui-monospace, monospace',
+  fontFamily: 'var(--font-family-mono)',
   fontSize: '13px',
   fontWeight: 700,
-  letterSpacing: '0.03em',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
   flexShrink: 0,
 };
-
-/*
-  ⚠ SIZED IN `px` AND NOT TOKENISED, DELIBERATELY. `DESIGN_CONSTITUTION.md` carries no control-size
-  token for a checkbox and `UX-260` forbids inventing a component specification; 15px matches the
-  28px avatar's optical weight beside it. `accentColor` paints the native control with the canonical
-  ink rather than the browser's blue, which is the one part `RULE 15.1` does reach.
-*/
-const checkboxStyle: React.CSSProperties = {
-  width: '15px',
-  height: '15px',
-  margin: 0,
-  accentColor: 'var(--color-ink)',
-  cursor: 'pointer',
-  flexShrink: 0,
-};
-
 
 const bodyStyle: React.CSSProperties = {
   display: 'flex',
@@ -502,26 +616,21 @@ const bodyStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
-const lineBlockStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-4)',
-  width: '400px',
-  flexShrink: 1,
-  minWidth: 0,
-};
-
 const thumbnailStyle: React.CSSProperties = {
   width: '38px',
   height: '38px',
   borderRadius: 'var(--radius-control)',
   background: 'var(--color-divider-light)',
-  border: '1px solid var(--color-border-card)',
   flexShrink: 0,
 };
 
+const lineBlockStyle: React.CSSProperties = {
+  minWidth: '200px',
+  maxWidth: '320px',
+};
+
 const productNameStyle: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: '13.5px',
   fontWeight: 600,
   color: 'var(--color-text-primary)',
   overflow: 'hidden',
@@ -530,104 +639,100 @@ const productNameStyle: React.CSSProperties = {
 };
 
 const qtyStyle: React.CSSProperties = {
-  fontSize: '11.5px',
-  fontWeight: 500,
-  color: 'var(--color-text-demoted)',
+  fontSize: '13.5px',
+  fontWeight: 400,
+  color: 'var(--color-text-muted)',
   whiteSpace: 'nowrap',
 };
 
 const subLineStyle: React.CSSProperties = {
-  fontSize: '10px',
+  fontSize: '11.5px',
   fontWeight: 500,
   color: 'var(--color-text-demoted)',
-  marginTop: '3px',
+  marginTop: '2px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
 
 /*
-  ⚠ THE AUTO MARGIN LIVES HERE, ON THE WHOLE ECONOMIC RUN, AND NOT ON HALF OF IT. Putting it on
-  the demoted group centred that group alone and left `Received`/`Margin` pinned against the
-  action buttons — which is what the product owner reported, 2026-08-24.
+  ⚠ THE CARRIER TAKES THE SLACK; THE RUN ITSELF STAYS INTACT. Centring by `justifyContent` on a
+  `flex: 1` carrier keeps the five figures as ONE block — the earlier defect was an auto margin on
+  half of them, which pushed `Received`/`Margin` against the buttons and split the run in two.
 */
+const economicsCarrierStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  justifyContent: 'center',
+  minWidth: 0,
+};
+
 const economicsStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
-  /*
-    ⚠ `0 auto`, NOT `marginLeft: auto` — the product owner's decision, 2026-08-24. Equal margins
-    both sides CENTRE the run in the space between the line block and the actions, instead of
-    pushing it right until it meets the buttons.
-
-    🔴 IT IS STILL ONE BLOCK. The earlier defect was a margin on HALF the figures; this moves the
-    margin, not the grouping, so the five stay together (`order-economics` pins it).
-  */
-  margin: '0 auto',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
   flexShrink: 0,
   minWidth: 'max-content',
 };
 
 const demotedGroupStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
-  gap: 'var(--space-2)',
-  flexShrink: 0,
-  minWidth: 'max-content',
+  gap: 'var(--space-3)',
   paddingRight: 'var(--space-4)',
   borderRight: '1px solid var(--color-border-card)',
+  flexShrink: 0,
+  minWidth: 'max-content',
 };
 
-/*
-  ⚠ THE WHOLE RUN IS SMALLER THAN THE APPROVED DESIGN, ON THE OWNER'S INSTRUCTION 2026-08-24.
-  🔴 THE HIERARCHY IS PRESERVED, WHICH IS WHAT THE DESIGN ACTUALLY FIXES: the primary pair still
-  reads larger and darker than the demoted three, and `RULE 3.15`'s demoted-then-primary order is
-  untouched. ⚠ Scaling both tiers by the same step keeps the RATIO the design chose; shrinking only
-  one would flatten the hierarchy into decoration.
-*/
 const demotedLabelStyle: React.CSSProperties = {
-  fontSize: '9px',
+  fontSize: '10px',
   fontWeight: 500,
   color: 'var(--color-text-demoted)',
 };
 
 const demotedValueStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   fontWeight: 600,
   color: 'var(--color-text-muted)',
 };
 
 const primaryGroupStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
-  gap: 'var(--space-5)',
+  gap: 'var(--space-8)',
+  paddingLeft: '2px',
   flexShrink: 0,
-  paddingLeft: 'var(--space-3)',
 };
 
 /*
-  ⚠ THE ONE PLACE THE DESIGN CARRIES A VALUE NO TOKEN HOLDS. Its Received/Margin labels are
+  ⚠ THE ONE PLACE THE PROTOTYPE CARRIES A VALUE NO TOKEN HOLDS. Its Received/Margin labels are
   `oklch(0.55 0.015 290)`; the nearest ratified token is `--color-text-muted` at `oklch(0.5 …)`.
   `RULE 15.1` forbids hard-coding the substitute, so the TOKEN is used and the one-step difference
   is recorded here rather than smuggled in as a literal.
 */
 const primaryLabelStyle: React.CSSProperties = {
-  fontSize: '10px',
+  fontSize: '11.5px',
   fontWeight: 500,
   color: 'var(--color-text-muted)',
 };
 
 const primaryValueStyle: React.CSSProperties = {
-  fontSize: '13px',
+  fontSize: '15px',
   fontWeight: 700,
   color: 'var(--color-text-primary)',
 };
 
+/*
+  ⚠ THE `36px` RIGHT MARGIN IS THE PROTOTYPE'S, AND IT IS NOT A SPACING TOKEN. It reserves the
+  gutter the anchored row menu opens into, so the menu does not sit flush against the card edge.
+  `RULE 15.1` governs COLOUR; a layout offset the prototype fixes is transcribed as it stands.
+*/
 const actionsStyle: React.CSSProperties = {
   display: 'flex',
-  gap: 'var(--space-2)',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
   flexShrink: 0,
   whiteSpace: 'nowrap',
-  marginLeft: 'var(--space-7)',
+  marginRight: '36px',
 };
 
 const buttonStyle: React.CSSProperties = {
@@ -637,25 +742,13 @@ const buttonStyle: React.CSSProperties = {
   font: 'inherit',
   fontSize: '13px',
   fontWeight: 600,
-  height: '32px',
+  height: 'var(--control-height-row-action)',
   padding: '0 var(--space-5)',
   borderRadius: 'var(--radius-control)',
   display: 'inline-flex',
   alignItems: 'center',
   textDecoration: 'none',
   cursor: 'pointer',
-};
-
-/*
-  ⚠ IT LOOKS LIKE ITS SIBLING AND IS DIMMED, WHICH IS THE HONEST COMBINATION. Matching `buttonStyle`
-  keeps the design's pairing; the muted ink and `not-allowed` cursor keep the promise small until a
-  real action exists to put behind it (`OSC-056.f`).
-*/
-const moreActionsStyle: React.CSSProperties = {
-  ...buttonStyle,
-  color: 'var(--color-text-muted)',
-  cursor: 'not-allowed',
-  gap: 'var(--space-2)',
 };
 
 const stripStyle: React.CSSProperties = {
@@ -665,24 +758,33 @@ const stripStyle: React.CSSProperties = {
   padding: '7px var(--space-6)',
   borderTop: '1px solid var(--color-divider-light)',
   background: 'var(--color-strip)',
+  borderRadius: '0 0 var(--radius-panel) var(--radius-panel)',
   minWidth: 0,
 };
 
+/*
+  ⚠ THE SECOND RECORDED TOKEN SUBSTITUTION. The prototype's INVOICE action is
+  `oklch(0.42 0.14 250)`, which is exactly `--color-status-dispatched-fg`. No ACTION token holds
+  that value — `--color-link` is ink and `--color-link-hover` is violet — so the token whose value
+  matches is named rather than the literal being hard-coded (`RULE 15.1`). ⚠ Recorded as owed: the
+  token's NAME says status and its use here is an action.
+*/
 const invoiceStyle: React.CSSProperties = {
   fontSize: '10.5px',
   fontWeight: 700,
   letterSpacing: '0.04em',
-  color: 'var(--color-ink)',
-  display: 'flex',
+  color: 'var(--color-status-dispatched-fg)',
+  display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
   flexShrink: 0,
+  textDecoration: 'none',
 };
 
 const addressStyle: React.CSSProperties = {
-  fontSize: '11.5px',
+  fontSize: '12px',
   fontWeight: 500,
-  color: 'var(--color-text-secondary)',
+  color: 'var(--color-text-muted)',
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
@@ -692,21 +794,24 @@ const addressStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const noteStyle: React.CSSProperties = {
-  marginLeft: 'auto',
-  fontSize: '11.5px',
-  fontWeight: 500,
-  color: 'var(--color-text-demoted)',
+const noteCarrierStyle: React.CSSProperties = {
+  flex: 1,
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-2)',
+  justifyContent: 'center',
+  gap: 'var(--space-5)',
+  minWidth: 0,
+};
+
+const noteStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 500,
+  color: 'var(--color-text-demoted)',
   whiteSpace: 'nowrap',
-  flexShrink: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 };
 
 const noteValueStyle: React.CSSProperties = {
-  color: 'var(--color-text-primary)',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  maxWidth: '200px',
+  color: 'var(--color-text-demoted)',
 };

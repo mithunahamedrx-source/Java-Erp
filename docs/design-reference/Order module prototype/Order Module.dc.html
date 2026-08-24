@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { background: oklch(0.968 0.003 290); }
+  a { color: oklch(0.2 0 0); text-decoration: none; }
+  a:hover { color: oklch(0.4 0.18 300); text-decoration: underline; }
+  button, input, select, textarea { font-family: inherit; }
+  ::placeholder { color: oklch(0.568 0.01 290); }
+  input[type="checkbox"] { accent-color: oklch(0.2 0 0); width: 16px; height: 16px; margin: 0; }
+</style>
+</helmet>
+<div style="display:flex; height:100vh; overflow:hidden; background:oklch(0.968 0.003 290); font-family:'Manrope', system-ui, sans-serif; color:oklch(0.22 0.02 290); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; font-variant-numeric:tabular-nums;">
+
+  <aside style="width:216px; flex-shrink:0; background:#FFFFFF; border-right:1px solid oklch(0.93 0.006 290); height:100%; display:flex; flex-direction:column;">
+    <div style="height:64px; flex-shrink:0; display:flex; align-items:center; gap:9px; padding:0 16px; border-bottom:1px solid oklch(0.95 0.004 290);">
+      <div style="width:26px; height:26px; border-radius:8px; background:oklch(0.2 0 0); opacity:0.86;"></div>
+      <span style="font-size:15px; font-weight:800; letter-spacing:-0.01em; color:oklch(0.2 0 0);">TrioLoo</span>
+    </div>
+    <nav style="flex:1; overflow-y:auto; padding:10px;">
+      <div style="font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:oklch(0.55 0.015 290); padding:0 8px; margin:6px 0 5px;">Main</div>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290);">Dashboard</span>
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.5-2.5L12 8l-4.5 2.5z"></path><path d="M12 8l4.5-2.5L21 8l-4.5 2.5z"></path><path d="M7.5 15L12 12.5 16.5 15 12 17.5z"></path><path d="M3 8v5l4.5 2.5"></path><path d="M21 8v5l-4.5 2.5"></path><path d="M12 17.5V21"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290); flex:1;">Inventory</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </a>
+      <div style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; background:oklch(0.93 0 0);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.2 0 0)" stroke-width="2" stroke-linecap="round"><path d="M5 3v18l3-2 3 2 3-2 3 2V3z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+        <span style="font-size:12.5px; font-weight:700; color:oklch(0.2 0 0); flex:1;">Sales &amp; Orders</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round" style="transform:rotate(180deg);"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+      <button onClick="{{ goList }}" style="display:flex; align-items:center; width:100%; height:28px; padding:0 0 0 32px; border:none; border-radius:7px; margin:1px 0; background:oklch(0.95 0 0); cursor:pointer; text-align:left;">
+        <span style="font-size:12px; font-weight:600; color:oklch(0.2 0 0);">Orders</span>
+      </button>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Returns &amp; Exchange</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Warranty &amp; Repair</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Trade-In</span></a>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16.5 14.5h1.5"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290); flex:1;">Finance &amp; Accounting</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"></path><path d="M16 11h5"></path><path d="M18.5 8.5v5"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290); flex:1;">HR &amp; Payroll</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="12" cy="11" r="2.5"></circle><path d="M8.5 17c.9-1.6 2.1-2.4 3.5-2.4s2.6.8 3.5 2.4"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290); flex:1;">CRM</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M3 20h18"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290);">Reports</span>
+      </a>
+      <div style="font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:oklch(0.55 0.015 290); padding:0 8px; margin:14px 0 5px;">Admin</div>
+      <div style="display:flex; align-items:center; gap:9px; height:34px; padding:0 8px; border-radius:8px; margin-bottom:1px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 9.5-4.1-1.9-7-5.3-7-9.5V6z"></path><path d="M9 12l2.2 2.2L15.5 10"></path></svg>
+        <span style="font-size:12.5px; font-weight:500; color:oklch(0.4 0.015 290); flex:1;">Administration</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round" style="transform:rotate(180deg);"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Users</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Roles &amp; Permissions</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Shops &amp; Channels</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Integrations</span></a>
+      <a href="#" style="display:flex; align-items:center; height:28px; padding-left:32px; border-radius:7px; margin:1px 0; text-decoration:none;" style-hover="background:oklch(0.97 0.004 290)"><span style="font-size:12px; font-weight:600; color:oklch(0.4 0.015 290);">Settings</span></a>
+    </nav>
+    <div style="display:flex; align-items:center; gap:8px; padding:8px; margin:0 8px 10px; border-radius:10px; background:oklch(0.97 0.004 290);">
+      <div style="width:26px; height:26px; border-radius:50%; background:oklch(0.2 0 0); color:#FFFFFF; font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center;">MI</div>
+      <div style="min-width:0;">
+        <div style="font-size:12px; font-weight:600; color:oklch(0.2 0.02 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mithun Ahamed</div>
+        <div style="font-size:10.5px; color:oklch(0.5 0.015 290);">Sales operations</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; overflow:auto;">
+    <div style="min-width:1400px; max-width:1560px; margin:0 auto; padding:24px 32px 64px;">
+
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:nowrap; margin-bottom:16px;">
+        <div style="min-width:0;">
+          <sc-if value="{{ onList }}" hint-placeholder-val="{{ true }}">
+            <h1 style="margin:0; font-size:25px; font-weight:800; letter-spacing:-0.02em; line-height:32px; color:oklch(0.18 0.02 290);">Orders</h1>
+            <div style="font-size:13.5px; color:oklch(0.5 0.015 290); margin-top:6px;">All channels · operational workspace</div>
+          </sc-if>
+          <sc-if value="{{ onDetail }}">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:oklch(0.5 0.015 290); margin-bottom:8px;">
+              <span>Sales &amp; Orders</span><span>/</span>
+              <button onClick="{{ goList }}" style="background:transparent; border:none; padding:0; font-size:12px; color:oklch(0.5 0.015 290); cursor:pointer; text-decoration:underline;">Orders</button>
+              <span>/</span><span style="color:oklch(0.24 0.02 290); font-weight:600;">TR0158</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <h1 style="margin:0; font-size:25px; font-weight:800; letter-spacing:-0.02em; line-height:32px; color:oklch(0.18 0.02 290);">Order TR0158</h1>
+              <span style="display:inline-flex; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.94 0.04 250); color:oklch(0.42 0.14 250);">Dispatched</span>
+            </div>
+            <div style="font-size:13.5px; color:oklch(0.5 0.015 290); margin-top:6px;">Captured from Daraz · Trioloo BD Electronics · 18 Aug 2026, 11:42</div>
+          </sc-if>
+          <sc-if value="{{ onNew }}">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:oklch(0.5 0.015 290); margin-bottom:8px;">
+              <span>Sales &amp; Orders</span><span>/</span>
+              <button onClick="{{ goList }}" style="background:transparent; border:none; padding:0; font-size:12px; color:oklch(0.5 0.015 290); cursor:pointer; text-decoration:underline;">Orders</button>
+              <span>/</span><span style="color:oklch(0.24 0.02 290); font-weight:600;">New order</span>
+            </div>
+            <h1 style="margin:0; font-size:25px; font-weight:800; letter-spacing:-0.02em; line-height:32px; color:oklch(0.18 0.02 290);">New order</h1>
+            <div style="font-size:13.5px; color:oklch(0.5 0.015 290); margin-top:6px;">{{ captureSubhead }}</div>
+          </sc-if>
+          <sc-if value="{{ onInvoice }}">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:oklch(0.5 0.015 290); margin-bottom:8px;">
+              <span>Sales &amp; Orders</span><span>/</span>
+              <button onClick="{{ goList }}" style="background:transparent; border:none; padding:0; font-size:12px; color:oklch(0.5 0.015 290); cursor:pointer; text-decoration:underline;">Orders</button>
+              <span>/</span>
+              <button onClick="{{ goDetail }}" style="background:transparent; border:none; padding:0; font-size:12px; color:oklch(0.5 0.015 290); cursor:pointer; text-decoration:underline;">TR0158</button>
+              <span>/</span><span style="color:oklch(0.24 0.02 290); font-weight:600;">Invoice</span>
+            </div>
+            <h1 style="margin:0; font-size:25px; font-weight:800; letter-spacing:-0.02em; line-height:32px; color:oklch(0.18 0.02 290);">Sales invoice TR0158</h1>
+            <div style="font-size:13.5px; color:oklch(0.5 0.015 290); margin-top:6px;">Renders the invoice snapshot taken at issue · nothing on this page is recalculated</div>
+          </sc-if>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; flex-shrink:0;">
+          <sc-if value="{{ onList }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4v10"></path><path d="M8 11l4 4 4-4"></path><path d="M5 19h14"></path></svg>
+                Export all
+              </button>
+              <button onClick="{{ goInvoice }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9V4h12v5"></path><rect x="4" y="9" width="16" height="7" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
+                Print
+              </button>
+              <button onClick="{{ goNew }}" style="height:36px; padding:0 13px; border-radius:9px; background:oklch(0.2 0 0); border:none; color:#FFFFFF; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.28 0 0)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                Create Order
+              </button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ onDetail }}">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button onClick="{{ goInvoice }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9V4h12v5"></path><rect x="4" y="9" width="16" height="7" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
+                Print invoice
+              </button>
+              <button style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">Place hold</button>
+              <button style="height:36px; padding:0 13px; border-radius:9px; background:oklch(0.2 0 0); border:none; color:#FFFFFF; font-size:13px; font-weight:700; cursor:pointer;" style-hover="background:oklch(0.28 0 0)">Open shipment</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ onNew }}">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button onClick="{{ goList }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">Cancel</button>
+              <button style="height:36px; padding:0 13px; border-radius:9px; background:oklch(0.2 0 0); border:none; color:#FFFFFF; font-size:13px; font-weight:700; cursor:pointer;" style-hover="background:oklch(0.28 0 0)">Create order</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ onInvoice }}">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button onClick="{{ goBack }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">{{ backLabel }}</button>
+              <button style="height:36px; padding:0 13px; border-radius:9px; background:oklch(0.2 0 0); border:none; color:#FFFFFF; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.28 0 0)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9V4h12v5"></path><rect x="4" y="9" width="16" height="7" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
+                Print
+              </button>
+            </div>
+          </sc-if>
+          <div style="width:1px; height:28px; background:oklch(0.91 0.006 290);"></div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button aria-label="Chat" style="width:34px; height:34px; border-radius:10px; background:#FFFFFF; border:none; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.48 0.015 290)" stroke-width="1.5" stroke-linecap="round"><path d="M20 15a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+            <button aria-label="Notifications" style="position:relative; width:34px; height:34px; border-radius:10px; background:#FFFFFF; border:none; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.48 0.015 290)" stroke-width="1.5" stroke-linecap="round"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"></path><path d="M10.5 19a2 2 0 0 0 3 0"></path></svg>
+              <span style="position:absolute; top:7px; right:8px; width:7px; height:7px; border-radius:50%; background:oklch(0.55 0.22 25); border:1.5px solid #FFFFFF;"></span>
+            </button>
+            <button aria-haspopup="menu" aria-expanded="false" style="height:40px; padding:2px 12px 2px 2px; border-radius:999px; background:#FFFFFF; border:none; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <span style="width:36px; height:36px; border-radius:50%; background:oklch(0.2 0 0); border:1px solid oklch(0.55 0 0); color:#FFFFFF; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center;">MI</span>
+              <span style="font-size:12.5px; font-weight:600; color:oklch(0.24 0.02 290); max-width:132px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mithun Ahamed</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.48 0.015 290)" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ onList }}" hint-placeholder-val="{{ true }}">
+        
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:20px;">
+          <div style="min-height:82px; padding:12px 14px; border-radius:12px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:8px; background:oklch(0.2 0 0 / 0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.2 0 0)" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:10.5px; color:oklch(0.55 0.015 290);">TOTAL ORDERS</div>
+              <div style="font-size:19px; font-weight:800; letter-spacing:-0.02em; line-height:24px; color:oklch(0.18 0.02 290); margin-top:2px;">27</div>
+              <div style="font-size:10.5px; color:oklch(0.568 0.012 290);">All channels, all time</div>
+            </div>
+          </div>
+          <div style="min-height:82px; padding:12px 14px; border-radius:12px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:8px; background:oklch(0.5 0.16 250 / 0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.16 250)" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M4 10h16"></path></svg>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:10.5px; color:oklch(0.55 0.015 290);">TODAY'S ORDERS</div>
+              <div style="font-size:19px; font-weight:800; letter-spacing:-0.02em; line-height:24px; color:oklch(0.18 0.02 290); margin-top:2px;">0</div>
+              <div style="font-size:10.5px; color:oklch(0.568 0.012 290);">Placed today · Asia/Dhaka</div>
+            </div>
+          </div>
+          <div style="min-height:82px; padding:12px 14px; border-radius:12px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:8px; background:oklch(0.55 0.13 85 / 0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.55 0.13 85)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="12" height="9" rx="1.5"></rect><path d="M14 10h4l3 3v3h-7z"></path><circle cx="7" cy="18" r="1.4"></circle><circle cx="17" cy="18" r="1.4"></circle></svg>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:10.5px; color:oklch(0.55 0.015 290);">TODAY'S DISPATCHED</div>
+              <div style="font-size:19px; font-weight:800; letter-spacing:-0.02em; line-height:24px; color:oklch(0.18 0.02 290); margin-top:2px;">0</div>
+              <div style="font-size:10.5px; color:oklch(0.568 0.012 290);">First observed dispatched today</div>
+            </div>
+          </div>
+          <div style="min-height:82px; padding:12px 14px; border-radius:12px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); box-shadow:0 1px 2px oklch(0 0 0 / 0.03); display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:28px; height:28px; border-radius:8px; background:oklch(0.45 0.12 155 / 0.12); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.12 155)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:10.5px; color:oklch(0.55 0.015 290);">TOTAL COLLECTABLE</div>
+              <div style="font-size:19px; font-weight:800; letter-spacing:-0.02em; line-height:24px; color:oklch(0.18 0.02 290); margin-top:2px;">৳ 54,535</div>
+              <div style="font-size:10.5px; color:oklch(0.568 0.012 290);">Delivered, not yet received</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:11.5px; font-weight:700; letter-spacing:0.03em; color:oklch(0.55 0.015 290); margin-bottom:6px;">STATUS</div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:nowrap; margin-bottom:14px;">
+          <div style="display:flex; gap:3px; padding:4px; border-radius:10px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); flex-wrap:nowrap; flex-shrink:0;">
+            <sc-for list="{{ statusTabs }}" as="tab" hint-placeholder-count="14">
+              <button onClick="{{ tab.select }}" style="{{ tab.style }}">{{ tab.label }}<sup style="{{ tab.countStyle }}">{{ tab.count }}</sup></button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:nowrap; margin-bottom:14px;">
+          <input placeholder="Order no., ref, customer" style="height:34px; width:280px; flex-shrink:0; border-radius:9px; padding:0 12px; font-size:13px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290);" />
+          <span style="font-size:11.5px; font-weight:700; letter-spacing:0.03em; color:oklch(0.55 0.015 290); margin-left:4px; flex-shrink:0;">CHANNEL</span>
+          <div style="display:flex; width:fit-content; flex-shrink:0; border:1px solid oklch(0.9 0.006 290); border-radius:9px; overflow:hidden; background:#FFFFFF;">
+            <sc-for list="{{ channelSegments }}" as="seg" hint-placeholder-count="3">
+              <button onClick="{{ seg.select }}" style="{{ seg.style }}">{{ seg.label }}</button>
+            </sc-for>
+          </div>
+          <span style="font-size:11.5px; font-weight:700; letter-spacing:0.03em; color:oklch(0.55 0.015 290); margin-left:4px; flex-shrink:0;">SHOP</span>
+          <select style="height:32px; flex-shrink:0; border-radius:9px; padding:0 8px; font-size:13px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290);">
+            <option>All shops</option>
+            <option>Trioloo BD Electronics</option>
+            <option>Friday PC</option>
+            <option>Trioloo Store, Uttara</option>
+          </select>
+          <span style="font-size:11.5px; font-weight:700; letter-spacing:0.03em; color:oklch(0.55 0.015 290); margin-left:4px; flex-shrink:0;">PERIOD</span>
+          <div style="display:flex; width:fit-content; flex-shrink:0; border:1px solid oklch(0.9 0.006 290); border-radius:9px; overflow:hidden; background:#FFFFFF; margin-left:4px;">
+            <sc-for list="{{ periodSegments }}" as="seg" hint-placeholder-count="4">
+              <button onClick="{{ seg.select }}" style="{{ seg.style }}">{{ seg.label }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ toggleBulk }}" aria-expanded="{{ bulkOpen }}" style="{{ bulkButtonStyle }}">
+            More
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="{{ bulkCaretStyle }}"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <button onClick="{{ reset }}" style="height:34px; padding:0 8px; background:transparent; border:none; font-size:13px; color:oklch(0.5 0.015 290); cursor:pointer; flex-shrink:0;">Reset</button>
+          <div style="flex:1;"></div>
+        </div>
+
+        <sc-if value="{{ bulkOpen }}">
+          <div style="padding:14px 16px; margin-bottom:14px; background:#FFFFFF; border:1px solid oklch(0.9 0.006 290); border-radius:12px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
+              <span style="font-size:11.5px; font-weight:700; letter-spacing:0.04em; color:oklch(0.55 0.015 290); flex-shrink:0;">BULK ACTIONS</span>
+              <span style="font-size:12.5px; color:oklch(0.5 0.015 290); flex-shrink:0;">{{ bulkCountLine }}</span>
+              <div style="flex:1;"></div>
+              <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <sc-for list="{{ bulkActions }}" as="b" hint-placeholder-count="4">
+                  <button onClick="{{ b.run }}" style="{{ b.style }}" style-hover="background:oklch(0.94 0 0)">{{ b.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="font-size:12px; color:oklch(0.568 0.012 290); line-height:1.55; margin-top:10px;">Each selected order is authorised on its own, so an action may apply to some records and be refused on others. The result is reported per order, and the activity log records one entry per order rather than one for the batch.</div>
+          </div>
+        </sc-if>
+
+        <label style="display:flex; align-items:center; gap:10px; margin:0 0 14px 2px; cursor:pointer;">
+          <input type="checkbox" checked="{{ allSelected }}" onChange="{{ toggleAll }}" />
+          <span style="font-size:13px; color:oklch(0.4 0.015 290);">Select all on this page</span>
+        </label>
+
+        <sc-if value="{{ menuOpenAny }}">
+          <div onClick="{{ closeMenus }}" style="position:fixed; inset:0; z-index:30;"></div>
+        </sc-if>
+
+        <sc-if value="{{ hasNotice }}">
+          <div style="display:flex; align-items:center; gap:12px; padding:11px 16px; margin-bottom:14px; background:#FFFFFF; border:1px solid oklch(0.9 0.006 290); border-radius:12px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+            <span style="width:6px; height:6px; border-radius:50%; background:oklch(0.2 0 0); flex-shrink:0;"></span>
+            <span style="font-size:13px; color:oklch(0.24 0.02 290); flex:1;">{{ notice }}</span>
+            <button onClick="{{ dismissNotice }}" style="height:28px; padding:0 10px; border-radius:8px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.4 0.015 290); font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;" style-hover="background:oklch(0.96 0.004 290)">Dismiss</button>
+          </div>
+        </sc-if>
+
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <sc-for list="{{ orders }}" as="o" hint-placeholder-count="5">
+            <article style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid oklch(0.96 0.004 290); flex-wrap:nowrap;">
+                <input type="checkbox" checked="{{ o.selected }}" onChange="{{ o.toggle }}" />
+                <div style="width:28px; height:28px; border-radius:50%; background:oklch(0.96 0.004 290); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="9" r="3.2"></circle><path d="M5.5 20c1.4-2.7 3.8-4 6.5-4s5.1 1.3 6.5 4"></path></svg>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden; flex:1;">
+                  <span style="font-size:14px; font-weight:700; color:oklch(0.24 0.02 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.customer }}</span>
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290); white-space:nowrap;">{{ o.phone }}</span>
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290); white-space:nowrap;">{{ o.placedAt }}</span>
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.shop }}</span>
+                  <span style="font-size:13px; font-family:ui-monospace, monospace; color:oklch(0.24 0.02 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.externalId }}</span>
+                  <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.45 0.01 290); white-space:nowrap; flex-shrink:0;">{{ o.marketplaceStatus }}</span>
+                </div>
+                <span style="{{ o.lifecycleStyle }}">{{ o.lifecycle }}</span>
+                <span style="{{ o.paymentStyle }}">{{ o.payment }}</span>
+                <span style="font-size:12.5px; color:oklch(0.5 0.015 290); white-space:nowrap; flex-shrink:0;">{{ o.method }}</span>
+                <div style="width:1px; height:20px; background:oklch(0.91 0.006 290); flex-shrink:0;"></div>
+                <span style="font-size:13px; font-weight:700; font-family:ui-monospace, monospace; color:oklch(0.24 0.02 290); white-space:nowrap; flex-shrink:0;">INV: {{ o.invoice }}</span>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; flex-wrap:nowrap;">
+                <div style="width:38px; height:38px; border-radius:9px; background:oklch(0.96 0.004 290); flex-shrink:0;"></div>
+                <div style="min-width:200px; max-width:320px;">
+                  <div style="font-size:13.5px; font-weight:600; color:oklch(0.24 0.02 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.product }} <span style="font-weight:400; color:oklch(0.5 0.015 290);">· {{ o.itemCount }}</span></div>
+                  <div style="font-size:11.5px; color:oklch(0.568 0.012 290); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.refLine }}</div>
+                  <div style="font-size:11.5px; color:oklch(0.568 0.012 290); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.courierLine }}</div>
+                </div>
+                <div style="flex:1; display:flex; justify-content:center;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; gap:10px; padding-right:12px; border-right:1px solid oklch(0.93 0.006 290);">
+                      <div><div style="font-size:10px; color:oklch(0.568 0.012 290);">Sale</div><div style="font-size:12px; font-weight:600; color:oklch(0.5 0.015 290);">{{ o.sale }}</div></div>
+                      <div><div style="font-size:10px; color:oklch(0.568 0.012 290);">Cost</div><div style="font-size:12px; font-weight:600; color:oklch(0.5 0.015 290);">{{ o.cost }}</div></div>
+                      <div><div style="font-size:10px; color:oklch(0.568 0.012 290);">Charges</div><div style="font-size:12px; font-weight:600; color:oklch(0.5 0.015 290);">{{ o.charges }}</div></div>
+                    </div>
+                    <div style="display:flex; gap:24px; padding-left:2px;">
+                      <div><div style="font-size:11.5px; color:oklch(0.55 0.015 290);">Received</div><div style="font-size:15px; font-weight:700; color:oklch(0.24 0.02 290);">{{ o.received }}</div></div>
+                      <div><div style="font-size:11.5px; color:oklch(0.55 0.015 290);">Margin</div><div style="{{ o.marginStyle }}">{{ o.margin }}</div></div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-shrink:0; margin-right:36px;">
+                  <button onClick="{{ goDetail }}" style="height:32px; padding:0 14px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">View</button>
+                  <div style="position:relative;">
+                    <button onClick="{{ o.toggleMenu }}" aria-haspopup="menu" style="{{ o.menuButtonStyle }}">
+                      More Actions
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="{{ o.caretStyle }}"><path d="M6 9l6 6 6-6"></path></svg>
+                    </button>
+                    <sc-if value="{{ o.menuOpen }}">
+                      <div style="position:absolute; top:38px; right:0; z-index:40; width:264px; padding:6px; background:#FFFFFF; border:1px solid oklch(0.9 0.006 290); border-radius:12px; box-shadow:0 12px 32px oklch(0 0 0 / 0.12);">
+                        <sc-for list="{{ o.actions }}" as="a" hint-placeholder-count="5">
+                          <div style="{{ a.wrap }}">
+                            <button onClick="{{ a.run }}" style="{{ a.style }}" style-hover="background:oklch(0.965 0.004 290)">
+                              <span style="{{ a.labelStyle }}">{{ a.label }}</span>
+                              <span style="font-size:11px; color:oklch(0.568 0.012 290); text-align:left; line-height:1.45;">{{ a.note }}</span>
+                            </button>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:14px; padding:7px 16px; background:oklch(0.98 0.002 290); border-top:1px solid oklch(0.96 0.004 290); flex-wrap:nowrap;">
+                <button onClick="{{ goInvoice }}" style="display:inline-flex; align-items:center; gap:6px; background:transparent; border:none; padding:0; cursor:pointer; font-size:10.5px; font-weight:700; letter-spacing:0.04em; color:oklch(0.42 0.14 250); flex-shrink:0;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4v10"></path><path d="M8 11l4 4 4-4"></path><path d="M5 19h14"></path></svg>
+                  INVOICE
+                </button>
+                <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.012 290)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0;"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>
+                  <span style="font-size:12px; color:oklch(0.5 0.015 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.address }}</span>
+                </div>
+                <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:14px; min-width:0;">
+                  <div style="width:1px; height:14px; background:oklch(0.9 0.006 290); flex-shrink:0;"></div>
+                  <span style="font-size:12px; color:oklch(0.568 0.012 290); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Note: {{ o.note }}</span>
+                </div>
+              </div>
+            </article>
+          </sc-for>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:20px;">
+          <div style="font-size:13px; color:oklch(0.5 0.015 290);">{{ resultsLine }}</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <select style="height:32px; border-radius:9px; padding:0 8px; font-size:13px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290);">
+              <option>5 per page</option>
+              <option>25 per page</option>
+              <option>50 per page</option>
+              <option>100 per page</option>
+            </select>
+            <div style="display:flex; gap:4px;">
+              <button aria-label="Previous page" style="width:32px; height:32px; border-radius:9px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.5 0.015 290); font-size:13px; cursor:pointer;">‹</button>
+              <button style="width:32px; height:32px; border-radius:9px; border:none; background:oklch(0.2 0 0); color:#FFFFFF; font-size:13px; font-weight:700; cursor:pointer;">1</button>
+              <button style="width:32px; height:32px; border-radius:9px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); font-size:13px; cursor:pointer;">2</button>
+              <button style="width:32px; height:32px; border-radius:9px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); font-size:13px; cursor:pointer;">3</button>
+              <button aria-label="Next page" style="width:32px; height:32px; border-radius:9px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.5 0.015 290); font-size:13px; cursor:pointer;">›</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ onDetail }}">
+        <div style="display:inline-flex; gap:6px; padding:5px; border-radius:12px; background:oklch(0.96 0.004 290); margin-bottom:20px; flex-wrap:nowrap;">
+          <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="8">
+            <button onClick="{{ tab.select }}" style="{{ tab.style }}">{{ tab.label }}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ showOverview }}">
+          <div style="display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:20px; align-items:start;">
+            <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+                <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Lifecycle</h3>
+                  <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">Eight independent state machines · never merged</span>
+                </div>
+                <div style="padding:6px 22px 14px;">
+                  <sc-for list="{{ lifecycle }}" as="row" hint-placeholder-count="8">
+                    <div style="display:grid; grid-template-columns:172px 186px minmax(0,1fr); align-items:center; gap:16px; padding:13px 0; border-bottom:1px solid oklch(0.96 0.004 290);">
+                      <div>
+                        <div style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ row.name }}</div>
+                        <div style="font-size:11px; color:oklch(0.568 0.012 290);">{{ row.machine }}</div>
+                      </div>
+                      <span style="{{ row.chip }}">{{ row.state }}</span>
+                      <div style="font-size:12.5px; color:oklch(0.5 0.015 290);">{{ row.meta }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+                <div style="height:58px; padding:0 22px; display:flex; align-items:center; border-bottom:1px solid oklch(0.95 0.004 290);">
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Capture and confirmation</h3>
+                </div>
+                <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                  <sc-for list="{{ captureFields }}" as="f" hint-placeholder-count="6">
+                    <div style="{{ f.wrap }}">
+                      <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                      <div style="{{ f.style }}">{{ f.value }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+                <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Authority</h3>
+                <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);">{{ authorityChip }}</span>
+                <div style="font-size:13px; color:oklch(0.5 0.015 290); line-height:1.55; margin-top:12px;">{{ authorityDetail }}</div>
+                <div style="height:1px; background:oklch(0.96 0.004 290); margin:14px 0;"></div>
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55;">Editing the buyer snapshot or an address moves authority to Trioloo. In V1 that move is one way and cannot be undone.</div>
+              </section>
+
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:14px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:14px 16px;">
+                <h3 style="margin:0 0 10px; font-size:12.5px; font-weight:700; color:oklch(0.18 0.02 290);">Order summary</h3>
+                <sc-for list="{{ summaryRows }}" as="r" hint-placeholder-count="6">
+                  <div style="display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid oklch(0.96 0.004 290);">
+                    <span style="font-size:13px; color:oklch(0.5 0.015 290);">{{ r.label }}</span>
+                    <span style="{{ r.style }}">{{ r.value }}</span>
+                  </div>
+                </sc-for>
+              </section>
+
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+                <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Marketplace's own status</h3>
+                <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.45 0.01 290);">Daraz: Shipped</span>
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55; margin-top:12px;">Reported by Daraz at 19 Aug 2026, 16:31. This is the marketplace's fact about its own record and is held separately from the Trioloo lifecycle.</div>
+              </section>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showItems }}">
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            <div style="display:flex; align-items:flex-start; gap:12px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:14px 18px;">
+              <span style="flex-shrink:0; width:13px; height:13px; margin-top:2px; border-radius:50%; border:1.5px solid oklch(0.42 0.11 85);"></span>
+              <div style="font-size:13px; color:oklch(0.24 0.02 290); line-height:1.55;"><span style="font-weight:700;">Economically incomplete.</span> One line is not catalogued, so cost and margin cannot be computed for this order. The line is still sold and shipped.</div>
+            </div>
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Items</h3>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">Prices and costs are the snapshots captured when each line was created</span>
+              </div>
+              <div style="display:grid; grid-template-columns:minmax(0,1fr) 96px 132px 132px 132px; gap:16px; padding:12px 22px; border-bottom:1px solid oklch(0.96 0.004 290); font-size:11.5px; color:oklch(0.55 0.015 290);">
+                <div>Line</div><div style="text-align:right;">Qty</div><div style="text-align:right;">Unit price snapshot</div><div style="text-align:right;">Cost snapshot</div><div style="text-align:right;">Line value</div>
+              </div>
+              <sc-for list="{{ items }}" as="line" hint-placeholder-count="3">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 96px 132px 132px 132px; gap:16px; padding:16px 22px; border-bottom:1px solid oklch(0.96 0.004 290); align-items:center;">
+                  <div style="display:flex; gap:12px; align-items:center; min-width:0;">
+                    <div style="width:48px; height:48px; border-radius:10px; background:oklch(0.96 0.004 290); flex-shrink:0;"></div>
+                    <div style="min-width:0;">
+                      <div style="font-size:14px; font-weight:600; color:oklch(0.24 0.02 290);">{{ line.name }}</div>
+                      <div style="font-size:12px; color:oklch(0.5 0.015 290); margin-top:3px;">{{ line.sub }}</div>
+                      <span style="{{ line.badgeStyle }}">{{ line.badge }}</span>
+                    </div>
+                  </div>
+                  <div style="text-align:right; font-size:14px; color:oklch(0.24 0.02 290);">{{ line.qty }}</div>
+                  <div style="text-align:right; font-size:14px; color:oklch(0.24 0.02 290);">{{ line.unit }}</div>
+                  <div style="text-align:right; font-size:14px; color:oklch(0.5 0.015 290);">{{ line.cost }}</div>
+                  <div style="text-align:right; font-size:14px; font-weight:700; color:oklch(0.24 0.02 290);">{{ line.value }}</div>
+                </div>
+              </sc-for>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:24px; padding:16px 22px; background:oklch(0.98 0.002 290); border-radius:0 0 16px 16px;">
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290);">3 lines · 4 units</div>
+                <div style="display:flex; align-items:center; gap:32px;">
+                  <div style="text-align:right;"><div style="font-size:11.5px; color:oklch(0.55 0.015 290);">Goods total</div><div style="font-size:15px; font-weight:700; color:oklch(0.24 0.02 290);">৳ 66,300</div></div>
+                  <div style="text-align:right;"><div style="font-size:11.5px; color:oklch(0.55 0.015 290);">Margin</div><div style="font-size:15px; font-weight:700; color:oklch(0.5 0.015 290);">Unknown</div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showBuyer }}">
+          <div style="display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:20px; align-items:start;">
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Buyer snapshot</h3>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">Taken 18 Aug 2026, 11:42 · not a live customer lookup</span>
+              </div>
+              <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                <sc-for list="{{ buyerFields }}" as="f" hint-placeholder-count="7">
+                  <div style="{{ f.wrap }}">
+                    <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                    <div style="{{ f.style }}">{{ f.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Editing this snapshot</h3>
+              <div style="font-size:13px; color:oklch(0.24 0.02 290); line-height:1.55;">The courier has already collected this parcel, so the address and contact are fixed. No edit control is offered.</div>
+              <div style="height:1px; background:oklch(0.96 0.004 290); margin:14px 0;"></div>
+              <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55;">Before courier booking, changing an address or contact on a marketplace order moves authority to Trioloo. That move is one way in V1, and the consequence is stated before the change is made.</div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showPayment }}">
+          <div style="display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:20px; align-items:start;">
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Payment</h3>
+                <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);">Payment not due</span>
+              </div>
+              <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                <sc-for list="{{ paymentFields }}" as="f" hint-placeholder-count="6">
+                  <div style="{{ f.wrap }}">
+                    <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                    <div style="{{ f.style }}">{{ f.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="padding:16px 22px; background:oklch(0.98 0.002 290); border-top:1px solid oklch(0.96 0.004 290); border-radius:0 0 16px 16px; font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55;">The order is not delivered, so no receivable is due. An order may sit delivered for weeks awaiting channel settlement, and that is the normal course rather than a backlog.</div>
+            </section>
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Receipts</h3>
+              <div style="font-size:13px; color:oklch(0.5 0.015 290); line-height:1.55;">No receipt has been recorded against this order. The courier's collection reaches Trioloo through channel settlement, not as a counter payment.</div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showFulfilment }}">
+          <div style="display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:20px; align-items:start;">
+            <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+                <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Fulfilment</h3>
+                  <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.94 0.05 155); color:oklch(0.38 0.1 155);">Picked and packed</span>
+                </div>
+                <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                  <sc-for list="{{ fulfilmentFields }}" as="f" hint-placeholder-count="5">
+                    <div style="{{ f.wrap }}">
+                      <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                      <div style="{{ f.style }}">{{ f.value }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+                <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Shipment</h3>
+                  <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.94 0.04 250); color:oklch(0.42 0.14 250);">In transit</span>
+                </div>
+                <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                  <sc-for list="{{ shipmentFields }}" as="f" hint-placeholder-count="6">
+                    <div style="{{ f.wrap }}">
+                      <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                      <div style="{{ f.style }}">{{ f.value }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+                <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Tracking</h3>
+                  <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">Steadfast tracking (AWB) 7745-221190 · latest first · every line names who reported it</span>
+                </div>
+                <div style="padding:10px 22px 22px;">
+                  <sc-for list="{{ trackingEvents }}" as="t" hint-placeholder-count="4">
+                    <div style="display:flex; gap:14px; align-items:stretch;">
+                      <div style="width:10px; display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+                        <span style="{{ t.dot }}"></span>
+                        <span style="{{ t.line }}"></span>
+                      </div>
+                      <div style="min-width:0; flex:1; padding:0 0 18px;">
+                        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px;">
+                          <div style="font-size:14px; font-weight:600; color:oklch(0.24 0.02 290);">{{ t.label }}</div>
+                          <div style="font-size:12.5px; color:oklch(0.5 0.015 290); flex-shrink:0;">{{ t.at }}</div>
+                        </div>
+                        <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:4px; line-height:1.55;">{{ t.detail }}</div>
+                        <div style="font-size:11.5px; color:oklch(0.568 0.012 290); margin-top:3px;">{{ t.who }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Stock position</h3>
+              <div style="display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid oklch(0.96 0.004 290);"><span style="font-size:13px; color:oklch(0.5 0.015 290);">Reserved</span><span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">Closed on dispatch</span></div>
+              <div style="display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid oklch(0.96 0.004 290);"><span style="font-size:13px; color:oklch(0.5 0.015 290);">Deducted</span><span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">3 units</span></div>
+              <div style="display:flex; justify-content:space-between; gap:12px; padding:9px 0;"><span style="font-size:13px; color:oklch(0.5 0.015 290);">Not catalogued</span><span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">1 line, no stock effect</span></div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showMarketplace }}">
+          <div style="display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:20px; align-items:start;">
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Marketplace reference</h3>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">External facts, each shown with the party that issued it</span>
+              </div>
+              <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                <sc-for list="{{ marketplaceFields }}" as="f" hint-placeholder-count="6">
+                  <div style="{{ f.wrap }}">
+                    <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-bottom:4px;">{{ f.label }}</div>
+                    <div style="{{ f.style }}">{{ f.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="padding:16px 22px; background:oklch(0.98 0.002 290); border-top:1px solid oklch(0.96 0.004 290); border-radius:0 0 16px 16px; font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55;">Trioloo sends nothing back to Daraz from this screen. External history is kept as it was received, whichever system holds authority.</div>
+            </section>
+            <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+                <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Two statuses, two owners</h3>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;"><span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Daraz says</span><span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.45 0.01 290);">Shipped</span></div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;"><span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Trioloo says</span><span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.94 0.04 250); color:oklch(0.42 0.14 250);">Dispatched</span></div>
+                </div>
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55; margin-top:12px;">The two are separate records of separate systems. They may disagree without either being wrong.</div>
+              </section>
+              <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+                <h3 style="margin:0 0 12px; font-size:14px; font-weight:700; color:oklch(0.18 0.02 290);">Authority</h3>
+                <span style="display:inline-flex; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);">{{ authorityChip }}</span>
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55; margin-top:12px;">{{ authorityDetail }}</div>
+              </section>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showActivity }}">
+          <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+            <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+              <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Activity</h3>
+              <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">A projection of the activity log · one entry per act on this order</span>
+            </div>
+            <div style="padding:10px 22px 22px;">
+              <sc-for list="{{ activity }}" as="entry" hint-placeholder-count="8">
+                <div style="display:flex; gap:12px; padding:12px 0; border-bottom:1px solid oklch(0.96 0.004 290);">
+                  <span style="width:8px; height:8px; border-radius:50%; background:oklch(0.2 0 0); margin-top:6px; flex-shrink:0;"></span>
+                  <div style="min-width:0; flex:1;">
+                    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px;">
+                      <div style="font-size:14px; font-weight:600; color:oklch(0.24 0.02 290);">{{ entry.act }}</div>
+                      <div style="font-size:12.5px; color:oklch(0.5 0.015 290); flex-shrink:0;">{{ entry.at }}</div>
+                    </div>
+                    <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:4px;">{{ entry.machine }} · {{ entry.from }} → {{ entry.to }} · {{ entry.actor }}</div>
+                    <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:3px;">{{ entry.reason }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ showExceptions }}">
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Open exceptions</h3>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290);">Surfaced for visibility · progression is never gated</span>
+              </div>
+              <div style="padding:22px;">
+                <div style="display:flex; gap:16px; align-items:flex-start; padding:16px 18px; border:1px solid oklch(0.93 0.006 290); border-radius:12px;">
+                  <span style="display:inline-flex; flex-shrink:0; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.06 85); color:oklch(0.42 0.11 85);">Pick discrepancy</span>
+                  <div style="min-width:0; flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:oklch(0.24 0.02 290);">One unit short on the USB keyboard line at first pass</div>
+                    <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:5px; line-height:1.55;">Raised by Sabbir Rahman, 19 Aug 2026, 14:02 · bin A-12 counted two keyboards, one found. Picked from bin B-04 and the order continued.</div>
+                    <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:5px;">Authority required to close: warehouse supervisor</div>
+                  </div>
+                  <button style="height:32px; padding:0 14px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0;" style-hover="background:oklch(0.94 0 0)">Open in warehouse</button>
+                </div>
+              </div>
+            </section>
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:58px; padding:0 22px; display:flex; align-items:center; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <h3 style="margin:0; font-size:15.5px; font-weight:700; color:oklch(0.18 0.02 290);">Holds</h3>
+              </div>
+              <div style="padding:22px;">
+                <div style="font-size:14px; color:oklch(0.24 0.02 290);">No hold is placed on this order.</div>
+                <div style="font-size:12.5px; color:oklch(0.5 0.015 290); margin-top:6px; line-height:1.55;">A hold names the actor who placed it and its effect on the reservation. Holds do not expire, age or release themselves, and an order is never cancelled automatically.</div>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ onNew }}">
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:20px; align-items:start; min-width:0;">
+
+          <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:56px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="width:24px; height:24px; border-radius:999px; background:oklch(0.2 0 0); color:#FFFFFF; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">1</span>
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; letter-spacing:-0.01em; color:oklch(0.18 0.02 290);">Customer</h3>
+                </div>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290); white-space:nowrap;">Written onto the order as a snapshot at creation</span>
+              </div>
+              <div style="padding:18px 22px; display:grid; grid-template-columns:1fr 1fr; gap:14px 24px;">
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Customer name <span style="color:oklch(0.5 0.17 25);">*</span></label>
+                  <input placeholder="Rifat Hasan" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)" />
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Phone number <span style="color:oklch(0.5 0.17 25);">*</span></label>
+                  <input placeholder="01XXXXXXXXX" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)" />
+                </div>
+                <div style="grid-column:1 / -1;">
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Address <span style="color:oklch(0.5 0.17 25);">*</span></label>
+                  <textarea placeholder="House, road, area, city — the full address the courier will deliver to" rows="2" style="width:100%; min-height:64px; border-radius:8px; padding:10px 12px; font-size:13px; font-weight:500; line-height:1.6; resize:vertical; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)"></textarea>
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Customer type</label>
+                  <select style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                    <option>Walk-in</option>
+                    <option>Retail account</option>
+                    <option>Corporate account</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Shop <span style="color:oklch(0.5 0.17 25);">*</span></label>
+                  <select style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                    <option>Trioloo Store, Uttara</option>
+                    <option>Trioloo BD Electronics</option>
+                    <option>Friday PC</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Sold by <span style="color:oklch(0.5 0.17 25);">*</span></label>
+                  <select style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                    <option>Mithun Ahamed · sales operations</option>
+                    <option>Sabbir Rahman · warehouse</option>
+                    <option>Nusrat Jahan · counter sales, Uttara</option>
+                    <option>Tanvir Alam · counter sales, Banani</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:56px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="width:24px; height:24px; border-radius:999px; background:oklch(0.2 0 0); color:#FFFFFF; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">2</span>
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; letter-spacing:-0.01em; color:oklch(0.18 0.02 290);">Lines</h3>
+                </div>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290); white-space:nowrap;">Unit price is entered by staff · warranty follows the product's policy and its clock starts at delivery</span>
+              </div>
+              <div style="padding:16px 22px 0;">
+                <div style="position:relative;">
+                  <input value="{{ lineSearch }}" onChange="{{ setLineSearch }}" onKeyDown="{{ lineSearchKeyDown }}" placeholder="Search a listing title, listing id or product — press Enter to add it as a line" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)" />
+                  <sc-if value="{{ hasLineResults }}">
+                    <div style="position:absolute; top:42px; left:0; right:0; z-index:20; padding:6px; background:#FFFFFF; border:1px solid oklch(0.9 0.006 290); border-radius:12px; box-shadow:0 12px 32px oklch(0 0 0 / 0.12); max-height:260px; overflow-y:auto;">
+                      <sc-for list="{{ lineResults }}" as="p" hint-placeholder-count="3">
+                        <button onClick="{{ p.add }}" style="width:100%; display:grid; grid-template-columns:minmax(0,1fr) 104px; gap:12px; align-items:center; padding:10px; border:none; border-radius:8px; background:transparent; cursor:pointer; text-align:left;" style-hover="background:oklch(0.965 0.004 290)">
+                          <span style="min-width:0;">
+                            <span style="display:flex; align-items:center; gap:8px;">
+                              <span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ p.title }}</span>
+                              <span style="{{ p.mapChip }}">{{ p.mapState }}</span>
+                            </span>
+                            <span style="display:block; font-size:11px; color:oklch(0.568 0.012 290); margin-top:3px;">{{ p.listing }}</span>
+                            <span style="display:block; font-size:11px; color:oklch(0.568 0.012 290); margin-top:1px;">{{ p.sellable }}</span>
+                          </span>
+                          <span style="text-align:right;">
+                            <span style="display:block; font-size:12.5px; font-weight:700; color:oklch(0.24 0.02 290);">{{ p.price }}</span>
+                            <span style="display:block; font-size:10.5px; color:oklch(0.568 0.012 290); margin-top:2px;">listing price</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="font-size:11.5px; color:oklch(0.55 0.015 290); margin-top:6px;">No match is needed — pressing Enter with no result adds the text you typed as a non-catalogued line, and mapping it stays owed.</div>
+              </div>
+              <div style="padding:14px 22px 8px;">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 84px 132px 190px 128px 36px; gap:12px; align-items:center; padding:0 0 8px; border-bottom:1px solid oklch(0.95 0.004 290); font-size:10.5px; font-weight:700; letter-spacing:0.05em; color:oklch(0.55 0.015 290);">
+                  <div>DESCRIPTION</div>
+                  <div style="text-align:right;">QTY</div>
+                  <div style="text-align:right;">UNIT PRICE</div>
+                  <div>WARRANTY</div>
+                  <div style="text-align:right;">LINE TOTAL</div>
+                  <div></div>
+                </div>
+                <sc-for list="{{ newLines }}" as="l" hint-placeholder-count="2">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 84px 132px 190px 128px 36px; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid oklch(0.97 0.004 290);">
+                    <input value="{{ l.description }}" onChange="{{ l.setDescription }}" placeholder="Item description" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)" />
+                    <input value="{{ l.qty }}" onChange="{{ l.setQty }}" placeholder="1" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                    <input value="{{ l.price }}" onChange="{{ l.setPrice }}" placeholder="0" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                    <select value="{{ l.warranty }}" onChange="{{ l.setWarranty }}" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; padding:0 8px;">
+                      <option>From product policy</option>
+                      <option>No warranty</option>
+                      <option>7 days</option>
+                      <option>15 days</option>
+                      <option>1 month</option>
+                      <option>3 months</option>
+                      <option>6 months</option>
+                      <option>1 year</option>
+                      <option>2 years</option>
+                      <option>3 years</option>
+                      <option>4 years</option>
+                      <option>5 years</option>
+                      <option>7 years</option>
+                      <option>10 years</option>
+                      <option>12 years</option>
+                    </select>
+                    <div style="text-align:right; font-size:13.5px; font-weight:700; color:oklch(0.24 0.02 290);">{{ l.lineTotal }}</div>
+                    <button onClick="{{ l.remove }}" aria-label="Remove line" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.5 0.015 290); cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:oklch(0.96 0.004 290); color:oklch(0.45 0.19 25)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 12h12"></path></svg>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 22px 18px;">
+                <button onClick="{{ addLine }}" style="height:32px; padding:0 12px; border-radius:8px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                  Add line
+                </button>
+                <div style="font-size:12px; color:oklch(0.55 0.015 290);">{{ newLineCount }}</div>
+              </div>
+            </section>
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="height:56px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid oklch(0.95 0.004 290);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="width:24px; height:24px; border-radius:999px; background:oklch(0.2 0 0); color:#FFFFFF; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">3</span>
+                  <h3 style="margin:0; font-size:15.5px; font-weight:700; letter-spacing:-0.01em; color:oklch(0.18 0.02 290);">Payment and note</h3>
+                </div>
+                <span style="font-size:11.5px; color:oklch(0.55 0.015 290); white-space:nowrap;">No receipt is recorded at capture</span>
+              </div>
+              <div style="padding:22px; display:grid; grid-template-columns:1fr 1fr; gap:18px 32px;">
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Collection mode</label>
+                  <select style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                    <option>Cash on delivery</option>
+                    <option>bKash</option>
+                    <option>Card at counter</option>
+                    <option>Bank transfer</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Delivery &amp; handling</label>
+                  <input placeholder="0" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                </div>
+                <div style="grid-column:1 / -1;">
+                  <label style="display:block; font-size:11.5px; font-weight:600; letter-spacing:0.01em; color:oklch(0.5 0.015 290); margin-bottom:6px;">Note for operations</label>
+                  <input placeholder="Optional — a packing or delivery instruction" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;" style-focus="border-color:oklch(0.2 0 0)" />
+                </div>
+              </div>
+            </section>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:24px; padding:14px 20px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03);">
+              <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55; max-width:520px;">{{ createFooterLine }}</div>
+              <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <button onClick="{{ goList }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">Cancel</button>
+                <button onClick="{{ goInvoice }}" style="height:36px; padding:0 13px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); color:oklch(0.25 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" style-hover="background:oklch(0.94 0 0)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9V4h12v5"></path><rect x="4" y="9" width="16" height="7" rx="1.5"></rect><path d="M7 16h10v4H7z"></path></svg>
+                  Create and print
+                </button>
+                <button onClick="{{ goList }}" style="height:36px; padding:0 13px; border-radius:9px; background:oklch(0.2 0 0); border:none; color:#FFFFFF; font-size:13px; font-weight:700; cursor:pointer;" style-hover="background:oklch(0.28 0 0)">Create order</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="position:sticky; top:24px; display:flex; flex-direction:column; gap:14px; min-width:0;">
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:oklch(0.55 0.015 290);">ORDER TOTAL</div>
+              <div style="font-size:30px; font-weight:800; letter-spacing:-0.025em; line-height:38px; color:oklch(0.18 0.02 290); margin-top:4px;">{{ newTotal }}</div>
+              <div style="font-size:11.5px; color:oklch(0.568 0.012 290); line-height:1.55; margin-top:4px;">{{ newTotalNote }}</div>
+              <div style="height:1px; background:oklch(0.95 0.004 290); margin:16px 0;"></div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Goods</span>
+                  <span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ newGoods }}</span>
+                </div>
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290); flex-shrink:0;">Reaches customer by</span>
+                  <span style="font-size:12.5px; font-weight:600; color:oklch(0.24 0.02 290); text-align:right;">{{ deliveryRouteShort }}</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Warranty charge</span>
+                  <span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ warrantyChargeShown }}</span>
+                </div>
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290); flex-shrink:0;">Warranty package</span>
+                  <span style="font-size:12.5px; font-weight:600; color:oklch(0.24 0.02 290); text-align:right;">{{ warrantyPackageShown }}</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Delivery &amp; handling</span>
+                  <span style="font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);">Not entered</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span style="font-size:12.5px; color:oklch(0.5 0.015 290);">Cost and margin</span>
+                  <span style="font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);">Unknown</span>
+                </div>
+              </div>
+            </section>
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:oklch(0.55 0.015 290); margin-bottom:12px;">WARRANTY</div>
+              <label style="display:block; font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:6px;">Overall warranty package</label>
+              <select value="{{ warrantyPackage }}" onChange="{{ setWarrantyPackage }}" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                <option>Per line, from each product's policy</option>
+                <option>No warranty</option>
+                <option>Manufacturer warranty only</option>
+                <option>07 Days Service Warranty</option>
+                <option>15 Days Service Warranty</option>
+                <option>01 Month Service Warranty</option>
+                <option>03 Months Service Warranty</option>
+                <option>06 Months Service Warranty</option>
+                <option>01 Year Service Warranty</option>
+                <option>02 Years Service Warranty</option>
+                <option>03 Years Service Warranty</option>
+                <option>04 Years Service Warranty</option>
+                <option>05 Years Service Warranty</option>
+                <option>07 Years Service Warranty</option>
+                <option>10 Years Service Warranty</option>
+                <option>12 Years Service Warranty</option>
+              </select>
+              <div style="font-size:11.5px; color:oklch(0.55 0.015 290); line-height:1.5; margin-top:6px;">Applies to every line with no term of its own. The term runs from delivery, or from the sale where there is no delivery.</div>
+              <div style="margin-top:14px;">
+                <label style="display:block; font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:6px;">Warranty charge <span style="font-weight:500; color:oklch(0.568 0.012 290);">optional</span></label>
+                <input value="{{ warrantyCharge }}" onChange="{{ setWarrantyCharge }}" placeholder="Leave empty if not charged" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                <div style="font-size:11.5px; color:oklch(0.55 0.015 290); line-height:1.5; margin-top:6px;">A sale amount for the package above, never a discount on goods.</div>
+              </div>
+            </section>
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:oklch(0.55 0.015 290); margin-bottom:12px;">PRINTING</div>
+              <div style="font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:8px;">What the invoice prints</div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ printOptions }}" as="p" hint-placeholder-count="2">
+                  <label style="display:flex; align-items:center; gap:9px; cursor:pointer;">
+                    <input type="checkbox" checked="{{ p.checked }}" onChange="{{ p.select }}" />
+                    <span style="{{ p.labelStyle }}">{{ p.label }}</span>
+                  </label>
+                </sc-for>
+              </div>
+              <div style="font-size:11.5px; color:oklch(0.55 0.015 290); line-height:1.5; margin-top:6px;">{{ printDirectionNote }}</div>
+
+            </section>
+
+            <section style="background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:20px;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:oklch(0.55 0.015 290); margin-bottom:10px;">WHAT CREATING THIS DOES</div>
+              <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:6px;">The state it will be created in</label>
+                <select value="{{ createState }}" onChange="{{ setCreateState }}" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                  <option>Pending verification</option>
+                  <option>Confirmed</option>
+                  <option>Released</option>
+                  <option>Ready to ship</option>
+                  <option>On hold</option>
+                </select>
+              </div>
+              <div style="padding:12px 0 14px; border-top:1px solid oklch(0.96 0.004 290); border-bottom:1px solid oklch(0.96 0.004 290); margin-bottom:12px;">
+                <label style="display:block; font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:6px;">How this order reaches the customer</label>
+                <select value="{{ deliveryRoute }}" onChange="{{ setDeliveryRoute }}" style="width:100%; height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none;">
+                  <option>Courier — Steadfast, booked automatically</option>
+                  <option>Direct delivery by Trioloo</option>
+                  <option>Customer collects in store</option>
+                </select>
+                <div style="font-size:11.5px; color:oklch(0.55 0.015 290); line-height:1.5; margin-top:6px;">{{ deliveryRouteNote }}</div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ onInvoice }}">
+        <div style="max-width:794px; margin:0 auto 20px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); border-radius:16px; box-shadow:0 1px 2px oklch(0 0 0 / 0.03); font-family:'Manrope', system-ui, sans-serif;">
+          <div style="height:56px; padding:0 20px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid oklch(0.95 0.004 290);">
+            <h3 style="margin:0; font-size:15px; font-weight:700; color:oklch(0.18 0.02 290);">What prints on this invoice</h3>
+            <div style="display:flex; width:fit-content; border:1px solid oklch(0.9 0.006 290); border-radius:9px; overflow:hidden; background:#FFFFFF; flex-shrink:0;">
+              <sc-for list="{{ invoiceModeSegments }}" as="seg" hint-placeholder-count="2">
+                <button onClick="{{ seg.select }}" style="{{ seg.style }}">{{ seg.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="padding:18px 20px;">
+            <div style="font-size:12.5px; color:oklch(0.5 0.015 290); line-height:1.55; margin-bottom:14px;">{{ invoiceModeNote }}</div>
+            <sc-if value="{{ invoiceLineMode }}">
+              <div style="position:relative;">
+                <label style="display:block; font-size:11.5px; font-weight:600; color:oklch(0.5 0.015 290); margin-bottom:6px;">Search a marketplace product — a channel listing, per shop</label>
+                <input value="{{ invSearch }}" onChange="{{ setInvSearch }}" placeholder="Listing title, listing id, or the sellable product behind it" style="height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; width:100%;" style-focus="border-color:oklch(0.2 0 0)" />
+                <sc-if value="{{ hasInvResults }}">
+                  <div style="position:absolute; top:66px; left:0; right:0; z-index:20; padding:6px; background:#FFFFFF; border:1px solid oklch(0.9 0.006 290); border-radius:12px; box-shadow:0 12px 32px oklch(0 0 0 / 0.12); max-height:250px; overflow-y:auto;">
+                    <sc-for list="{{ invResults }}" as="p" hint-placeholder-count="3">
+                      <button onClick="{{ p.add }}" style="width:100%; display:grid; grid-template-columns:minmax(0,1fr) 104px; gap:12px; align-items:center; padding:10px; border:none; border-radius:8px; background:transparent; cursor:pointer; text-align:left;" style-hover="background:oklch(0.965 0.004 290)">
+                        <span style="min-width:0;">
+                          <span style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ p.title }}</span>
+                            <span style="{{ p.mapChip }}">{{ p.mapState }}</span>
+                          </span>
+                          <span style="display:block; font-size:11px; color:oklch(0.568 0.012 290); margin-top:3px;">{{ p.listing }}</span>
+                          <span style="display:block; font-size:11px; color:oklch(0.568 0.012 290); margin-top:1px;">{{ p.sellable }}</span>
+                        </span>
+                        <span style="text-align:right;">
+                          <span style="display:block; font-size:12.5px; font-weight:700; color:oklch(0.24 0.02 290);">{{ p.price }}</span>
+                          <span style="display:block; font-size:10.5px; color:oklch(0.568 0.012 290); margin-top:2px;">listing price</span>
+                        </span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="margin-top:16px;">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 76px 124px 120px 36px; gap:10px; padding-bottom:8px; border-bottom:1px solid oklch(0.95 0.004 290); font-size:10.5px; font-weight:700; letter-spacing:0.05em; color:oklch(0.55 0.015 290);">
+                  <div>INVOICE LINE</div><div style="text-align:right;">QTY</div><div style="text-align:right;">UNIT PRICE</div><div style="text-align:right;">TOTAL</div><div></div>
+                </div>
+                <sc-for list="{{ invLines }}" as="l" hint-placeholder-count="1">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) 76px 124px 120px 36px; gap:10px; align-items:center; padding:11px 0; border-bottom:1px solid oklch(0.97 0.004 290);">
+                    <div style="min-width:0;">
+                      <div style="font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);">{{ l.name }}</div>
+                      <div style="font-size:11px; color:oklch(0.568 0.012 290); margin-top:2px;">{{ l.sub }}</div>
+                      <div style="font-size:11px; color:oklch(0.568 0.012 290); margin-top:1px;">{{ l.sellable }}</div>
+                    </div>
+                    <input value="{{ l.qty }}" onChange="{{ l.setQty }}" style="height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; width:100%; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                    <input value="{{ l.price }}" onChange="{{ l.setPrice }}" style="height:36px; border-radius:8px; padding:0 12px; font-size:13px; font-weight:500; border:1px solid oklch(0.86 0.006 290); background:#FFFFFF; color:oklch(0.24 0.02 290); outline:none; width:100%; text-align:right;" style-focus="border-color:oklch(0.2 0 0)" />
+                    <div style="text-align:right; font-size:13.5px; font-weight:700; color:oklch(0.24 0.02 290);">{{ l.total }}</div>
+                    <button onClick="{{ l.remove }}" aria-label="Remove invoice line" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.9 0.006 290); background:#FFFFFF; color:oklch(0.5 0.015 290); cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:oklch(0.96 0.004 290); color:oklch(0.45 0.19 25)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 12h12"></path></svg>
+                    </button>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noInvLines }}">
+                  <div style="padding:14px 0; font-size:12.5px; color:oklch(0.5 0.015 290);">No marketplace listing chosen yet. The invoice keeps printing the order's own lines until one is added.</div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:center;">
+          <div style="width:794px; min-height:1123px; background:#FFFFFF; border:1px solid oklch(0.93 0.006 290); box-shadow:0 1px 2px oklch(0 0 0 / 0.03); padding:56px 56px 40px; font-family:'Hanken Grotesk', system-ui, sans-serif; color:oklch(0.24 0.02 290); display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; gap:32px; align-items:flex-start;">
+              <div>
+                <div style="width:132px; height:36px; background:oklch(0.96 0.004 290); border-radius:6px; margin-bottom:16px;"></div>
+                <div style="font-size:12.5px; line-height:1.7; color:oklch(0.4 0.015 290);">Trioloo Electronics Ltd.<br />Level 4, House 12, Road 11<br />Banani, Dhaka 1213, Bangladesh<br />+880 9600 112233 · accounts@trioloo.com.bd</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-family:'Space Grotesk', system-ui, sans-serif; font-size:34px; font-weight:700; letter-spacing:0.06em; color:oklch(0.18 0.02 290);">INVOICE</div>
+                <div style="margin-top:16px; font-size:12.5px; line-height:1.9;">
+                  <div><span style="color:oklch(0.5 0.015 290);">No.&nbsp;&nbsp;</span><span style="font-weight:700; font-size:14px;">TR0158</span></div>
+                  <div><span style="color:oklch(0.5 0.015 290);">Steadfast booking&nbsp;&nbsp;</span><span style="font-variant-numeric:tabular-nums;">SF-90233118</span></div>
+                  <div><span style="color:oklch(0.5 0.015 290);">Daraz order&nbsp;&nbsp;</span><span style="font-variant-numeric:tabular-nums;">447-1129384</span></div>
+                  <div><span style="color:oklch(0.5 0.015 290);">Date&nbsp;&nbsp;</span>19 Aug 2026</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:40px;">
+              <div>
+                <div style="font-size:10.5px; font-weight:700; letter-spacing:0.09em; color:oklch(0.5 0.015 290); margin-bottom:8px;">BILL TO</div>
+                <div style="font-size:13.5px; font-weight:600;">Rifat Hasan</div>
+                <div style="font-size:12.5px; line-height:1.7; color:oklch(0.4 0.015 290); margin-top:4px;">House 42, Road 7, Block C, Banani<br />Dhaka 1213, Bangladesh<br />+880 1712 334455</div>
+              </div>
+              <div>
+                <div style="font-size:10.5px; font-weight:700; letter-spacing:0.09em; color:oklch(0.5 0.015 290); margin-bottom:8px;">BANK DETAILS</div>
+                <div style="font-size:12.5px; line-height:1.7; color:oklch(0.4 0.015 290);">City Bank PLC · Banani branch<br />Account name: Trioloo Electronics Ltd.<br />Account 1402 3389 0071 · Routing 225261726</div>
+              </div>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-top:36px; font-variant-numeric:tabular-nums;">
+              <thead>
+                <tr style="background:oklch(0.2 0 0); color:#FFFFFF;">
+                  <th style="text-align:left; font-size:11px; font-weight:600; letter-spacing:0.06em; padding:11px 14px;">ITEM DESCRIPTION</th>
+                  <th style="text-align:right; font-size:11px; font-weight:600; letter-spacing:0.06em; padding:11px 14px; width:70px;">QTY</th>
+                  <th style="text-align:right; font-size:11px; font-weight:600; letter-spacing:0.06em; padding:11px 14px; width:130px;">UNIT PRICE</th>
+                  <th style="text-align:right; font-size:11px; font-weight:600; letter-spacing:0.06em; padding:11px 14px; width:130px;">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ invoiceRows }}" as="r" hint-placeholder-count="3">
+                  <tr>
+                    <td style="font-size:13px; padding:13px 14px; border-bottom:1px solid oklch(0.93 0.006 290);">{{ r.name }}<div style="font-size:11.5px; color:oklch(0.5 0.015 290); margin-top:2px;">{{ r.sub }}</div></td>
+                    <td style="font-size:13px; padding:13px 14px; text-align:right; border-bottom:1px solid oklch(0.93 0.006 290);">{{ r.qty }}</td>
+                    <td style="font-size:13px; padding:13px 14px; text-align:right; border-bottom:1px solid oklch(0.93 0.006 290);">{{ r.unit }}</td>
+                    <td style="font-size:13px; padding:13px 14px; text-align:right; border-bottom:1px solid oklch(0.93 0.006 290);">{{ r.total }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+
+            <div style="display:flex; gap:32px; margin-top:32px; align-items:flex-start;">
+              <div style="flex:1;">
+                <div style="font-size:10.5px; font-weight:700; letter-spacing:0.09em; color:oklch(0.5 0.015 290); margin-bottom:8px;">NOTE</div>
+                <div style="font-size:12.5px; line-height:1.7; color:oklch(0.4 0.015 290);">Goods are covered by the manufacturer's warranty. Serial numbers printed above are the ones dispatched against this invoice. Please quote invoice no. TR0158 in any correspondence.</div>
+              </div>
+              <div style="width:300px; font-variant-numeric:tabular-nums;">
+                <div style="display:flex; justify-content:space-between; font-size:13px; padding:8px 0;"><span style="color:oklch(0.5 0.015 290);">Subtotal</span><span>{{ invSubtotal }}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; padding:8px 0; border-top:1px solid oklch(0.95 0.004 290);"><span style="color:oklch(0.5 0.015 290);">Delivery &amp; handling</span><span>{{ invDelivery }}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; padding:8px 0; border-top:1px solid oklch(0.95 0.004 290);"><span style="color:oklch(0.5 0.015 290);">VAT / Tax (0%)</span><span>৳ 0</span></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:14px 16px; background:oklch(0.2 0 0); color:#FFFFFF; border-radius:6px;">
+                  <span style="font-family:'Space Grotesk', system-ui, sans-serif; font-size:12px; font-weight:600; letter-spacing:0.07em;">BALANCE DUE</span>
+                  <span style="font-family:'Space Grotesk', system-ui, sans-serif; font-size:22px; font-weight:700;">{{ invBalance }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="flex:1;"></div>
+            <div style="font-family:'Space Grotesk', system-ui, sans-serif; font-size:10.5px; letter-spacing:0.08em; color:oklch(0.568 0.012 290); text-align:center; padding-top:32px; border-top:1px solid oklch(0.95 0.004 290);">TRIOLOO ELECTRONICS LTD. · THANK YOU FOR YOUR BUSINESS</div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;detail&quot;,&quot;new&quot;,&quot;invoice&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;initialTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Overview&quot;,&quot;Items&quot;,&quot;Buyer&quot;,&quot;Payment&quot;,&quot;Fulfilment&quot;,&quot;Marketplace&quot;,&quot;Activity&quot;,&quot;Exceptions&quot;],&quot;default&quot;:&quot;Overview&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;authorityMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Marketplace managed&quot;,&quot;Trioloo managed&quot;],&quot;default&quot;:&quot;Marketplace managed&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Order state&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      page: props.initialPage || "list",
+      from: "list",
+      tab: props.initialTab || "Overview",
+      status: "All", channel: "All channels", period: "All time", selected: {}, menu: null, notice: "", bulkOpen: false,
+      invoiceMode: "Marketplace lines", invSearch: "", invLines: [], nextInvId: 1,
+      warrantyPackage: "Per line, from each product's policy", warrantyCharge: "", deliveryRoute: "Courier — Steadfast, booked automatically", createState: "Pending verification", lineSearch: "", printDirection: "Listing title", printAfter: "Stay on the order",
+      lines: [
+        { id: 1, description: "", sku: "", qty: "1", price: "", warranty: "From product policy" },
+        { id: 2, description: "", sku: "", qty: "1", price: "", warranty: "From product policy" }
+      ],
+      nextLineId: 3
+    };
+  }
+
+  chip(role) {
+    const pairs = {
+      warning: ["oklch(0.95 0.06 85)", "oklch(0.42 0.11 85)"],
+      success: ["oklch(0.94 0.05 155)", "oklch(0.38 0.1 155)"],
+      info: ["oklch(0.94 0.04 250)", "oklch(0.42 0.14 250)"],
+      danger: ["oklch(0.95 0.04 25)", "oklch(0.48 0.16 25)"],
+      neutral: ["oklch(0.95 0.004 290)", "oklch(0.45 0.01 290)"]
+    };
+    const p = pairs[role] || pairs.neutral;
+    return "display:inline-flex; width:fit-content; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; flex-shrink:0; background:" + p[0] + "; color:" + p[1] + ";";
+  }
+
+  fld(label, value, kind) {
+    const styles = {
+      plain: "font-size:14px; color:oklch(0.24 0.02 290);",
+      muted: "font-size:14px; color:oklch(0.5 0.015 290);",
+      mono: "font-size:13px; font-family:ui-monospace, monospace; color:oklch(0.24 0.02 290);",
+      link: "font-size:14px; color:oklch(0.2 0 0); text-decoration:underline; cursor:pointer;"
+    };
+    return { label, value, style: styles[kind || "plain"], wrap: "" };
+  }
+
+  orderData() {
+    return [
+      { id: "TR0139", customer: "1704205759", phone: "8801958188149", placedAt: "Aug 20, 03:07 PM", shop: "Friday PC ·", externalId: "688764739960843", marketplaceStatus: "Daraz: delivered",
+        lifecycle: "Delivered", lifecycleRole: "success", payment: "Payment due", paymentRole: "info", method: "bKash", invoice: "TR0139",
+        product: "HDMI Cable Male to Male", itemCount: "3 items", refLine: "Daraz PO not recorded · Daraz tracking BD-BPO-0158852591", courierLine: "Courier not booked",
+        sale: "৳ 144", cost: "Unknown", charges: "Unknown", received: "Unknown", margin: "Unknown", marginKnown: false,
+        address: "Daraz Thakurgaon Collection Point-5100, North Circular Road, Thakurgaon", note: "none", channel: "Daraz" },
+      { id: "TR0133", customer: "jubayertalha118", phone: "8801920999465", placedAt: "Aug 18, 07:29 PM", shop: "Friday PC ·", externalId: "688736917568570", marketplaceStatus: "Daraz: delivered",
+        lifecycle: "Delivered", lifecycleRole: "success", payment: "Payment due", paymentRole: "info", method: "Cash on Delivery", invoice: "TR0133",
+        product: "HDMI Cable Male to Male", itemCount: "1 item", refLine: "Daraz PO not recorded · Daraz tracking DEX-BDN-0114001200", courierLine: "Courier not booked",
+        sale: "৳ 48", cost: "Unknown", charges: "Unknown", received: "Unknown", margin: "Unknown", marginKnown: false,
+        address: "Jorun konabai gazipur, Dhaka, Gazipur", note: "none", channel: "Daraz" },
+      { id: "TR0158", customer: "Rifat Hasan", phone: "8801712334455", placedAt: "Aug 18, 11:42 AM", shop: "Trioloo BD Electronics ·", externalId: "447-1129384", marketplaceStatus: "Daraz: shipped",
+        lifecycle: "Dispatched", lifecycleRole: "info", payment: "Payment not due", paymentRole: "neutral", method: "Cash on Delivery", invoice: "TR0158",
+        product: "Intel Core i5 12th Gen Gaming PC", itemCount: "3 items", refLine: "Daraz order 447-1129384 · Steadfast tracking 7745-221190", courierLine: "Steadfast booking SF-90233118",
+        sale: "৳ 66,430", cost: "Unknown", charges: "Unknown", received: "Unknown", margin: "Unknown", marginKnown: false,
+        address: "House 42, Road 7, Block C, Banani, Dhaka 1213", note: "none", channel: "Daraz" },
+      { id: "TR0161", customer: "Shahriar Kabir", phone: "8801611220098", placedAt: "Aug 21, 12:16 PM", shop: "Trioloo Store, Uttara ·", externalId: "Direct counter sale", marketplaceStatus: "No marketplace record",
+        lifecycle: "Pending verification", lifecycleRole: "warning", payment: "Payment not due", paymentRole: "neutral", method: "bKash", invoice: "TR0161",
+        product: "Asus TUF Gaming A15 keyboard", itemCount: "2 items", refLine: "No external reference · captured in store", courierLine: "Courier not booked",
+        sale: "৳ 4,850", cost: "৳ 3,620", charges: "৳ 0", received: "৳ 0", margin: "৳ 1,230", marginKnown: true,
+        address: "Sector 7, Road 12, House 30, Uttara, Dhaka 1230", note: "Customer collects in store", channel: "Direct" },
+      { id: "TR0146", customer: "Morshed", phone: "8801958188163", placedAt: "Aug 18, 01:30 PM", shop: "Friday PC ·", externalId: "687825896224744", marketplaceStatus: "Daraz: returning",
+        lifecycle: "Failed delivery", lifecycleRole: "danger", payment: "Payment unknown", paymentRole: "neutral", method: "bKash", invoice: "TR0146",
+        product: "HDMI Cable Male to Male", itemCount: "1 item", refLine: "Daraz PO not recorded · Daraz tracking BD-BPO-0158669665", courierLine: "Steadfast booking SF-90188441",
+        sale: "৳ 48", cost: "Unknown", charges: "Unknown", received: "Unknown", margin: "Unknown", marginKnown: false,
+        address: "Bashundhara R/A, Block D, Dhaka 1229", note: "Second attempt refused", channel: "Daraz" }
+    ];
+  }
+
+  renderVals() {
+    const page = this.state.page;
+    const go = p => () => this.setState(s => ({ page: p, from: s.page }));
+
+    const counts = { All: 27, "Pending verification": 2, Confirmed: 0, Released: 0, "In fulfilment": 0, "Ready to ship": 1, "Courier booked": 0, Dispatched: 4, Delivered: 27, "Failed delivery": 6, Returned: 2, "On hold": 0, Cancelled: 118, Closed: 0 };
+    const tabBase = "height:28px; padding:0 11px; border-radius:7px; border:none; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; line-height:1;";
+    const segBase = "padding:6px 14px; border:none; font-size:13px; cursor:pointer; white-space:nowrap;";
+    const detailTabBase = "height:36px; padding:0 16px; border-radius:9px; border:none; font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap;";
+
+    const sel = this.state.selected;
+    const selectedCount = Object.keys(sel).filter(k => sel[k]).length;
+    const rows = this.orderData().filter(o => {
+      if (this.state.status !== "All" && o.lifecycle !== this.state.status) return false;
+      if (this.state.channel === "Daraz" && o.channel !== "Daraz") return false;
+      if (this.state.channel === "Direct" && o.channel !== "Direct") return false;
+      return true;
+    });
+    const orders = rows.map(o => ({
+      ...o,
+      selected: !!sel[o.id],
+      toggle: () => this.setState(s => { const selected = { ...s.selected, [o.id]: !s.selected[o.id] }; return { selected, bulkOpen: Object.keys(selected).some(k => selected[k]) }; }),
+      lifecycleStyle: this.chip(o.lifecycleRole),
+      paymentStyle: this.chip(o.paymentRole),
+      marginStyle: "font-size:15px; font-weight:700; color:" + (o.marginKnown ? "oklch(0.38 0.1 155)" : "oklch(0.5 0.015 290)") + ";",
+      menuOpen: this.state.menu === o.id,
+      menuButtonStyle: "height:32px; padding:0 12px; border-radius:9px; border:1px solid oklch(0.75 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer; " +
+        (this.state.menu === o.id ? "background:oklch(0.94 0 0); color:oklch(0.2 0 0);" : "background:#FFFFFF; color:oklch(0.25 0 0);"),
+      caretStyle: this.state.menu === o.id ? "transform:rotate(180deg);" : "",
+      toggleMenu: () => this.setState(s => ({ menu: s.menu === o.id ? null : o.id })),
+      actions: this.actionsFor(o)
+    }));
+
+    const seg = (list, current, key) => list.map(label => ({
+      label,
+      select: () => this.setState({ [key]: label }),
+      style: segBase + (label === current ? " background:oklch(0.2 0 0); color:#FFFFFF; font-weight:600;" : " background:transparent; color:oklch(0.5 0.015 290); font-weight:500;")
+    }));
+
+    const tabNames = ["Overview", "Items", "Buyer", "Payment", "Fulfilment", "Marketplace", "Activity", "Exceptions"];
+    const activeTab = this.state.tab;
+    const marketplaceOwned = (this.props.authorityMode || "Marketplace managed") !== "Trioloo managed";
+
+    const digits = s => (String(s || "").match(/\d/g) || []).join("");
+    const qtyOf = l => Math.max(1, parseInt(digits(l.qty) || "1", 10));
+    const entered = this.state.lines.filter(l => digits(l.price).length > 0);
+    const goods = entered.reduce((sum, l) => sum + parseInt(digits(l.price), 10) * qtyOf(l), 0);
+    const warrantyChargeNum = digits(this.state.warrantyCharge).length > 0 ? parseInt(digits(this.state.warrantyCharge), 10) : 0;
+    const total = goods + warrantyChargeNum;
+    const money = n => "৳ " + n.toLocaleString("en-US");
+
+    const catalogue = [
+      { title: "Intel Core i5 12th Gen Gaming PC (i5-12400F / 16GB / 512GB NVMe)", shop: "Daraz shop: Trioloo BD Electronics", listingId: "Daraz listing 447-1129384", sellable: "Intel Core i5 12th Gen Gaming PC · SP-10441 · assembled", price: 62500, mapped: true },
+      { title: "Samsung 55\u2033 Crystal UHD 4K Smart TV \u2014 official warranty", shop: "Daraz shop: Trioloo BD Electronics", listingId: "Daraz listing 447-1130552", sellable: "Samsung 55 inch Crystal UHD TV · SP-10188 · simple", price: 74900, mapped: true },
+      { title: "Gaming PC + 24\u2033 Monitor Combo Offer", shop: "Daraz shop: Trioloo BD Electronics", listingId: "Daraz listing 447-1131007", sellable: "Gaming PC + Monitor Bundle · SP-10520 · bundle of two members", price: 79900, mapped: true },
+      { title: "24 inch Full HD Monitor 75Hz IPS", shop: "Daraz shop: Friday PC", listingId: "Daraz listing 688764739961002", sellable: "24 inch Monitor · SP-10233 · simple", price: 13500, mapped: true },
+      { title: "USB Keyboard 104 Key Wired \u2014 Office & Gaming", shop: "Daraz shop: Trioloo Store, Uttara", listingId: "Daraz listing 512-2280093", sellable: "USB keyboard, 104-key · SP-10902 · simple", price: 1450, mapped: true },
+      { title: "HDMI Cable Male to Male 1.5m High Speed 4K", shop: "Daraz shop: Friday PC", listingId: "Daraz listing 688764739960843", sellable: "HDMI Cable Male to Male 1.5m · SP-10777 · simple", price: 48, mapped: true },
+      { title: "HDMI Cable 3m Braided 4K 60Hz", shop: "Daraz shop: Friday PC", listingId: "Daraz listing 688764739960851", sellable: "", price: 144, mapped: false }
+    ];
+    const q = this.state.invSearch.trim().toLowerCase();
+    const results = q.length > 0 ? catalogue.filter(p => (p.title + " " + p.listingId + " " + p.shop + " " + p.sellable).toLowerCase().indexOf(q) >= 0).slice(0, 5) : [];
+    const lq = this.state.lineSearch.trim().toLowerCase();
+    const lineResults = lq.length > 0 ? catalogue.filter(p => (p.title + " " + p.listingId + " " + p.shop + " " + p.sellable).toLowerCase().indexOf(lq) >= 0).slice(0, 5) : [];
+    const invoiceLineMode = this.state.invoiceMode === "Marketplace lines";
+    const invIntOf = v => { const d = digits(v); return d.length > 0 ? parseInt(d, 10) : 0; };
+    const printedInvLines = this.state.invLines;
+    const usingInvLines = invoiceLineMode && printedInvLines.length > 0;
+    const orderRows = [
+      { name: "Intel Core i5 12th Gen Gaming PC", sub: "Serial PF3KQ7T9", qty: "1", unit: money(62500), total: money(62500), amount: 62500 },
+      { name: "USB keyboard, 104-key", sub: "", qty: "2", unit: money(1450), total: money(2900), amount: 2900 },
+      { name: "24 inch monitor stand", sub: "", qty: "1", unit: money(900), total: money(900), amount: 900 }
+    ];
+    const invRows = usingInvLines
+      ? printedInvLines.map(l => ({ name: l.name, sub: l.sub, qty: String(Math.max(1, invIntOf(l.qty) || 1)), unit: money(invIntOf(l.price)), total: money(invIntOf(l.price) * Math.max(1, invIntOf(l.qty) || 1)), amount: invIntOf(l.price) * Math.max(1, invIntOf(l.qty) || 1) }))
+      : orderRows;
+    const invSubtotal = invRows.reduce((n, r) => n + r.amount, 0);
+    const invDelivery = 130;
+
+    return {
+      invoiceRows: invRows,
+      invSubtotal: money(invSubtotal),
+      invDelivery: money(invDelivery),
+      invBalance: money(invSubtotal + invDelivery),
+      invoiceLineMode: invoiceLineMode,
+      invoiceModeNote: invoiceLineMode
+        ? "The invoice prints the marketplace listing lines below instead of the order's own lines. A listing title is authored by the channel, so it may read differently from the sellable product behind it. Choosing one changes only what is printed — the order's own lines, snapshots and mapping stay as they are."
+        : "The invoice prints the order's own lines exactly as they were captured. Switch to marketplace lines to print a channel listing's own title instead.",
+      invoiceModeSegments: ["Order lines", "Marketplace lines"].map(label => ({
+        label,
+        select: () => this.setState({ invoiceMode: label }),
+        style: segBase + (label === this.state.invoiceMode ? " background:oklch(0.2 0 0); color:#FFFFFF; font-weight:600;" : " background:transparent; color:oklch(0.5 0.015 290); font-weight:500;")
+      })),
+      invSearch: this.state.invSearch,
+      setInvSearch: e => this.setState({ invSearch: e.target.value }),
+      hasInvResults: results.length > 0,
+      invResults: results.map(p => ({
+        title: p.title,
+        listing: p.listingId + " · " + p.shop,
+        sellable: p.mapped ? "Maps to " + p.sellable : "Unmapped listing · no sellable product behind it, so cost and margin stay unknown",
+        mapState: p.mapped ? "Mapped" : "Unmapped",
+        mapChip: "display:inline-flex; flex-shrink:0; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:600; " + (p.mapped ? "background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);" : "background:oklch(0.95 0.06 85); color:oklch(0.42 0.11 85);"),
+        price: money(p.price),
+        add: () => this.setState(s => ({
+          invLines: s.invLines.concat([{ id: s.nextInvId, name: p.title, sub: p.listingId + " · " + p.shop, sellable: p.mapped ? "Maps to " + p.sellable : "Unmapped listing", qty: "1", price: String(p.price) }]),
+          nextInvId: s.nextInvId + 1,
+          invSearch: ""
+        }))
+      })),
+      invLines: printedInvLines.map(l => ({
+        name: l.name, sub: l.sub, sellable: l.sellable, qty: l.qty, price: l.price,
+        total: money(invIntOf(l.price) * Math.max(1, invIntOf(l.qty) || 1)),
+        setQty: e => this.updateInvLine(l.id, "qty", e.target.value),
+        setPrice: e => this.updateInvLine(l.id, "price", e.target.value),
+        remove: () => this.setState(s => ({ invLines: s.invLines.filter(x => x.id !== l.id) }))
+      })),
+      noInvLines: printedInvLines.length === 0,
+      bulkOpen: this.state.bulkOpen,
+      toggleBulk: () => this.setState(s => ({ bulkOpen: !s.bulkOpen })),
+      bulkButtonStyle: "height:34px; padding:0 11px; border-radius:9px; border:1px solid oklch(0.75 0 0); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer; flex-shrink:0; " + (this.state.bulkOpen ? "background:oklch(0.94 0 0); color:oklch(0.2 0 0);" : "background:#FFFFFF; color:oklch(0.25 0 0);"),
+      bulkCaretStyle: this.state.bulkOpen ? "transform:rotate(180deg);" : "",
+      bulkCountLine: selectedCount === 0 ? "No order selected" : selectedCount + (selectedCount === 1 ? " order selected" : " orders selected"),
+      bulkActions: ["Export selected", "Print invoices", "Send to Steadfast", "Place hold", "Cancel orders", "Clear selection"].map(label => ({
+        label,
+        style: "height:32px; padding:0 12px; border-radius:9px; background:#FFFFFF; border:1px solid oklch(0.75 0 0); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; color:" + (label === "Cancel orders" ? "oklch(0.48 0.19 25)" : "oklch(0.25 0 0)") + ";",
+        run: () => {
+          if (label === "Clear selection") { this.setState({ selected: {}, notice: "" }); return; }
+          this.setState({ notice: selectedCount === 0 ? label + " needs at least one selected order." : label + " requested for " + selectedCount + (selectedCount === 1 ? " order" : " orders") + " · each record is authorised individually and the result is reported per order." });
+        }
+      })),
+      menuOpenAny: this.state.menu !== null,
+      closeMenus: () => this.setState({ menu: null }),
+      hasNotice: this.state.notice.length > 0,
+      notice: this.state.notice,
+      dismissNotice: () => this.setState({ notice: "" }),
+      onList: page === "list", onDetail: page === "detail", onNew: page === "new", onInvoice: page === "invoice",
+      goList: go("list"), goDetail: go("detail"), goNew: go("new"), goInvoice: go("invoice"),
+      goBack: () => this.setState(s => ({ page: s.from === "invoice" ? "list" : s.from, from: "list" })),
+      backLabel: this.state.from === "detail" ? "Back to order" : (this.state.from === "new" ? "Back to new order" : "Back to orders"),
+
+      statusTabs: Object.keys(counts).map(label => ({
+        label,
+        count: counts[label] > 0 ? String(counts[label]) : "",
+        select: () => this.setState({ status: label }),
+        style: tabBase + (label === this.state.status ? " background:oklch(0.2 0 0); color:#FFFFFF;" : " background:transparent; color:oklch(0.5 0.015 290);"),
+        countStyle: "font-size:9.5px; font-weight:700; margin-left:3px; line-height:1; position:relative; top:-4px;"
+      })),
+      channelSegments: seg(["All channels", "Daraz", "Direct"], this.state.channel, "channel"),
+      periodSegments: seg(["All time", "Day", "Month", "Year"], this.state.period, "period"),
+      reset: () => this.setState({ bulkOpen: false, selected: {}, notice: "", status: "All", channel: "All channels", period: "All time" }),
+      orders,
+      allSelected: orders.length > 0 && orders.every(o => o.selected),
+      toggleAll: () => {
+        const all = rows.every(o => sel[o.id]);
+        const next = { ...sel };
+        rows.forEach(o => { next[o.id] = !all; });
+        this.setState({ selected: next, bulkOpen: !all });
+      },
+      resultsLine: "Showing " + orders.length + " of 27 orders · five per page at every zoom",
+
+      tabs: tabNames.map(label => ({
+        label,
+        select: () => this.setState({ tab: label }),
+        style: detailTabBase + (label === activeTab
+          ? " background:#FFFFFF; color:oklch(0.2 0 0); box-shadow:0 1px 3px oklch(0 0 0 / 0.08);"
+          : " background:transparent; color:oklch(0.5 0.015 290);")
+      })),
+      showOverview: activeTab === "Overview", showItems: activeTab === "Items", showBuyer: activeTab === "Buyer",
+      showPayment: activeTab === "Payment", showFulfilment: activeTab === "Fulfilment",
+      showMarketplace: activeTab === "Marketplace", showActivity: activeTab === "Activity", showExceptions: activeTab === "Exceptions",
+
+      lifecycle: [
+        { name: "Order", machine: "SM-1", state: "Dispatched", chip: this.chip("info"), meta: "Entered 19 Aug 2026, 16:08 · system, on courier handover" },
+        { name: "Verification", machine: "SM-2", state: "Auto confirmed", chip: this.chip("success"), meta: "18 Aug 2026, 11:42 · no human confirmer" },
+        { name: "Fulfilment", machine: "SM-3", state: "Picked and packed", chip: this.chip("success"), meta: "Mirpur warehouse · picker Sabbir Rahman · 19 Aug 2026, 14:20" },
+        { name: "Shipment", machine: "SM-4", state: "In transit", chip: this.chip("info"), meta: "Steadfast booking SF-90233118" },
+        { name: "Payment", machine: "SM-5", state: "Payment not due", chip: this.chip("neutral"), meta: "Cash on delivery, collected by the courier · channel settles after delivery" },
+        { name: "Inventory", machine: "SM-6", state: "Deducted on dispatch", chip: this.chip("success"), meta: "Reservation closed 19 Aug 2026, 16:08 · 2 catalogued lines" },
+        { name: "Return", machine: "SM-7", state: "No return raised", chip: this.chip("neutral"), meta: "Nothing recorded against this order" },
+        { name: "Exchange", machine: "SM-8", state: "No exchange raised", chip: this.chip("neutral"), meta: "Nothing recorded against this order" }
+      ],
+
+      captureFields: [
+        this.fld("Capture channel", "Daraz marketplace · shop Trioloo BD Electronics"),
+        this.fld("Captured at", "18 Aug 2026, 11:42"),
+        this.fld("Confirmed by", "Not recorded — the order was auto confirmed on import", "muted"),
+        this.fld("Confirmed at", "18 Aug 2026, 11:42"),
+        this.fld("Daraz order id", "447-1129384", "mono"),
+        this.fld("Daraz shop identifier", "TRIOLOO-BD-03", "mono")
+      ],
+      buyerFields: [
+        this.fld("Name on the order", "Rifat Hasan"),
+        this.fld("Phone", "+880 1712 334455"),
+        this.fld("Alternate contact", "Contact not recorded", "muted"),
+        this.fld("Customer type", "Marketplace buyer"),
+        { ...this.fld("Delivery address", "House 42, Road 7, Block C, Banani, Dhaka 1213, Bangladesh"), wrap: "grid-column:1 / -1;" },
+        this.fld("Credit terms", "No credit terms approved", "muted"),
+        this.fld("Customer record", "Customer C-20841")
+      ],
+      paymentFields: [
+        this.fld("Collection mode", "Cash on delivery, collected by Steadfast"),
+        this.fld("Settlement", "Daraz settles this channel after delivery"),
+        this.fld("Order value", "৳ 66,430"),
+        this.fld("Received to date", "Unknown", "muted"),
+        this.fld("Outstanding", "Unknown", "muted"),
+        this.fld("Realised margin", "Not settled until the order closes", "muted")
+      ],
+      fulfilmentFields: [
+        this.fld("Warehouse", "Mirpur central"),
+        this.fld("Picker", "Sabbir Rahman"),
+        this.fld("Released to warehouse", "19 Aug 2026, 10:05 · Mithun Ahamed"),
+        this.fld("Pick task", "Pick task PT-3391"),
+        { ...this.fld("Pick discrepancies", "One unit short on the USB keyboard line at first pass, picked from bin B-04 instead. Recorded for visibility; it did not gate the pick."), wrap: "grid-column:1 / -1;" }
+      ],
+      shipmentFields: [
+        this.fld("Courier", "Steadfast · assigned automatically"),
+        this.fld("Parcel", "One parcel for this attempt"),
+        this.fld("Steadfast booking id", "SF-90233118", "mono"),
+        this.fld("Steadfast tracking (AWB)", "7745-221190", "mono"),
+        this.fld("Handover acknowledgement", "Signed by courier rider, 19 Aug 2026, 16:08"),
+        { ...this.fld("Where the parcel is now", "Steadfast reported it at its Dhaka sorting hub on 20 Aug 2026, 08:12. Steadfast owns this fact; Trioloo's own state stays Dispatched until delivery is reported."), wrap: "grid-column:1 / -1;" }
+      ],
+      trackingEvents: [
+        { label: "Booking created", detail: "Steadfast booking SF-90233118 issued for one parcel", at: "19 Aug 2026, 15:31", who: "Reported by Steadfast" },
+        { label: "Picked up from Trioloo", detail: "Rider collected the parcel at Mirpur central and signed the handover sheet", at: "19 Aug 2026, 16:08", who: "Acknowledged by Trioloo and Steadfast" },
+        { label: "Received at Dhaka sorting hub", detail: "Scanned in at the hub, awaiting line haul to Banani", at: "20 Aug 2026, 08:12", who: "Reported by Steadfast" },
+        { label: "Out for delivery", detail: "Not reported yet", at: "Pending", who: "Awaiting Steadfast", pending: true }
+      ].slice().reverse().map((t, i, all) => ({
+        ...t,
+        dot: "width:10px; height:10px; border-radius:50%; margin-top:5px; flex-shrink:0; " + (t.pending ? "background:#FFFFFF; border:1.5px solid oklch(0.78 0.012 290);" : "background:oklch(0.2 0 0);"),
+        line: i === all.length - 1 ? "display:none;" : "flex:1; width:1.5px; margin:4px 0; background:" + (t.pending ? "oklch(0.88 0.008 290)" : "oklch(0.2 0 0)") + ";"
+      })),
+      marketplaceFields: [
+        this.fld("Channel type", "Marketplace"),
+        this.fld("Channel instance", "Daraz Bangladesh · Trioloo BD Electronics"),
+        this.fld("Daraz order id", "447-1129384", "mono"),
+        this.fld("Daraz shop identifier", "TRIOLOO-BD-03", "mono"),
+        this.fld("Steadfast tracking (AWB)", "7745-221190", "mono"),
+        this.fld("Imported at", "18 Aug 2026, 11:42")
+      ],
+      summaryRows: [
+        { label: "Goods total", value: "৳ 66,300", style: "font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);" },
+        { label: "Delivery and handling", value: "৳ 130", style: "font-size:13px; font-weight:600; color:oklch(0.24 0.02 290);" },
+        { label: "Channel charges", value: "Unknown", style: "font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);" },
+        { label: "Cost of goods", value: "Unknown", style: "font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);" },
+        { label: "Received to date", value: "Unknown", style: "font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);" },
+        { label: "Realised margin", value: "Not settled until closure", style: "font-size:13px; font-weight:600; color:oklch(0.5 0.015 290);" }
+      ],
+      items: [
+        { name: "Intel Core i5 12th Gen Gaming PC", sub: "Sellable product SP-10428 · serial PF3KQ7T9", badge: "Catalogued", badgeStyle: "display:inline-flex; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);", qty: "1", unit: "৳ 62,500", cost: "Unknown", value: "৳ 62,500" },
+        { name: "USB keyboard, 104-key", sub: "Sellable product SP-10902 · simple · no serial tracked", badge: "Catalogued", badgeStyle: "display:inline-flex; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);", qty: "2", unit: "৳ 1,450", cost: "Unknown", value: "৳ 2,900" },
+        { name: "24 inch monitor stand", sub: "Free text line as received from Daraz · no sellable product reference", badge: "Not catalogued", badgeStyle: "display:inline-flex; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:oklch(0.95 0.06 85); color:oklch(0.42 0.11 85);", qty: "1", unit: "৳ 900", cost: "Unknown", value: "৳ 900" }
+      ],
+      activity: [
+        { act: "Order imported from Daraz", machine: "SM-1 Order", from: "None", to: "Pending verification", actor: "System, Daraz adapter", at: "18 Aug 2026, 11:42", reason: "Scheduled channel import" },
+        { act: "Order auto confirmed on import", machine: "SM-2 Verification", from: "Pending verification", to: "Auto confirmed", actor: "System", at: "18 Aug 2026, 11:42", reason: "Marketplace order, no manual verification required" },
+        { act: "Released to warehouse", machine: "SM-3 Fulfilment", from: "Confirmed", to: "Released", actor: "Mithun Ahamed", at: "19 Aug 2026, 10:05", reason: "Morning release batch for Mirpur central" },
+        { act: "Pick discrepancy recorded", machine: "SM-3 Fulfilment", from: "Picking", to: "Picking", actor: "Sabbir Rahman", at: "19 Aug 2026, 14:02", reason: "Bin A-12 counted two units, one found" },
+        { act: "Pick completed and packed", machine: "SM-3 Fulfilment", from: "Picking", to: "Picked and packed", actor: "Sabbir Rahman", at: "19 Aug 2026, 14:20", reason: "Short unit taken from bin B-04" },
+        { act: "Courier booked with Steadfast", machine: "SM-4 Shipment", from: "Not created", to: "Courier booked", actor: "System, Steadfast adapter", at: "19 Aug 2026, 15:31", reason: "Automatic courier assignment" },
+        { act: "Handed to courier", machine: "SM-1 Order", from: "Ready to ship", to: "Dispatched", actor: "System, on handover acknowledgement", at: "19 Aug 2026, 16:08", reason: "Rider signed the handover sheet" },
+        { act: "Marketplace reported its own status", machine: "External, Daraz", from: "Ready to ship", to: "Shipped", actor: "Daraz", at: "19 Aug 2026, 16:31", reason: "External fact, recorded without altering Trioloo state" }
+      ],
+
+      authorityChip: marketplaceOwned ? "Daraz still updates this order" : "Trioloo has taken over this order",
+      authorityDetail: marketplaceOwned
+        ? "No takeover has occurred. Daraz remains the source of the order's own record, and Trioloo holds the operational lifecycle beside it."
+        : "Taken over on 19 Aug 2026, 09:14 by Mithun Ahamed, caused by a delivery address correction on the buyer snapshot.",
+
+      newLines: this.state.lines.map(l => ({
+        description: l.description, sku: l.sku, qty: l.qty, price: l.price, warranty: l.warranty,
+        lineTotal: digits(l.price).length > 0 ? money(parseInt(digits(l.price), 10) * qtyOf(l)) : "\u2014",
+        setDescription: e => this.updateLine(l.id, "description", e.target.value),
+        setSku: e => this.updateLine(l.id, "sku", e.target.value),
+        setQty: e => this.updateLine(l.id, "qty", e.target.value),
+        setPrice: e => this.updateLine(l.id, "price", e.target.value),
+        setWarranty: e => this.updateLine(l.id, "warranty", e.target.value),
+        remove: () => this.setState(s => ({ lines: s.lines.length > 1 ? s.lines.filter(x => x.id !== l.id) : s.lines }))
+      })),
+      addLine: () => this.setState(s => ({
+        lines: s.lines.concat([{ id: s.nextLineId, description: "", sku: "", qty: "1", price: "", warranty: "From product policy" }]),
+        nextLineId: s.nextLineId + 1
+      })),
+      newTotal: entered.length > 0 ? money(total) : "Not entered yet",
+      newTotalNote: entered.length > 0 ? "Preview of the staff-entered prices. The authoritative figure is computed on save." : "Enter a unit price on at least one line.",
+      newGoods: entered.length > 0 ? money(goods) : "Not entered",
+      deliveryRoute: this.state.deliveryRoute,
+      setDeliveryRoute: e => this.setState({ deliveryRoute: e.target.value }),
+      deliveryRouteShort: this.state.deliveryRoute.indexOf("Courier") === 0 ? "Steadfast courier" : (this.state.deliveryRoute.indexOf("Direct") === 0 ? "Trioloo direct delivery" : "Collected in store"),
+      deliveryRouteNote: this.state.deliveryRoute.indexOf("Courier") === 0
+        ? "Steadfast is the only courier and the booking is made for you once the order is released. No courier is chosen here."
+        : (this.state.deliveryRoute.indexOf("Direct") === 0
+          ? "Trioloo delivers it. No courier booking is made, and the shipment records the handover instead of a tracking code."
+          : "No shipment is created. Handover is acknowledged at the counter when the customer collects."),
+      lineSearch: this.state.lineSearch,
+      setLineSearch: e => this.setState({ lineSearch: e.target.value }),
+      lineSearchKeyDown: e => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        const text = this.state.lineSearch.trim();
+        if (text.length === 0) return;
+        if (lineResults.length > 0) this.addCaptureLine(lineResults[0].title, lineResults[0].price);
+        else this.addCaptureLine(text, "");
+      },
+      hasLineResults: lineResults.length > 0,
+      lineResults: lineResults.map(p => ({
+        title: p.title,
+        listing: p.listingId + " · " + p.shop,
+        sellable: p.mapped ? "Maps to " + p.sellable : "Unmapped listing · cost and margin stay unknown",
+        mapState: p.mapped ? "Mapped" : "Unmapped",
+        mapChip: "display:inline-flex; flex-shrink:0; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:600; " + (p.mapped ? "background:oklch(0.95 0.004 290); color:oklch(0.45 0.01 290);" : "background:oklch(0.95 0.06 85); color:oklch(0.42 0.11 85);"),
+        price: money(p.price),
+        add: () => this.addCaptureLine(p.title, p.price)
+      })),
+      createState: this.state.createState,
+      setCreateState: e => this.setState({ createState: e.target.value }),
+      captureSubhead: "Direct-channel capture · the order is created in " + this.state.createState.toLowerCase() + (this.state.createState === "Pending verification" ? ", and creating it does not confirm it" : ""),
+      createFooterLine: "Both actions create the order in " + this.state.createState.toLowerCase() + ". Create and print opens the invoice straight after, and printing changes no state.",
+      createConsequences: ({
+        "Pending verification": [
+          "Creation is not confirmation. No confirmer and no confirmation time are recorded.",
+          "No stock is reserved or deducted, and a shortage does not block capture.",
+          "The price you enter is the price of record. It is not read as a discount against any list price."
+        ],
+        "Confirmed": [
+          "You are recorded as the confirmer, with the time of confirmation.",
+          "Verification is skipped, so nothing else verifies this order later.",
+          "Still no stock movement — that follows release to the warehouse."
+        ],
+        "Released": [
+          "Confirmed and released to the warehouse in one act, with you as both actors.",
+          "A pick task is created and the reservation is made at release.",
+          "A shortage is shown on the order and does not stop the release."
+        ],
+        "Ready to ship": [
+          "The order is created as already picked and packed, so no pick task is raised.",
+          "Use it only where the goods are packed in front of you; the pick is asserted, not performed.",
+          "Courier booking follows for a courier order, or the handover is acknowledged for the other routes."
+        ],
+        "On hold": [
+          "Created and held at once. The hold names you as the actor and its reason is recorded.",
+          "A hold never expires, ages or releases itself, and the order is never cancelled automatically.",
+          "The hold is visible on the order and does not gate later progression."
+        ]
+      }[this.state.createState] || []).map(t => ({ text: t })),
+      printOptions: ["Listing title", "Description line"].map(label => ({
+        label,
+        checked: this.state.printDirection === label,
+        select: () => this.setState({ printDirection: label, invoiceMode: label === "Listing title" ? "Marketplace lines" : "Order lines" }),
+        labelStyle: "font-size:13px; color:oklch(0.24 0.02 290); font-weight:" + (this.state.printDirection === label ? "600" : "500") + ";"
+      })),
+      printDirectionNote: this.state.printDirection === "Listing title"
+        ? "The invoice prints the marketplace listing's own title, which the channel authored. The order's own lines and snapshots are untouched."
+        : "The invoice prints each line's description exactly as captured above.",
+      printAfter: this.state.printAfter,
+      setPrintAfter: e => this.setState({ printAfter: e.target.value }),
+      warrantyPackage: this.state.warrantyPackage,
+      setWarrantyPackage: e => this.setState({ warrantyPackage: e.target.value }),
+      warrantyCharge: this.state.warrantyCharge,
+      setWarrantyCharge: e => this.setState({ warrantyCharge: e.target.value }),
+      warrantyChargeShown: warrantyChargeNum > 0 ? money(warrantyChargeNum) : "Not charged",
+      warrantyPackageShown: this.state.warrantyPackage,
+      newLineCount: this.state.lines.length + (this.state.lines.length === 1 ? " line" : " lines") + " \u00b7 " + this.state.lines.reduce((n, l) => n + qtyOf(l), 0) + " units"
+    };
+  }
+
+  actionsFor(o) {
+    const preDispatch = o.lifecycle === "Pending verification" || o.lifecycle === "Confirmed" || o.lifecycle === "Released" || o.lifecycle === "In fulfilment" || o.lifecycle === "Ready to ship";
+    const shipped = o.courierLine.indexOf("Steadfast booking") === 0;
+    const go = (page, tab) => () => this.setState(s => ({ menu: null, page: page, from: s.page, tab: tab || s.tab }));
+    const record = (label, text) => () => this.setState({ menu: null, notice: label + " on " + o.invoice + " \u00b7 " + text });
+
+    const items = [];
+    items.push({ label: "Open order", note: "The full record and its eight lifecycles", run: go("detail") });
+    items.push({ label: "Print invoice", note: "Opens the invoice snapshot for " + o.invoice, run: go("invoice") });
+    items.push({ label: "View activity", note: "From-state, to-state, actor and reason", run: go("detail", "Activity") });
+    if (shipped) items.push({ label: "Open shipment", note: "Courier record and tracking events", run: go("detail", "Fulfilment") });
+    items.push({ label: "sep" });
+    if (preDispatch) {
+      items.push({ label: "Amend order", note: "Permitted before dispatch only", run: record("Amend opened", "the order is pre-dispatch, so amendment is permitted.") });
+      items.push({ label: "Release to warehouse", note: "Manual and permissioned", run: record("Released to warehouse", "the release is recorded against your user.") });
+    }
+    if (!shipped) items.push({ label: "Send to Steadfast", note: "Books the courier for this order · Steadfast is the only courier and is assigned for you", run: record("Sent to Steadfast", "the booking id is written back onto the order once Steadfast issues it.") });
+    else items.push({ label: "Send to Steadfast", note: "Already booked as " + o.courierLine + " · resending is refused", run: record("Already booked with Steadfast", "one order is one parcel per attempt, so no second booking is made.") });
+    items.push({ label: "Place hold", note: "Names you as the actor; holds never expire on their own", run: record("Hold placed", "the reservation consequence is shown on the order.") });
+    if (preDispatch) {
+      items.push({ label: "sep" });
+      items.push({ label: "Cancel order", note: "Pre-dispatch only", danger: true, run: record("Cancellation requested", "authority is checked per record before it is applied.") });
+    }
+
+    const base = "width:100%; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:8px 10px; border:none; border-radius:8px; background:transparent; cursor:pointer; text-align:left;";
+    return items.map(a => a.label === "sep"
+      ? { wrap: "height:1px; margin:5px 6px; background:oklch(0.94 0.004 290);", label: "", note: "", style: "display:none;", labelStyle: "display:none;", run: () => {} }
+      : { wrap: "", label: a.label, note: a.note, run: a.run, style: base,
+          labelStyle: "font-size:13px; font-weight:600; color:" + (a.danger ? "oklch(0.48 0.19 25)" : "oklch(0.24 0.02 290)") + ";" });
+  }
+
+  addCaptureLine(description, price) {
+    this.setState(s => ({
+      lines: s.lines.concat([{ id: s.nextLineId, description: description, qty: "1", price: price === "" ? "" : String(price), warranty: "From product policy" }]),
+      nextLineId: s.nextLineId + 1,
+      lineSearch: ""
+    }));
+  }
+
+  updateInvLine(id, key, value) {
+    this.setState(s => ({ invLines: s.invLines.map(l => l.id === id ? { ...l, [key]: value } : l) }));
+  }
+
+  updateLine(id, key, value) {
+    this.setState(s => ({ lines: s.lines.map(l => l.id === id ? { ...l, [key]: value } : l) }));
+  }
+}
+</script>
+</body>
+</html>
