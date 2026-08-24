@@ -155,15 +155,43 @@ export default function OrderCard({
               <span style={qtyStyle}>· {order.itemsCount ?? 0} item{order.itemsCount === 1 ? '' : 's'}</span>
             </div>
             {/*
+              🔴 EVERY EXTERNAL IDENTIFIER NAMES THE PARTY THAT ISSUED IT (`DB-013`, and
+              `OSC-030`'s required data says so outright — *external references with their issuing
+              party*). ⚠ THIS CARD PREVIOUSLY DID NOT, and once a courier exists the omission stops
+              being cosmetic: `Tracking` was Daraz's code, the shipment now carries STEADFAST's, and
+              two parties may legitimately issue the same string. An operator who cannot tell whose
+              number they are reading cannot tell who to ask about the parcel.
+
               ⚠ `purchase_order_id` is what Daraz publishes; it is NOT relabelled "Parcel" because
-              `DZC-047.c` names a separate `package_id` this slice does not import (`UX-271.a` — a
-              visual reference never renames a canonical fact).
+              `DZC-047.c` names a separate `package_id` this slice does not import (`UX-271.a`).
             */}
             <div style={subLineStyle}>
-              Purchase order <span style={monoStyle}>{order.purchaseOrderId || 'not recorded'}</span>
+              Daraz PO <span style={monoStyle}>{order.purchaseOrderId || 'not recorded'}</span>
+              {' · '}
+              Daraz tracking <span style={monoStyle}>{order.trackingCode || 'not recorded'}</span>
             </div>
-            <div style={subLineStyle}>
-              Tracking <span style={monoStyle}>{order.trackingCode || 'not recorded'}</span>
+            {/*
+              ✅ THE BOOKING, WHEN ONE EXISTS (product owner, 2026-08-24). 🔴 An order with no
+              consignment says so rather than rendering a blank: `BR-134` — absent is not empty, and
+              `FRAME 06` requires the shipment state or an explicit "not created".
+            */}
+            <div style={subLineStyle} data-testid="order-courier-line">
+              {order.courierConsignmentId ? (
+                <>
+                  Steadfast booking{' '}
+                  <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>
+                    {order.courierConsignmentId}
+                  </span>
+                  {order.courierTrackingCode ? (
+                    <>
+                      {' · '}Steadfast tracking{' '}
+                      <span style={monoStyle}>{order.courierTrackingCode}</span>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                'Courier not booked'
+              )}
             </div>
           </div>
         </div>

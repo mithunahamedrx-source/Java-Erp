@@ -122,6 +122,19 @@ export type ChannelOrderRow = {
   readonly trackingCode: string | null;
   readonly invoiceNumber: string | null;
   readonly purchaseOrderId: string | null;
+  /**
+   * The courier's own identifiers — issued by STEADFAST, not by the marketplace.
+   *
+   * 🔴 `trackingCode` above is DARAZ's. `DB-013` — an external identifier is only meaningful
+   * alongside the party that issued it, and two parties may legitimately issue the same string.
+   * Merging them would leave the card unable to say who to ask about a parcel.
+   *
+   * ⚠ Null until a consignment is booked, and null again once the shipment settles: the row
+   * carries the ACTIVE shipment only (`BR-023`, `BD-442`).
+   */
+  readonly courierConsignmentId: string | null;
+  readonly courierTrackingCode: string | null;
+  readonly shipmentState: string | null;
 };
 
 export type ChannelOrderItemRow = {

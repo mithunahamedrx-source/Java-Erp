@@ -52,7 +52,11 @@ public class ChannelOrderQueryService {
                        o.price, o.payment_method, o.items_count, o.customer_first_name, o.customer_last_name,
                        o.shipping_phone, o.shipping_address1, o.shipping_address3, o.shipping_city,
                        o.shipping_post_code, o.buyer_note,
-                       i.item_name, i.tracking_code, i.invoice_number, i.purchase_order_id
+                       i.item_name, i.tracking_code, i.invoice_number, i.purchase_order_id,
+                       s.consignment_id AS courier_consignment_id,
+                       s.tracking_code  AS courier_tracking_code,
+                       s.state          AS shipment_state,
+                       s.provider_status_raw AS courier_status_raw
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                   -- ⚠ The card shows ONE representative line. LEFT JOIN LATERAL keeps an order with
@@ -64,6 +68,18 @@ public class ChannelOrderQueryService {
                        ORDER BY external_order_item_id ASC
                        LIMIT 1
                   ) i ON true
+                  -- ⚠ The ACTIVE shipment only. `BR-023` allows at most one, and `BD-442` keeps
+                  -- successive shipments normal - so an order that was returned and re-sent has
+                  -- history here, and the card must show the live parcel rather than the first one.
+                  LEFT JOIN LATERAL (
+                      SELECT consignment_id, tracking_code, state, provider_status_raw
+                        FROM shipment
+                       WHERE channel_order_id = o.id
+                         AND state NOT IN ('DELIVERED', 'RETURNED_TO_WAREHOUSE', 'LOST',
+                                           'DAMAGED', 'CANCELLED')
+                       ORDER BY created_at DESC
+                       LIMIT 1
+                  ) s ON true
                 """ + where + """
                  ORDER BY o.provider_created_at DESC NULLS LAST, o.imported_at DESC, o.external_order_id ASC
                  LIMIT ? OFFSET ?
@@ -319,7 +335,9 @@ public class ChannelOrderQueryService {
                 rs.getString("customer_first_name"), rs.getString("customer_last_name"),
                 rs.getString("shipping_phone"), shippingLine(rs), rs.getString("buyer_note"),
                 rs.getString("item_name"), rs.getString("tracking_code"),
-                rs.getString("invoice_number"), rs.getString("purchase_order_id"));
+                rs.getString("invoice_number"), rs.getString("purchase_order_id"),
+                rs.getString("courier_consignment_id"), rs.getString("courier_tracking_code"),
+                rs.getString("shipment_state"));
     }
 
     private ChannelOrderDetail detail(ResultSet rs) throws SQLException {
@@ -555,7 +573,18 @@ public class ChannelOrderQueryService {
                                   String customerFirstName, String customerLastName,
                                   String shippingPhone, String shippingLine, String buyerNote,
                                   String itemName, String trackingCode, String invoiceNumber,
-                                  String purchaseOrderId) {}
+                                  String purchaseOrderId,
+                                  /*
+                                    🔴 THE COURIER'S OWN IDENTIFIERS, AND THEY ARE NOT THE
+                                    MARKETPLACE'S. `trackingCode` above is DARAZ's; these two are
+                                    STEADFAST's. `DB-013` exists for exactly this case - an
+                                    external identifier is only meaningful alongside the party that
+                                    issued it, and two parties may legitimately issue the same
+                                    string. Merging them into one "tracking" field would make the
+                                    card unable to say who to ask about a parcel.
+                                  */
+                                  String courierConsignmentId, String courierTrackingCode,
+                                  String shipmentState) {}
 
     public record ChannelOrderDetail(UUID id, UUID channelInstanceId, String channelName,
                                      String channelType, String externalOrderId, String orderNumber,

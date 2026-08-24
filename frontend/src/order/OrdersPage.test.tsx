@@ -36,6 +36,11 @@ const ORDER_ROW: ChannelOrderRow = {
   // merely having none to show. With `null` here the assertion would pass vacuously.
   invoiceNumber: 'INV-2026-0041',
   purchaseOrderId: '659537729498894',
+  // Unbooked by default. Most orders are, and the card must render that as an explicit
+  // absence rather than a blank (`BR-134`, `FRAME 06`).
+  courierConsignmentId: null,
+  courierTrackingCode: null,
+  shipmentState: null,
 };
 
 const SUMMARY: ChannelOrderSummary = {
@@ -267,6 +272,31 @@ describe('Orders first slice', () => {
 
     // ⚠ The marketplace's word is printed as the marketplace spelled it — not title-cased.
     expect(external.textContent).toBe('pending');
+  });
+
+  it('names the issuing party on every external identifier', async () => {
+    renderAt('/sales/orders');
+
+    const card = await screen.findByTestId('order-card');
+
+    /*
+      DB-013 - an external identifier is only meaningful alongside the party that issued it, and
+      OSC-030 lists *external references with their issuing party* as required data. Two parties
+      may legitimately issue the same string, and an operator who cannot tell whose number they
+      are reading cannot tell who to ask about the parcel.
+    */
+    expect(card.textContent).toContain('Daraz PO');
+    expect(card.textContent).toContain('Daraz tracking');
+    // A bare `Tracking` label is exactly the ambiguity this rule forbids.
+    expect(card.textContent).not.toMatch(/(?<!Daraz |Steadfast )Tracking\s/);
+  });
+
+  it('shows the courier booking when one exists, and its absence when it does not', async () => {
+    renderAt('/sales/orders');
+
+    // BR-134 / FRAME 06 - an unbooked order says so rather than rendering a blank.
+    const line = await screen.findByTestId('order-courier-line');
+    expect(line.textContent).toBe('Courier not booked');
   });
 
   it('states the SM-5 payment position and never claims one it cannot derive', async () => {
