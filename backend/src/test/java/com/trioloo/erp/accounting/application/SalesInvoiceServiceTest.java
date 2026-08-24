@@ -86,25 +86,64 @@ class SalesInvoiceServiceTest {
     }
 
     @Test
-    @DisplayName("🔴 records NO tax while GAP-003 has ratified no rate")
-    void recordsNoTaxWithoutARatifiedRate() {
+    @DisplayName("records the ratified 0% as a RATE, not as an absence")
+    void recordsTheRatifiedZeroRate() {
         /*
-          🔴 THE DESIGN SHOWS `VAT / Tax (7.5%)`. That 7.5 is hard-coded in the mock's
-          renderVals() BESIDE its sample Lenovo and Samsung line items and a sample `charges = 800`
-          — the same block, the same status. GAP-003 records that NO tax model exists: no rate, no
-          BIN, no Mushak requirement, no calculation.
+          ✅ THE PRODUCT OWNER RATIFIED 0% ON 2026-08-24 - "for now".
 
-          ⚠ BD-307 permits VAT to be DISPLAYED as an invoice field while the ERP maintains no VAT
-          accounts, which makes the FIELD legitimate and the NUMBER still a business decision.
+          🔴 ZERO AND NULL ARE DIFFERENT ANSWERS AND THIS TEST PINS THE DIFFERENCE. 0.000 STATES
+          that no tax applies at present; NULL would say nobody had decided (SYS-034). The owner
+          decided, so the invoice carries the claim - which is what BD-307 permits displaying
+          while the ERP maintains no VAT accounts.
 
-          🔴 NULL, NOT ZERO. A 0% line is a claim that no tax applies; absence says nobody has
-          decided (SYS-034).
+          🔴 THE DESIGN'S 7.5 IS STILL REFUSED. It is hard-coded in the mock's renderVals() beside
+          its sample Lenovo and Samsung line items and a sample `charges = 800`, and GAP-003 still
+          supplies no BIN, no Mushak requirement and no rule about which rate applies to which
+          product category. What is ratified is Trioloo's CURRENT POSITION, not a tax model.
         */
         SalesInvoiceService.Issued issued = invoices.issue(orderId);
 
-        assertThat(issued.taxRatePercent()).isNull();
-        assertThat(issued.taxAmount()).isNull();
+        assertThat(issued.taxRatePercent()).isEqualByComparingTo("0");
+        assertThat(issued.taxAmount()).isEqualByComparingTo("0.00");
+        // ⚠ And the total is unchanged by a zero rate, which is the arithmetic saying the same.
         assertThat(issued.total()).isEqualByComparingTo("1560.00");
+    }
+
+    @Test
+    @DisplayName("🔴 a later rate change cannot rewrite an invoice already issued")
+    void aLaterRateChangeCannotRewriteAnIssuedInvoice() {
+        /*
+          🔴 THE REASON INV-39.2 EXISTS, STATED AS A TEST. The owner's 0% is explicitly "for now".
+          When it changes - and a tax position usually does - every invoice already raised must
+          stay exactly as it was printed and handed to a customer.
+
+          ⚠ A renderer that re-derived tax from current configuration would silently restate every
+          historical invoice at the new rate, which is both wrong for the customer and the kind of
+          thing a tax authority reads as falsification.
+
+          ✅ The snapshot makes that impossible: the rate and the amount are COLUMNS on the issued
+          document, not a calculation performed at render time (PRN-022).
+        */
+        SalesInvoiceService.Issued issued = invoices.issue(orderId);
+        assertThat(issued.taxRatePercent()).isEqualByComparingTo("0");
+
+        // A service configured with a different rate - the same class, new configuration.
+        SalesInvoiceService atFifteenPercent = new SalesInvoiceService(
+                jdbc, java.time.Clock.systemUTC(), "15");
+        UUID laterOrder = seedSecondOrder();
+        SalesInvoiceService.Issued later = atFifteenPercent.issue(laterOrder);
+
+        // ✅ The new invoice carries the new rate...
+        assertThat(later.taxRatePercent()).isEqualByComparingTo("15");
+        assertThat(later.taxAmount()).isEqualByComparingTo("234.00");
+
+        // 🔴 ...and the ALREADY ISSUED one is untouched.
+        java.util.Map<String, Object> first = jdbc.queryForMap(
+                "SELECT tax_rate_percent, tax_amount, total FROM sales_invoice WHERE id = ?",
+                issued.id());
+        assertThat((BigDecimal) first.get("tax_rate_percent")).isEqualByComparingTo("0");
+        assertThat((BigDecimal) first.get("tax_amount")).isEqualByComparingTo("0.00");
+        assertThat((BigDecimal) first.get("total")).isEqualByComparingTo("1560.00");
     }
 
     @Test
@@ -196,6 +235,29 @@ class SalesInvoiceServiceTest {
 
         seedItem(id, "INV-ITEM-1", "Widget A", new BigDecimal("1000.00"));
         seedItem(id, "INV-ITEM-2", "Widget B", new BigDecimal("500.00"));
+        return id;
+    }
+
+    /** A second order so a differently-configured service has something of its own to issue. */
+    private UUID seedSecondOrder() {
+        UUID instanceId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO channel_instance (id, code, name, channel_type, record_status, market)
+                VALUES (?, ?, ?, 'DARAZ', 'ACTIVE', 'BANGLADESH')
+                """, instanceId, "INV-SHOP-2-" + instanceId, "Invoice Test Shop 2");
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO channel_order (
+                    id, channel_instance_id, external_order_id, ownership, statuses_json,
+                    canonical_statuses_json, price, shipping_fee, customer_first_name,
+                    customer_last_name, shipping_phone, shipping_address1, shipping_city,
+                    imported_at, last_seen_at)
+                VALUES (?, ?, 'INV-ORDER-EXT', 'API_MANAGED', '[]'::jsonb, '[]'::jsonb,
+                        ?, ?, ?, ?, ?, ?, ?, now(), now())
+                """, id, instanceId, new BigDecimal("1500.00"), new BigDecimal("60.00"),
+                "Second", "Customer", "01700000000", "House 9, Banani", "Dhaka");
+        jdbc.update("UPDATE channel_order SET trioloo_invoice_number = 'TR-INV-0002' WHERE id = ?", id);
+        seedItem(id, "INV-ITEM-3", "Widget C", new BigDecimal("1500.00"));
         return id;
     }
 

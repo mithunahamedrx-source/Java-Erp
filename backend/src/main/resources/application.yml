@@ -144,3 +144,20 @@ trioloo:
       # ONLY - it activates nothing, writes no lifecycle transition, and CONNECTION is still
       # required either way.
       admit-draft-shops: ${ORDER_PULL_ADMIT_DRAFT_SHOPS:false}
+
+  # Sales invoice - E-039, INV-39.2.
+  #
+  # ✅ 0 IS THE PRODUCT OWNER'S DECISION, 2026-08-24 - VAT/tax is 0 for now.
+  #
+  # 🔴 0 IS A RATE, NOT AN ABSENCE, AND THE DIFFERENCE IS DELIBERATE. An UNSET value records
+  # NULL and renders as "not applied" - nobody has decided. 0 records 0.000 and STATES that no
+  # tax applies at present. The owner has now decided, so it is set.
+  #
+  # ⚠ GAP-003 IS NOT CLOSED BY THIS. No BIN, no Mushak requirement and no rule about which rate
+  # applies to which product category exists. This is Trioloo's CURRENT position, not a tax model.
+  #
+  # ✅ CHANGING IT LATER CANNOT REWRITE AN ISSUED INVOICE. INV-39.2 snapshots the rate and the
+  # amount at issue, so invoices raised at 0% stay at 0% forever - which is what a tax authority
+  # would expect and what a re-deriving renderer would destroy.
+  invoice:
+    tax-rate-percent: ${TRIOLOO_INVOICE_TAX_RATE_PERCENT:0}

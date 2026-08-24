@@ -63,3 +63,14 @@ integration:
     encryption:
       keys: 1:dHJpb2xvby10ZXN0LWtleS1ub3QtYS1zZWNyZXQhISE=,2:dHJpb2xvby10ZXN0LWtleS1UV08tbm90LXNlY3JldCE=
       active-key-version: 1
+
+# ⚠ THE TEST CLASSPATH REPLACES THE MAIN `application.yml` ENTIRELY, so a shipped default that
+# matters to behaviour has to be repeated here or the suite tests something the deployment does
+# not do.
+#
+# ✅ 0 mirrors the production default the product owner ratified on 2026-08-24. 🔴 It is a RATE
+# and not an absence: an unset value records NULL ("nobody decided"), 0 records 0.000 ("no tax
+# applies at present") - SYS-034.
+trioloo:
+  invoice:
+    tax-rate-percent: 0
