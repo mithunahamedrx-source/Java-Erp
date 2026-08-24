@@ -274,6 +274,42 @@ describe('Orders first slice', () => {
     expect(external.textContent).toBe('pending');
   });
 
+  it('keeps the five economic figures together and away from the buttons', async () => {
+    renderAt('/sales/orders');
+    const card = await screen.findByTestId('order-card');
+    const text = card.textContent ?? '';
+
+    /*
+      The regression this pins. `Received` and `Margin` had drifted against the action buttons,
+      because the demoted group carried its own auto margin and centred itself - splitting the
+      economics in two across the width of the card.
+
+      A figure adjacent to a button reads as that button's subject, and 3.15's hierarchy is
+      DEMOTED then PRIMARY across ONE run.
+    */
+    const sale = text.indexOf('Sale');
+    const charges = text.indexOf('Charges');
+    const received = text.indexOf('Received');
+    const margin = text.indexOf('Margin');
+    const view = text.indexOf('View');
+
+    expect(sale).toBeGreaterThan(-1);
+    expect(charges).toBeGreaterThan(sale);
+    expect(received).toBeGreaterThan(charges);
+    expect(margin).toBeGreaterThan(received);
+    // Every figure precedes the actions, and the actions come last.
+    expect(view).toBeGreaterThan(margin);
+
+    // They share ONE container, so no layout rule can push half of them elsewhere - which is
+    // exactly how the split happened.
+    const economics = screen.getByTestId('order-economics');
+    for (const label of ['Sale', 'Cost', 'Charges', 'Received', 'Margin']) {
+      expect(economics.contains(screen.getByText(label))).toBe(true);
+    }
+    // And the actions are OUTSIDE it.
+    expect(economics.contains(screen.getByRole('link', { name: 'View' }))).toBe(false);
+  });
+
   it('names the issuing party on every external identifier', async () => {
     renderAt('/sales/orders');
 

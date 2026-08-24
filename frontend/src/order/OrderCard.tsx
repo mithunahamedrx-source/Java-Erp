@@ -197,15 +197,24 @@ export default function OrderCard({
         </div>
 
         {/*
-          🔴 THE DEMOTED FIGURES. Sale is real — it is what the marketplace reported. Cost and
-          Charges are NOT held for an imported order, and `INV-32.4` requires an unknown cost to
-          render UNKNOWN rather than zero. The design's `৳0` is sample data, not a fact.
+          ⚠ THE FIVE ECONOMIC FIGURES ARE ONE BLOCK, AND KEEPING THEM SO IS THE POINT OF THIS
+          WRAPPER. `Received` and `Margin` previously sat against the action buttons because the
+          demoted group carried `margin: 0 auto` and pushed itself to the middle, splitting the
+          economics in two. 🔴 A figure adjacent to a button reads as that button's subject, and
+          `§3.15`'s hierarchy is DEMOTED-then-PRIMARY across one run — not two groups separated by
+          the width of the card.
         */}
-        <div style={demotedGroupStyle}>
-          <Demoted label="Sale" value={displayMoney(order.price)} />
-          <Demoted label="Cost" value="Unknown" />
-          <Demoted label="Charges" value="Unknown" />
-        </div>
+        <div style={economicsStyle} data-testid="order-economics">
+          {/*
+            🔴 THE DEMOTED FIGURES. Sale is real — it is what the marketplace reported. Cost and
+            Charges are NOT held for an imported order, and `INV-32.4` requires an unknown cost to
+            render UNKNOWN rather than zero. The design's `৳0` is sample data, not a fact.
+          */}
+          <div style={demotedGroupStyle}>
+            <Demoted label="Sale" value={displayMoney(order.price)} />
+            <Demoted label="Cost" value="Unknown" />
+            <Demoted label="Charges" value="Unknown" />
+          </div>
 
         {/*
           🔴 RECEIVED AND MARGIN ARE UNKNOWN, AND THAT IS THE POINT OF THIS CARD.
@@ -215,9 +224,10 @@ export default function OrderCard({
           `SYS-034` forbids summing unknowns as zeros. The design's green figure equals its Sale
           figure, which is precisely the misreading `E-032` recorded from live experience.
         */}
-        <div style={primaryGroupStyle}>
-          <Primary label="Received" value="Unknown" />
-          <Primary label="Margin" value="Unknown" />
+          <div style={primaryGroupStyle}>
+            <Primary label="Received" value="Unknown" />
+            <Primary label="Margin" value="Unknown" />
+          </div>
         </div>
 
         {/*
@@ -536,13 +546,25 @@ const subLineStyle: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
+/*
+  ⚠ THE AUTO MARGIN LIVES HERE, ON THE WHOLE ECONOMIC RUN, AND NOT ON HALF OF IT. Putting it on
+  the demoted group centred that group alone and left `Received`/`Margin` pinned against the
+  action buttons — which is what the product owner reported, 2026-08-24.
+*/
+const economicsStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  marginLeft: 'auto',
+  flexShrink: 0,
+  minWidth: 'max-content',
+};
+
 const demotedGroupStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   gap: 'var(--space-3)',
   flexShrink: 0,
   minWidth: 'max-content',
-  margin: '0 auto',
   paddingRight: 'var(--space-4)',
   borderRight: '1px solid var(--color-border-card)',
 };
@@ -564,7 +586,7 @@ const primaryGroupStyle: React.CSSProperties = {
   alignItems: 'flex-start',
   gap: 'var(--space-7)',
   flexShrink: 0,
-  paddingLeft: 'var(--space-1)',
+  paddingLeft: 'var(--space-4)',
 };
 
 /*
