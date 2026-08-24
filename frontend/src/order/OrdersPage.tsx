@@ -234,19 +234,27 @@ export default function OrdersPage(): React.JSX.Element {
             </Button>
 
             {/*
-              BLOCKED - MISSING CANONICAL BUSINESS RULE. Rendered because the owner asked for it,
-              and refusing to act because the architecture cannot yet say what it would produce.
-              `PRN-023` sources the Sales Invoice printable from `E-039` with a SNAPSHOT required
-              by `INV-39.2`; no `E-039` record exists, so there is nothing to render. `GAP-003`
-              leaves the tax model undefined on a tax-bearing document, and
-              `DOCUMENT_ARCHITECTURE.md` decides no layout at all. `OSC-058.b` records this.
+              UNBLOCKED 2026-08-24. `OSC-058.b` refused this because `PRN-023` sources the Sales
+              Invoice printable from an `E-039` record whose content `INV-39.2` requires
+              snapshotted, and none existed. `V22` creates it, `SalesInvoiceService` fills it and
+              `InvoicePage` renders it.
+
+              It opens ONE selected order's invoice. `PRM-025` requires each record authorised
+              individually with per-record results (`SYS-073`), and `GAP-034` still records no
+              permitted-bulk-transition inventory - so `Print invoices` in bulk stays unbuilt.
             */}
             <Button
               variant="secondary"
               size="page-header"
-              disabled
-              describedBy="orders-print-reason"
+              disabled={selected.size !== 1}
+              describedBy={selected.size === 1 ? undefined : 'orders-print-reason'}
               testId="orders-print"
+              onClick={() => {
+                const only = [...selected.keys()][0];
+                if (only) {
+                  window.open(`/sales/orders/${only}/invoice`, '_blank', 'noopener');
+                }
+              }}
             >
               Print
             </Button>
@@ -276,9 +284,9 @@ export default function OrdersPage(): React.JSX.Element {
       */}
       <p style={blockedReasonStyle}>
         <span id="orders-print-reason">
-          <strong>Print</strong> is unavailable: a Sales Invoice printable renders from an
-          <code> E-039 </code> record whose content must be snapshotted (<code>INV-39.2</code>),
-          and no such record exists yet. The invoice NUMBER is issued; the invoice is not.
+          <strong>Print</strong> opens the invoice for <strong>one</strong> selected order.
+          Bulk printing stays unavailable: <code>PRM-025</code> requires each record authorised
+          individually and <code>GAP-034</code> records no permitted bulk-action inventory.
         </span>{' '}
         <span id="orders-create-reason">
           <strong>Create Order</strong> is unavailable: no Order-creation capability is ratified

@@ -397,23 +397,39 @@ describe('Orders first slice', () => {
     expect(create.style.background).not.toBe('var(--color-ink)');
   });
 
-  it('refuses Print and Create Order and says why in visible text', async () => {
+  it('refuses Create Order and says why in visible text', async () => {
     renderAt('/sales/orders');
     await screen.findByRole('heading', { name: 'Orders' });
 
-    // BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRN-023`/`INV-39.2` for the printable,
-    // `PRM-091` for the capability. Neither is invented to make a button work.
-    const print = screen.getByTestId('orders-print') as HTMLButtonElement;
+    // BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRM-091` ratifies two Order codes and states
+    // that neither grants Order mutation; `PRM-089.b` is a spelling rule and not a generator.
     const create = screen.getByTestId('orders-create') as HTMLButtonElement;
-    expect(print.disabled).toBe(true);
     expect(create.disabled).toBe(true);
 
     // The reason is VISIBLE text a screen reader reaches, never a tooltip: a `title` is
     // unreachable by keyboard and invisible on touch.
-    const printReason = document.getElementById(print.getAttribute('aria-describedby')!);
     const createReason = document.getElementById(create.getAttribute('aria-describedby')!);
-    expect(printReason?.textContent).toContain('INV-39.2');
     expect(createReason?.textContent).toContain('PRM-091');
+  });
+
+  it('enables Print for exactly one selected order and never for a set', async () => {
+    renderAt('/sales/orders');
+    await screen.findByTestId('order-card');
+
+    const print = () => screen.getByTestId('orders-print') as HTMLButtonElement;
+
+    // Nothing selected - there is no single order to print.
+    expect(print().disabled).toBe(true);
+
+    fireEvent.click(screen.getByTestId('order-select'));
+    // One selected - `OSC-059` unblocked this: V22 creates the E-039 snapshot PRN-023 sources
+    // the printable from, so there is now something to render.
+    await waitFor(() => expect(print().disabled).toBe(false));
+
+    // A SET stays refused. PRM-025 requires each record authorised individually with per-record
+    // results (SYS-073), and GAP-034 still records no permitted bulk-action inventory.
+    const reason = document.getElementById('orders-print-reason');
+    expect(reason?.textContent).toContain('GAP-034');
   });
 
   it('keeps a selection when the page changes and drops it when the filter changes', async () => {

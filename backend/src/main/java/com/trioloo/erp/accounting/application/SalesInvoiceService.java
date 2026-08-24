@@ -72,7 +72,8 @@ public class SalesInvoiceService {
      */
     @Transactional
     public Issued issue(UUID channelOrderId) {
-        UUID actor = actorId();
+        // 🔴 PRM-004 — the gate is in the application service, never a controller annotation.
+        UUID actor = requireAuthority(AccountingPermissions.SALES_INVOICE_ISSUE);
         OrderSnapshot order = load(channelOrderId);
 
         if (order.invoiceNumber() == null || order.invoiceNumber().isBlank()) {
@@ -138,7 +139,83 @@ public class SalesInvoiceService {
                 taxRatePercent, taxAmount, total);
     }
 
+    /**
+     * Reads an issued invoice for rendering — {@code PRN-022}.
+     *
+     * <p>🔴 IT RETURNS THE SNAPSHOT AND RE-DERIVES NOTHING. {@code PRN-022} — every printable has
+     * exactly one deterministic authoritative source, and the RENDERING NEVER BECOMES THAT SOURCE.
+     * ⚠ A renderer that recomputed a total, re-read an address or re-applied the current tax rate
+     * would silently restate a document a customer already holds.
+     */
+    public Optional<Rendered> forRendering(UUID channelOrderId) {
+        requireAuthority(AccountingPermissions.SALES_INVOICE_VIEW);
+        return Optional.ofNullable(jdbc.query("""
+                SELECT invoice_number, issued_at, customer_name, customer_phone, customer_address,
+                       external_order_reference, consignment_reference, subtotal, delivery_charge,
+                       tax_rate_percent, tax_amount, total, lines_json::text AS lines
+                  FROM sales_invoice WHERE channel_order_id = ?
+                """, rs -> {
+            if (!rs.next()) {
+                return null;
+            }
+            return new Rendered(
+                    rs.getString("invoice_number"),
+                    rs.getTimestamp("issued_at").toInstant(),
+                    rs.getString("customer_name"), rs.getString("customer_phone"),
+                    rs.getString("customer_address"),
+                    rs.getString("external_order_reference"), rs.getString("consignment_reference"),
+                    rs.getBigDecimal("subtotal"), rs.getBigDecimal("delivery_charge"),
+                    rs.getBigDecimal("tax_rate_percent"), rs.getBigDecimal("tax_amount"),
+                    rs.getBigDecimal("total"),
+                    readLines(rs.getString("lines")));
+        }, channelOrderId));
+    }
+
+    private List<Line> readLines(String linesJson) {
+        List<Line> out = new ArrayList<>();
+        for (tools.jackson.databind.JsonNode node : json.readTree(linesJson == null ? "[]" : linesJson)) {
+            out.add(new Line(
+                    node.path("name").isNull() ? null : node.path("name").asString(),
+                    node.path("sku").isNull() ? null : node.path("sku").asString(),
+                    node.path("quantity").asInt(),
+                    node.path("unitPrice").isNull() ? null : new BigDecimal(node.path("unitPrice").asString()),
+                    node.path("lineTotal").isNull() ? null : new BigDecimal(node.path("lineTotal").asString())));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * ⚠ EVERY FIGURE HERE IS A STORED COLUMN, NOT A CALCULATION. That is what makes the document
+     * reproducible years later ({@code INV-39.2}).
+     */
+    public record Rendered(String invoiceNumber, Instant issuedAt, String customerName,
+                           String customerPhone, String customerAddress,
+                           String externalOrderReference, String consignmentReference,
+                           @MonetaryAmount BigDecimal subtotal,
+                           @MonetaryAmount BigDecimal deliveryCharge,
+                           BigDecimal taxRatePercent,
+                           @MonetaryAmount BigDecimal taxAmount,
+                           @MonetaryAmount BigDecimal total,
+                           List<Line> lines) {
+    }
+
+    public record Line(String name, String sku, int quantity,
+                       @MonetaryAmount BigDecimal unitPrice,
+                       @MonetaryAmount BigDecimal lineTotal) {
+    }
+
     /* ------------------------------------------------------------------ internals */
+
+    private UUID requireAuthority(String code) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean permitted = auth != null && auth.getAuthorities().stream()
+                .anyMatch(g -> code.equals(g.getAuthority()));
+        if (!permitted) {
+            throw new com.trioloo.erp.product.application.AccessDeniedByPermissionException(code);
+        }
+        return actorId();
+    }
+
 
     private List<Map<String, Object>> loadLines(UUID channelOrderId) {
         List<Map<String, Object>> lines = new ArrayList<>();

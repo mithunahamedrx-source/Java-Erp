@@ -27,6 +27,7 @@ import ShopsWorkspacePage from './system/ShopsWorkspacePage';
 import ShopDetailPage from './system/ShopDetailPage';
 import OrdersPage from './order/OrdersPage';
 import OrderDetailPage from './order/OrderDetailPage';
+import InvoicePage from './order/InvoicePage';
 
 /**
  * Application routes.
@@ -125,6 +126,9 @@ export default function App(): React.JSX.Element {
         {/* `OSC-061` - Orders first slice: read-only FRAME 01 and FRAME 02 over API-managed channel orders. */}
         <Route path="/sales/orders" element={<OrdersPage />} />
         <Route path="/sales/orders/:id" element={<OrderDetailPage />} />
+        {/* The printable. A document, not a workspace - see InvoicePage for why its
+            typography and geometry differ from the application shell. */}
+        <Route path="/sales/orders/:id/invoice" element={<InvoicePage />} />
 
         {allDestinations()
           .filter(

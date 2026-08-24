@@ -1,7 +1,7 @@
 # Permission Architecture
 
 **Owner:** Trioloo Technology · **Module:** Permission · **Status:** Canonical
-**Version:** 1.15.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-24 (**`PRM-092` — the COURIER AND SHIPMENT capability codes `delivery.shipment.book`, `.track`, `.cancel` and `payment.courier-remittance.view`, closing `GAP-138.g`: `DLV §22` has required every dispatch permissioned and attributable since ratification and no code existed to enforce it. 🔴 The remittance code's module segment is `payment`, NOT `delivery` — `PAY-022` and `DLV §23` both place `E-042` with Payment and `PRM-089.a` requires the owning module to name it. Book, track and cancel are INDEPENDENT, not a ladder, and cancelling a consignment never cancels the Order. `PRM-093` — `order.order.create` for manual order capture; a manual order starts at `PENDING_VERIFICATION`, the same state an imported one arrives in, and creation is NOT confirmation**) · **Amended:** 2026-08-23 (**`PRM-091` — the Order MVP capability codes `order.channel-order.view` and `order.channel-order.sync`; neither grants Order mutation, inventory movement, payment/settlement, shipment action or any marketplace write**) · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
+**Version:** 1.16.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-24 (**`PRM-094` — the SALES INVOICE capability codes `accounting.sales-invoice.view` and `.issue`. Issuing is a write and viewing is not, so they are separate: the person who prints an invoice for a customer is not necessarily the person authorised to create one. The module segment is `accounting`, not `order` — `PRN-023` and `DOMAIN_MODEL.md` both place `E-039` there. Neither cancels, re-issues or posts to the ledger**) · **Amended:** 2026-08-24 (**`PRM-092` — the COURIER AND SHIPMENT capability codes `delivery.shipment.book`, `.track`, `.cancel` and `payment.courier-remittance.view`, closing `GAP-138.g`: `DLV §22` has required every dispatch permissioned and attributable since ratification and no code existed to enforce it. 🔴 The remittance code's module segment is `payment`, NOT `delivery` — `PAY-022` and `DLV §23` both place `E-042` with Payment and `PRM-089.a` requires the owning module to name it. Book, track and cancel are INDEPENDENT, not a ladder, and cancelling a consignment never cancels the Order. `PRM-093` — `order.order.create` for manual order capture; a manual order starts at `PENDING_VERIFICATION`, the same state an imported one arrives in, and creation is NOT confirmation**) · **Amended:** 2026-08-23 (**`PRM-091` — the Order MVP capability codes `order.channel-order.view` and `order.channel-order.sync`; neither grants Order mutation, inventory movement, payment/settlement, shipment action or any marketplace write**) · **Amended:** 2026-08-15 (**`PRM-090` — Channel Instance and Channel Connection capability codes**) · **Amended:** 2026-08-11 (**`PRM-089` — permission code naming convention**; `DOC-083`) · **Amended:** 2026-08-10 (Employee Loan authority — `BD-484`, §13.6; Owner designation reference — `BD-485`) · **Rule prefix:** `PRM-`
 
 ---
 
@@ -239,6 +239,25 @@ A permission is the right to perform one **action** on one **subject type**.
 > **f.** ⚠ **`GAP-035`'s REMAINING QUESTIONS ARE NOT CLOSED BY THIS RULE.** ✅ **Invoice NUMBERING is settled** (`OSC-057`) **and the product owner has now ratified that the invoice CARRIES VAT/tax** — 🔴 **but `GAP-003` still supplies NO rate, BIN, Mushak requirement or calculation, and none may be inferred** (`BD-307`, `INV-39.2`'s `tax detail (undefined)`). ⚠ **Whether partial payment may be taken at creation is ALSO still unanswered and still conflicts with `§11.3`'s `NOT_DUE`.**
 >
 > **g.** ⚠ **`GAP-023`'s abandoned-modal disposition is untouched.** ✅ **An unsubmitted capture form has created nothing, which is the only reading consistent with `create` being the act.**
+
+> **PRM-094 — ✅ THE SALES INVOICE CAPABILITY CODES. Ratified 2026-08-24 on the product owner's standing authorisation to complete the Order module.**
+>
+> **Derived under `PRM-089` and named by the owning module** (`PRM-007`) — **`E-039` Sales Invoice is Accounting's** (`PRN-023`, `DOMAIN_MODEL.md`).
+>
+> | Code | Grants | Explicitly does NOT grant |
+> |---|---|---|
+> | **`accounting.sales-invoice.view`** | **READ AN ISSUED INVOICE AND ITS SNAPSHOT** — including rendering it for print | 🔴 **Issuing one. Cancelling one. Any accounting posting** |
+> | **`accounting.sales-invoice.issue`** | **ISSUE THE INVOICE FOR AN ORDER** — take the `INV-39.2` snapshot | 🔴 **Viewing. Re-issuing. Cancelling. Any payment, receipt or settlement act** |
+>
+> **a.** 🔴 **ISSUING IS A WRITE AND VIEWING IS NOT, SO THEY ARE SEPARATE.** ⚠ **An invoice is a document with commercial and legal weight: the person who prints one for a customer is not necessarily the person authorised to create one.** ✅ **Same reasoning as `PRM-091.a` and `PRM-092.b`.**
+>
+> **b.** 🔴 **NEITHER CANCELS OR RE-ISSUES.** **`INV-39.1` — one sequence, never reused, and a cancelled number is RETIRED rather than recycled** (`DB-012`). ⚠ **Cancellation retires a number and `PRN §6` owns correction; no code is created for it here, because `PRM-089.b` is a spelling rule and not a generator.**
+>
+> **c.** 🔴 **NEITHER POSTS TO ACCOUNTING.** **Issuing a document is not recognising revenue.** ⚠ **`ACC-` owns posting, and no ledger effect exists in this slice.**
+>
+> **d.** ⚠ **THE MODULE SEGMENT IS `accounting`, NOT `order`.** **`PRN-023` sources the Sales Invoice printable from `E-039` (Accounting) and `DOMAIN_MODEL.md` places the entity there.** 🔴 **`PRM-089.a` requires the OWNING module to name the code, because that is the module that enforces it** — the same correction `PRM-092.a` recorded for the remittance code.
+>
+> **e.** ⚠ **RATIFIED ON A STANDING AUTHORISATION RATHER THAN A SPECIFIC ONE.** **The product owner instructed on 2026-08-24 to complete the Order module without further questions.** ✅ **Recorded plainly so the decision is visible for review rather than buried in an implementation** (`PRM-089.f` — implementation may never coin a code, so this is a RATIFICATION and not a coinage).
 
 ## 5.3 Authority magnitude
 

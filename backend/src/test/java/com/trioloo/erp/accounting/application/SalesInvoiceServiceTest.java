@@ -50,11 +50,7 @@ class SalesInvoiceServiceTest {
                 VALUES (?, ?, ?, 'ACTIVE', ?, ?)
                 """, actorId, "invoice-tester-" + actorId, "Invoice Tester",
                 Timestamp.from(Instant.now()), Timestamp.from(Instant.now()));
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(
-                        new AccessUserDetails(actorId, "invoice-tester", "Invoice Tester",
-                                "unused", AccountLifecycleState.ACTIVE, Set.of(), Set.of()),
-                        null, java.util.List.of()));
+        actAs(AccountingPermissions.SALES_INVOICE_ISSUE, AccountingPermissions.SALES_INVOICE_VIEW);
         orderId = seedOrder();
     }
 
@@ -212,7 +208,50 @@ class SalesInvoiceServiceTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("refuses to issue without accounting.sales-invoice.issue")
+    void requiresTheIssuePermission() {
+        // 🔴 PRM-094.a — issuing is a WRITE and viewing is not. Holding `view` grants nothing
+        // here: the person who prints an invoice for a customer is not necessarily the person
+        // authorised to create one.
+        actAs(AccountingPermissions.SALES_INVOICE_VIEW);
+
+        assertThatThrownBy(() -> invoices.issue(orderId))
+                .isInstanceOf(com.trioloo.erp.product.application.AccessDeniedByPermissionException.class);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM sales_invoice WHERE channel_order_id = ?", Integer.class, orderId))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("renders from the snapshot and re-derives nothing")
+    void rendersFromTheSnapshot() {
+        invoices.issue(orderId);
+        // 🔴 PRN-022 — the rendering never becomes the source. Every figure below is a stored
+        // column, which is what makes the document reproducible years later (INV-39.2).
+        SalesInvoiceService.Rendered rendered = invoices.forRendering(orderId).orElseThrow();
+
+        assertThat(rendered.invoiceNumber()).isEqualTo("TR-INV-0001");
+        assertThat(rendered.customerName()).isEqualTo("Invoice Customer");
+        assertThat(rendered.lines()).hasSize(2);
+        assertThat(rendered.lines().getFirst().name()).isEqualTo("Widget A");
+        assertThat(rendered.total()).isEqualByComparingTo("1560.00");
+        assertThat(rendered.taxRatePercent()).isEqualByComparingTo("0");
+    }
+
     /* ------------------------------------------------------------------ fixtures */
+
+    private void actAs(String... permissions) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        new AccessUserDetails(actorId, "invoice-tester", "Invoice Tester",
+                                "unused", AccountLifecycleState.ACTIVE, Set.of(), Set.of(permissions)),
+                        null,
+                        java.util.Arrays.stream(permissions)
+                                .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
+                                .toList()));
+    }
+
 
     private UUID seedOrder() {
         UUID instanceId = UUID.randomUUID();
