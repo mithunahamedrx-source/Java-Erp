@@ -13,23 +13,26 @@ import java.util.Optional;
 /**
  * The Steadfast read-only client — {@code STF-005}.
  *
- * <p>🔴 READ ONLY, AND THAT IS A BOUNDARY RATHER THAN A STAGE OF WORK. No booking, no bulk create,
- * no cancellation and no return request exists here, for two independent reasons and either alone
- * would be sufficient:
+ * <p>⚠ AMENDED 2026-08-24. THIS CLASS WAS READ-ONLY FOR TWO REASONS, AND EXACTLY ONE OF THEM HAS
+ * BEEN DISCHARGED.
  *
  * <ul>
- *   <li>🔴 {@code PRM-089.f} — <em>a capability whose code is not yet ratified is not
- *       implementable, and implementation may never coin one.</em> No {@code delivery.*} capability
- *       code exists anywhere in {@code PERMISSION_ARCHITECTURE.md}, while {@code DLV §22} requires
- *       every dispatch to be permissioned and attributable ({@code DLV-011}, {@code AGV-001}).</li>
- *   <li>🔴 {@code STF-010.b} — whether Steadfast REJECTS a duplicate {@code invoice} or silently
- *       books a second parcel is UNKNOWN. {@code BR-023} as amended allows an order at most ONE
- *       ACTIVE shipment, so a silent double booking would violate that invariant at the courier,
- *       where the ERP cannot see it and cannot undo it.</li>
+ *   <li>✅ <b>Discharged.</b> {@code PRM-089.f} — <em>a capability whose code is not yet ratified
+ *       is not implementable</em> — held while no {@code delivery.*} code existed.
+ *       {@code PRM-092} now ratifies {@code delivery.shipment.book}, so the authority exists.
+ *       🔴 It is enforced in the APPLICATION SERVICE, never here: a transport-level client is not
+ *       an authorisation boundary ({@code PRM-004}).</li>
+ *   <li>🔴 <b>NOT discharged.</b> {@code STF-010.b} — whether Steadfast REJECTS a duplicate
+ *       {@code invoice} or silently books a SECOND parcel is still UNKNOWN, and one controlled
+ *       booking is what will settle it. ⚠ {@code BR-023} as amended allows an order at most ONE
+ *       ACTIVE shipment, so the ERP does NOT rely on the provider to enforce this: {@code V21}
+ *       carries a unique index on a booked invoice and another on an active shipment per order.
+ *       <b>The database refuses a second booking whether or not Steadfast would.</b></li>
  * </ul>
  *
- * <p>⚠ NOTHING HERE IS WIRED TO AN HTTP ENDPOINT, A SCHEDULER OR A USER ACTION. It is the same
- * shape the first Daraz code took: infrastructure with tests, no surface.
+ * <p>🔴 STILL NO BULK CREATE, NO CANCELLATION AND NO RETURN REQUEST. {@code STF-006} found no
+ * endpoint for the latter two under the names probed, and {@code GAP-034} keeps the bulk path
+ * blocked for want of a permitted-action inventory.
  */
 @Component
 public class SteadfastCourierClient {
@@ -170,6 +173,100 @@ public class SteadfastCourierClient {
                 text(root, "consignment_id"),
                 text(root, "tracking_code"),
                 text(root, "delivery_status")));
+    }
+
+    /**
+     * Books ONE consignment with the courier — {@code STF-010}.
+     *
+     * <p>🔴 THIS SPENDS MONEY AND DISPATCHES A RIDER. It is the only method on this class with an
+     * effect outside Trioloo, and deliberately the only one.
+     *
+     * <p>🔴 IT ENFORCES NO AUTHORITY AND NO IDEMPOTENCY, BY DESIGN. {@code delivery.shipment.book}
+     * ({@code PRM-092}) is checked in the application service, and the once-only guarantee lives in
+     * {@code V21}'s unique indexes. ⚠ A transport client that also policed those rules would put the
+     * authorisation boundary in the wrong layer ({@code PRM-004}).
+     *
+     * <p>⚠ {@code cod_amount} CROSSES AS A JSON NUMBER BECAUSE THE PROVIDER'S API IS SHAPED THAT WAY
+     * ({@code STF-010.d}). The conversion happens exactly once, here at the edge, from the
+     * authoritative {@code BigDecimal}. 🔴 A provider number never becomes the authoritative amount
+     * travelling the other way ({@code TEC-015}, {@code DB-079}).
+     */
+    public Booking book(BookingRequest request) {
+        properties.require();
+        String payload = json.writeValueAsString(Map.of(
+                "invoice", request.invoice(),
+                "recipient_name", request.recipientName(),
+                "recipient_phone", request.recipientPhone(),
+                "recipient_address", request.recipientAddress(),
+                "cod_amount", request.codAmount(),
+                "note", request.note() == null ? "" : request.note(),
+                "item_description", request.itemDescription() == null ? "" : request.itemDescription()));
+
+        SteadfastTransport.Response raw = transport.post(
+                properties.baseUrl() + "/create_order",
+                payload,
+                Map.of("Api-Key", properties.apiKey(),
+                        "Secret-Key", properties.secretKey(),
+                        "Content-Type", "application/json",
+                        "Accept", "application/json"));
+
+        Response response = new Response(raw.status(), raw.body());
+        if (response.status() == 401) {
+            /*
+              🔴 UNLIKE A STATUS READ, A 401 HERE IS A REFUSAL AND NOT "not found". STF-007
+              conflates not-found with unauthorised on reads that carry an identifier; create_order
+              carries no lookup, so nothing can be "not yours". ⚠ It still may not be read as a
+              credential failure outright - /get_balance is the only honest check (STF-007.e) - so
+              the message says what is known and no more.
+            */
+            throw new SteadfastProtocolException(
+                    "Steadfast refused the booking with 401. On this endpoint that is a refusal, "
+                            + "not a missing record; confirm the credential with /get_balance "
+                            + "before concluding anything about it (STF-007.e).");
+        }
+        JsonNode root = parse(response, "/create_order");
+
+        JsonNode consignment = root.path("consignment");
+        JsonNode source = consignment.isMissingNode() ? root : consignment;
+        String consignmentId = text(source, "consignment_id");
+        if (consignmentId == null) {
+            /*
+              🔴 NO CONSIGNMENT ID MEANS NO EVIDENCE THE PARCEL EXISTS. Recording a booking
+              without one would create a shipment the ERP believes is with the courier and cannot
+              track, cancel or claim on - worse than no record at all.
+            */
+            throw new SteadfastProtocolException(
+                    "Steadfast accepted the booking request but returned no consignment_id, so "
+                            + "there is no evidence the consignment exists. Nothing is recorded.");
+        }
+        return new Booking(
+                consignmentId,
+                text(source, "tracking_code"),
+                // ⚠ Raw, untranslated. STF-011 - no SM-4 mapping exists yet.
+                text(source, "status"),
+                response.body());
+    }
+
+    /**
+     * The booking payload.
+     *
+     * <p>⚠ IT CARRIES NO WEIGHT, NO DIMENSIONS AND NO DECLARED VALUE, AND THAT IS A RECORDED
+     * MISMATCH RATHER THAN AN OMISSION. {@code E-037} holds all three; Steadfast's published
+     * {@code create_order} accepts none of them. 🔴 The consequence is real: {@code DLV §19}
+     * claims and {@code DLV-012}'s declared-value limit rest on a value the courier was never
+     * told, so a claim cannot cite a declared value the courier acknowledged.
+     */
+    public record BookingRequest(String invoice, String recipientName, String recipientPhone,
+                                 String recipientAddress, java.math.BigDecimal codAmount,
+                                 String note, String itemDescription) {
+    }
+
+    /**
+     * ⚠ {@code rawBody} is retained so the first real booking's response can be READ rather than
+     * guessed at ({@code DLV-037}, {@code AUD-009} - the provider's raw word is kept as received).
+     */
+    public record Booking(String consignmentId, String trackingCode, String providerStatusRaw,
+                          String rawBody) {
     }
 
     /* ------------------------------------------------------------------ internals */

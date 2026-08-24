@@ -224,6 +224,9 @@ export const ORDER_LIFECYCLE_ROLE = {
   RELEASED: 'neutral',
   IN_FULFILLMENT: 'neutral',
   READY_TO_SHIP: 'neutral',
+  // Ratified into `SM-1` 2026-08-24 (`GAP-139`). Neutral for the same reason its four
+  // neighbours are: ordinary forward progress that owes nobody a decision.
+  COURIER_BOOKED: 'neutral',
   DISPATCHED: 'neutral',
   DELIVERED: 'success',
   // "Attempted and failed — not terminal". Recoverable: §10.4 re-attempts, so warning not danger.

@@ -39,6 +39,19 @@ public enum CanonicalOrderStatus {
 
     /** Packed, awaiting carrier handover — RTS (§6.2). ⚠ Never Return-To-Seller ({@code BR-079}). */
     READY_TO_SHIP,
+    /**
+     * Consignment booked with the courier — the last point at which the order may be changed
+     * ({@code BD-041}, {@code BR-082}).
+     *
+     * <p>✅ RATIFIED INTO {@code SM-1} 2026-08-24, resolving {@code GAP-139}. {@code OM §6.2} had
+     * carried it since v1.1.0 and {@code SMA §5.2} had not — while {@code BR-082} depended on it
+     * to place the amendment boundary STRICTER than {@code BR-011}'s dispatch.
+     *
+     * <p>⚠ NO CHANNEL ORDER ARRIVES IN THIS STATE. Booking is a Trioloo-internal Warehouse act, so
+     * no adapter translation reaches it — which is exactly why its absence cost nothing until a
+     * booking path was built.
+     */
+    COURIER_BOOKED,
 
     /** Handed to the carrier (§6.2). */
     DISPATCHED,

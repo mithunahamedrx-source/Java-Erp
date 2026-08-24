@@ -72,6 +72,7 @@ export const ORDER_STATUS_TABS: readonly { readonly value: string | null; readon
   { value: 'RELEASED', label: 'Released' },
   { value: 'IN_FULFILLMENT', label: 'In fulfilment' },
   { value: 'READY_TO_SHIP', label: 'Ready to ship' },
+  { value: 'COURIER_BOOKED', label: 'Courier booked' },
   { value: 'DISPATCHED', label: 'Dispatched' },
   { value: 'DELIVERED', label: 'Delivered' },
   { value: 'FAILED_DELIVERY', label: 'Failed delivery' },

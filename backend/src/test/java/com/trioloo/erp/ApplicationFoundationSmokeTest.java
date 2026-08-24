@@ -153,7 +153,13 @@ class ApplicationFoundationSmokeTest {
                 // requires so a failure is recorded rather than merely logged. No order
                 // lifecycle, inventory, payment or settlement value lives in either.
                 "channel_order_pull_state",
-                "channel_order_pull_run");
+                "channel_order_pull_run",
+                // E-037 Shipment — ONE physical movement of goods toward a customer, in SM-4.
+                // 🔴 An entity in its own right, never an attribute of the order (BR-027,
+                // INV-37.1, DLV-018). ⚠ It holds no Order lifecycle, inventory, payment or
+                // settlement position: SM-4's authority is EXTERNAL (DLV-025), so it records what
+                // the courier reported and never what Trioloo inferred.
+                "shipment");
     }
 
     /**

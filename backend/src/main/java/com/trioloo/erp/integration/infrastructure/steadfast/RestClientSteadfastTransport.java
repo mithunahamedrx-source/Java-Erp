@@ -30,10 +30,29 @@ public class RestClientSteadfastTransport implements SteadfastTransport {
 
     @Override
     public Response get(String url, Map<String, String> headers) {
-        try {
+        return send(() -> {
             var request = client.get().uri(url);
             headers.forEach(request::header);
-            var response = request.retrieve().toEntity(String.class);
+            return request.retrieve().toEntity(String.class);
+        });
+    }
+
+    @Override
+    public Response post(String url, String body, Map<String, String> headers) {
+        return send(() -> {
+            var request = client.post().uri(url).body(body == null ? "" : body);
+            headers.forEach(request::header);
+            return request.retrieve().toEntity(String.class);
+        });
+    }
+
+    /**
+     * The one place a Steadfast call's outcome is classified. GET and POST share it so they cannot
+     * drift apart into disagreeing about what "reached the provider" means.
+     */
+    private Response send(java.util.function.Supplier<org.springframework.http.ResponseEntity<String>> call) {
+        try {
+            var response = call.get();
             return new Response(response.getStatusCode().value(), response.getBody());
         } catch (RestClientResponseException e) {
             /*

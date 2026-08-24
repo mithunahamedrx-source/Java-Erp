@@ -1,7 +1,7 @@
 # State Machine Architecture
 
 **Owner:** Trioloo Technology · **Type:** Canonical lifecycle specification · **Status:** Canonical
-**Version:** 1.23.0 · **Ratified:** 2026-08-04 · **Amended:** 2026-08-09 (§14.3 marked superseded — documentary only) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`) · **Machine prefix:** `SM-` · **Rule prefix:** `SMA-` · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ Accounting §19**
+**Version:** 1.24.0 · **Amended:** 2026-08-24 (**`COURIER_BOOKED` RATIFIED INTO `SM-1`, resolving `GAP-139`.** `OM §6.2` had carried the state since v1.1.0 with a meaning and an exit owner, and `§5.2`/`§5.4` had neither — while `BR-082` depended on it to place the amendment boundary STRICTER than `BR-011`. ✅ The product owner ratified that it exists, 2026-08-24. ⚠ `READY_TO_SHIP → DISPATCHED` is RETAINED for paths that book no consignment; the booking transition is `UNDECIDED` for want of a ratified event and NO event is invented) · **Ratified:** 2026-08-04 · **Amended:** 2026-08-09 (§14.3 marked superseded — documentary only) · **Amended:** 2026-08-08 (Sales reconciliation; serial policy `BD-242`) · **Machine prefix:** `SM-` · **Rule prefix:** `SMA-` · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ Accounting §19**
 
 ---
 
@@ -190,6 +190,7 @@ Each specification carries: purpose · subject · owner · authority · states w
 | `RELEASED` | Authorised to consume inventory | Warehouse |
 | `IN_FULFILLMENT` | One or more fulfillments in progress | Warehouse |
 | `READY_TO_SHIP` | All fulfillments packed — the **RTS** tab in the orders list | Warehouse |
+| **`COURIER_BOOKED`** | **Consignment booked with the courier — the last point at which the order may be changed** (`BD-041`, `BR-082`). ✅ **RATIFIED INTO `SM-1` 2026-08-24 on the product owner's decision, resolving `GAP-139`** — `OM §6.2` had carried it since v1.1.0 and this table had not | Warehouse |
 | `DISPATCHED` | Handed to the carrier, or out for own delivery | Courier / Delivery |
 | `DELIVERED` | Every shipment delivered | Accounts |
 | ~~`PARTIALLY_DELIVERED`~~ | ❌ **REMOVED 2026-08-09 — `BD-442`.** Partial delivery is not an Order lifecycle outcome (`BR-159`) | — |
@@ -261,7 +262,9 @@ stateDiagram-v2
 | `CONFIRMED` → `RELEASED` | EVT-005 `Order.Released` | **Manual** — resolved 2026-08-09 (`SMA-081`) | Sales / Admin. **`BR-081`: *release is a manual decision made by a permissioned user … not automatic and not rule-derived*** (`BD-040`) |
 | `RELEASED` → `IN_FULFILLMENT` | EVT-025 `Fulfillment.PickingStarted` | Manual | Warehouse |
 | `IN_FULFILLMENT` → `READY_TO_SHIP` | EVT-030 `Fulfillment.ReadyToShip` | Automatic | System, when **all** fulfillments packed |
-| `READY_TO_SHIP` → `DISPATCHED` | EVT-033 `Shipment.Dispatched` | Manual | Warehouse |
+| `READY_TO_SHIP` → `COURIER_BOOKED` | **`UNDECIDED` — no event ratified** | Manual | Warehouse. ✅ **The booking act itself** (`BR-076` — Steadfast is assigned automatically, there is no selection step). ⚠ **No event is INVENTED here** (`EVA-019`): whether the booking publishes one is a separate determination |
+| `COURIER_BOOKED` → `DISPATCHED` | EVT-033 `Shipment.Dispatched` | Manual | Warehouse. ⚠ **The handover, which `BR-082` places AFTER booking** — *"Booking precedes dispatch, so the business's rule is stricter"* |
+| `READY_TO_SHIP` → `DISPATCHED` | EVT-033 `Shipment.Dispatched` | Manual | Warehouse. ⚠ **RETAINED for the paths that book no consignment** — own-staff delivery, and any handover not made through the courier (`DLV-022` — a `SELF_PICKUP` order has no shipment at all) |
 | `READY_TO_SHIP` → `DELIVERED` | EVT-013 | Manual | Branch — **self pickup only** |
 | `DISPATCHED` → `DELIVERED` | EVT-035 `Shipment.Delivered` | Automatic | Courier report |
 | ~~`DISPATCHED` → `PARTIALLY_DELIVERED`~~ | — | ❌ **REMOVED — `BD-442`** | The transition and its target state are both withdrawn |

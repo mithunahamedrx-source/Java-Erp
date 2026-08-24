@@ -1,7 +1,7 @@
 # Steadfast Provider Contract — implementation reference
 
 **Owner:** Trioloo Integration · **Module:** Integration · **Status:** ✅ **IMPLEMENTATION-READY TECHNICAL REFERENCE** · ⚠ **NOT CANONICAL ARCHITECTURE**
-**Version:** 1.0.0 · **Established:** 2026-08-24 · **Rule prefix:** `STF-` · **Source:** live read-only observation against the production merchant account on 2026-08-24, corroborated against the provider's published field list
+**Version:** 1.1.0 · **Established:** 2026-08-24 · **Amended:** 2026-08-24 (`STF-013`–`STF-017` — the FIRST CONTROLLED BOOKING. 🔴 Steadfast does NOT enforce `invoice` uniqueness: the same payload sent twice produced TWO consignments with no warning, so `BR-023` cannot be delegated to the provider and the ERP's unique indexes are the ONLY defence. The response shape is NESTED and `consignment_id` is a NUMBER. First `delivery_status` observed: `in_review` — one value is not a vocabulary, so `STF-011` stands and no `SM-4` mapping is written. No cancellation endpoint found) · **Rule prefix:** `STF-` · **Source:** live read-only observation against the production merchant account on 2026-08-24, corroborated against the provider's published field list
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It records **third-party protocol facts** so that implementation does
 > not guess them. Business rules remain with their owning canonical documents — **`DELIVERY_ARCHITECTURE.md`
@@ -12,9 +12,13 @@
 > 🔴 **NO SECRET APPEARS HERE** — no API key, secret key or merchant credential. Only variable NAMES and
 > protocol shapes (`DEP-021.b`, `DEP-021.d`).
 >
-> 🔴 **NOTHING WAS BOOKED, CANCELLED OR MODIFIED TO PRODUCE THIS DOCUMENT.** Every observation below came from
-> a **read-only** request. `create_order` and `bulk-create` are recorded from the published field list and were
-> **NOT CALLED**, because calling them would dispatch a real courier against a real merchant account.
+> ⚠ **AMENDED 2026-08-24 — §2 THROUGH §12 ARE READ-ONLY OBSERVATIONS; §13 IS NOT.**
+> **The product owner authorised ONE controlled booking to settle what no read could answer, and `STF-013`–
+> `STF-017` record it.** 🔴 **TWO REAL CONSIGNMENTS EXIST AS A RESULT — `287650820` and `287650821` — because
+> the provider accepted the same `invoice` twice.** ✅ **They are marked as tests in every operator-visible
+> field and are listed in `STF-017` so they cannot be forgotten.**
+>
+> 🔴 **`bulk-create` WAS STILL NOT CALLED**, and no cancellation, return or modification was attempted.
 
 ---
 
@@ -275,8 +279,104 @@ every shape below was OBSERVED, and everything not observed is marked as such.**
 
 ---
 
+## 13. The first controlled booking — 2026-08-24
+
+> **`STF-013` — 🔴 STEADFAST DOES NOT ENFORCE `invoice` UNIQUENESS. IT SILENTLY BOOKS A SECOND
+> PARCEL. THIS IS THE MOST CONSEQUENTIAL FACT IN THIS DOCUMENT.**
+>
+> **`STF-010.b` named duplicate-`invoice` behaviour as the single most important unknown. It was
+> settled by sending the SAME payload twice, seconds apart:**
+>
+> | Attempt | HTTP | `consignment_id` | `tracking_code` | Message |
+> |---|---|---|---|---|
+> | 1 | `200` | `287650820` | `SFR260824STA026172BD` | *Consignment has been created successfully.* |
+> | 2 | `200` | `287650821` | `SFR260824STC7641EEBD` | *Consignment has been created successfully.* |
+>
+> **a.** 🔴 **TWO DISTINCT CONSIGNMENTS, ONE INVOICE, NO WARNING, NO ERROR, NO DIFFERENCE IN THE
+> RESPONSE.** ⚠ **Nothing in the second response indicates a duplicate had already been booked.**
+> **b.** 🔴 **`BR-023` AS AMENDED — AN ORDER HAS AT MOST ONE ACTIVE SHIPMENT — CANNOT BE DELEGATED
+> TO THIS PROVIDER.** ✅ **The ERP's own guarantee is therefore not defence in depth; it is the ONLY
+> defence.** **`V21`'s `ux_shipment_booked_invoice` and `ux_shipment_one_active_per_order` are what
+> stop a double dispatch, and the product owner's rule — *one invoice books exactly once* — is
+> enforced in Trioloo or nowhere.**
+> **c.** ⚠ **A RETRY IS NOT SAFE.** **A booking call that times out, or whose response is lost, has
+> possibly already created a consignment.** 🔴 **Re-sending it creates a SECOND real parcel with a
+> second rider and a second charge.** ✅ **The recovery path is to READ — `/status_by_invoice` —
+> before ever re-sending.**
+> **d.** 🔴 **`/status_by_invoice/{invoice}` IS AMBIGUOUS ONCE AN INVOICE IS DUPLICATED.** **With two
+> consignments under `TRIOLOO-API-TEST-1` it returned ONE `delivery_status` and gave no indication
+> that a second consignment existed.** ⚠ **So the duplicate is not merely created — it is
+> INVISIBLE to the lookup an operator would use to check.**
+
+> **`STF-014` — ✅ THE BOOKING RESPONSE SHAPE, CONFIRMED. `STF-010` IS NO LONGER "PUBLISHED"; IT IS
+> OBSERVED.**
+>
+> **The payload is NESTED under `consignment`, not flat:**
+>
+> ```
+> {"status":200,
+>  "message":"Consignment has been created successfully.",
+>  "consignment":{"consignment_id":287650820,"invoice":"…","tracking_code":"SFR…",
+>                 "tracking_link":"https://steadfast.com.bd/tl/…","recipient_name":"…",
+>                 "recipient_phone":"…","recipient_address":"…","recipient_email":null,
+>                 "alternative_phone":null,"item_description":"…","total_lot":1,
+>                 "cod_amount":1,"status":"in_review","note":"…",
+>                 "created_at":"…","updated_at":"…"}}
+> ```
+>
+> **a.** 🔴 **`consignment_id` IS A JSON NUMBER, NOT A STRING** — `287650820`. ⚠ **A client that
+> assumed a string would fail to read it, and one that stored it as an integer would be relying on
+> the provider never issuing a non-numeric id.** ✅ **It is read and stored as TEXT.**
+> **b.** ✅ **THREE FIELDS THE PUBLISHED LIST DID NOT MENTION**: `tracking_link` (a customer-facing
+> tracking URL), `total_lot` (defaulted to `1`), and `updated_at`.
+> **c.** ⚠ **`recipient_email` AND `alternative_phone` ECHO AS `null`** when not sent. **Absent is
+> not empty** (`BR-134`).
+> **d.** ⚠ **THE ENVELOPE `status` IS THE INTEGER `200` HERE** — a fourth data point for
+> `STF-004`'s inconsistency, and the same shape `/get_balance` uses.
+
+> **`STF-015` — ✅ THE FIRST OBSERVED `delivery_status` VALUE IS `in_review`, AND IT IS THE ONLY ONE.**
+>
+> **All three status reads agree — by consignment id, by invoice and by tracking code:**
+> `{"status":200,"delivery_status":"in_review"}`
+>
+> **a.** 🔴 **ONE VALUE IS NOT A VOCABULARY.** ⚠ **`STF-011` stands: no `SM-4` mapping may be
+> written from a single observation.** **Thirteen other `SM-4` states exist and nothing here says
+> which provider words reach them.**
+> **b.** ⚠ **`in_review` IS NOT OBVIOUSLY ANY `SM-4` STATE.** **It is not `BOOKED` — that is
+> Trioloo's fact, not the courier's — and it is not `AWAITING_PICKUP`, which asserts a pickup is
+> scheduled.** 🔴 **Guessing between them is exactly what `BR-007` and `SYS-034` forbid.**
+> **c.** ✅ **`STF-007` IS NOW FULLY VALIDATED.** **The same three endpoints that returned
+> `401 Unauthorized Access` for another merchant's consignment returned `200` for ours, with the
+> same credential.** 🔴 **`401` on a status read means NOT OURS or NOT FOUND, and never a
+> credential failure.**
+
+> **`STF-016` — 🔴 NO CANCELLATION ENDPOINT WAS FOUND. A BOOKING IS NOT UNDOABLE BY API.**
+>
+> **`/cancel_order/{id}`, `/cancel/{id}` and `/create_order/cancel` each returned `HTTP 404`.**
+>
+> **a.** ⚠ **RECORDED AS OBSERVED, NOT AS PROOF NONE EXISTS** — the path may differ, as
+> `/police_stations` differed from `/get_police_stations` (`STF-006`).
+> **b.** 🔴 **UNTIL ONE IS FOUND, `delivery.shipment.cancel` (`PRM-092`) HAS NO MECHANISM AND
+> CANCELLATION IS A PANEL ACTION BY A HUMAN.** ⚠ **`SM-4`'s `CANCELLED` state is therefore reachable
+> only by recording what a person did elsewhere.**
+> **c.** 🔴 **COMBINED WITH `STF-013`, THIS IS THE SHARPEST OPERATIONAL EDGE ON THIS INTEGRATION: a
+> duplicate booking is easy to create, invisible to the invoice lookup, and cannot be withdrawn
+> programmatically.**
+
+> **`STF-017` — ⚠ THE TWO TEST CONSIGNMENTS ARE REAL AND ARE RECORDED HERE SO THEY CANNOT BE
+> FORGOTTEN.**
+>
+> **`287650820` and `287650821`, invoice `TRIOLOO-API-TEST-1`, COD ৳1, both `in_review`.**
+> ✅ **Payload marked *TRIOLOO API TEST — PLEASE CANCEL* in the recipient name, the note and the
+> item description.** 🔴 **They must be cancelled in the Steadfast panel; `STF-016` means no API
+> path exists to do it.** ⚠ **The balance was `1` before booking (`STF-012`), and no insufficient-
+> balance refusal occurred — so that question stays open.**
+
+---
+
 ## 12. Version history
 
 | Version | Date | Change |
 |---|---|---|
+| **1.1.0** | **2026-08-24** | 🔴 **THE FIRST CONTROLLED BOOKING, AND IT SETTLED THE QUESTION THAT MATTERED MOST — BADLY.** **`STF-013`: Steadfast does NOT enforce `invoice` uniqueness. The same payload sent twice, seconds apart, produced TWO distinct consignments — `287650820` and `287650821` — both `HTTP 200`, both *created successfully*, with nothing in the second response indicating a duplicate.** 🔴 **`BR-023`'s at-most-one-active-shipment therefore CANNOT be delegated to this provider: `V21`'s unique indexes are not defence in depth, they are the only defence.** ⚠ **A retry is unsafe — a lost response may already have created a parcel — and `/status_by_invoice` returns ONE status for a duplicated invoice, so the second consignment is INVISIBLE to the lookup an operator would check.** ✅ **`STF-014`: the response is NESTED under `consignment` and `consignment_id` is a JSON NUMBER; three undocumented fields observed including `tracking_link`.** ✅ **`STF-015`: the first `delivery_status` value is `in_review` — and ONE VALUE IS NOT A VOCABULARY, so `STF-011` stands and no `SM-4` mapping is written.** ✅ **`STF-007` fully validated: the endpoints that returned `401` for another merchant's consignment returned `200` for ours on the same credential.** 🔴 **`STF-016`: no cancellation endpoint found, so a booking is not undoable by API.** ⚠ **`STF-017` records the two live test consignments so they cannot be forgotten.** |
 | **1.0.0** | **2026-08-24** | **Initial record. `STF-001`–`STF-012`.** ✅ **Establishes the base host `portal.packzy.com/api/v1` — NOT the brand domain — and the two static `Api-Key`/`Secret-Key` headers, confirmed by a live read-only `200`.** 🔴 **Records three protocol hazards an implementation would otherwise meet at runtime: the envelope has THREE different `status` shapes across three endpoints; `401 Unauthorized Access` conflates *not found*, *not yours* and *not authenticated* and arrives as PLAIN TEXT, so it must never be read as a credential failure; and the credential is static with no expiry, so a leak persists until a human rotates it.** ✅ **Records the COD remittance feed and shows it CORROBORATES `BR-035` and `SMA-079` — `created_at`/`ready_at`/`paid_at` are the three moments `BD-438` described, and `status_label: paid` is the courier's claim, never Trioloo's receipt, so no adapter may auto-advance `SM-5` from it.** 🔴 **`create_order` was NOT CALLED — booking dispatches a real courier — and its fields are recorded as PUBLISHED, not CONFIRMED. The duplicate-`invoice` behaviour is named as the single most important unknown, because a silent double booking would violate `BR-023` at the courier rather than in the ERP.** 🔴 **No `delivery_status` value was observed, so NO `SM-4` mapping is written and none is guessed. No business rule created, no gap closed, nothing implemented, no secret recorded.** |

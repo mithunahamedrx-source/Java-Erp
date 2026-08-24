@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.69.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.71.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2371,6 +2371,42 @@ names as having no permitted-action inventory.**
 **Suggested documentation.** A courier capability declaration under `DLV-017`; the `SM-4` status mapping once
 the vocabulary is observed; the booking idempotency rule; courier permission codes under `PRM-089`; and the
 credential-ownership decision.
+
+---
+
+## GAP-139 — registered 2026-08-24
+
+**Category:** Order Management · State Machines · **Severity:** 🔴 Critical · **Class:** **A — two canonical documents disagree about a ratified state**
+**Source:** Phase 2 page-contract check before implementing courier booking, 2026-08-24
+
+**Problem.** **`COURIER_BOOKED` is listed as an `SM-1` Order state by `ORDER_MANAGEMENT_ARCHITECTURE.md` §6.2 — with a meaning and an exit owner — and it does NOT exist in `STATE_MACHINE_ARCHITECTURE.md`'s ratified `SM-1`.**
+
+| Document | Says |
+|---|---|
+| **`OM §6.2`** | ✅ **`COURIER_BOOKED`** — *"Consignment booked with the courier — the last point at which the order may be changed"* (`BD-041`), **exit owner Warehouse** |
+| **`SMA §5.2`** | 🔴 **ABSENT.** The state table runs `DRAFT` · `PENDING_VERIFICATION` · `CONFIRMED` · `RELEASED` · `IN_FULFILLMENT` · `READY_TO_SHIP` · `DISPATCHED` · `DELIVERED` · `FAILED_DELIVERY` · `RETURNED` · `ON_HOLD` · `CANCELLED` · `CLOSED` |
+| **`SMA §5.4`** | 🔴 **NO TRANSITION INTO OR OUT OF IT.** The only path through this point is `READY_TO_SHIP → DISPATCHED` (`EVT-033`, Manual, Warehouse) |
+| **`SMA` elsewhere** | ⚠ Mentions the name **once**, only to restate `BR-082`'s amendment boundary — never to add it to the machine |
+
+**Why it matters.**
+
+**a.** 🔴 **`BR-082` DEPENDS ON IT AND IS A LIVE RULE.** *"Order changes are permitted up to `COURIER_BOOKED`, and not after"* — and it is **deliberately stricter than `BR-011`**, which set the boundary at dispatch. ⚠ **If the state does not exist, the stricter boundary the business chose has nothing to attach to, and amendment silently reverts to the looser rule `BR-082` was written to replace.**
+**b.** 🔴 **`OSC-030`'s `FRAME 04` ALREADY ENFORCES IT ON A SURFACE** — *"no control appears after `COURIER_BOOKED`"* — so a screen contract is gating on a state the state-machine authority does not define.
+**c.** 🔴 **IT BLOCKS THE COURIER BOOKING ACT DIRECTLY.** **When a consignment is booked, either the Order moves to `COURIER_BOOKED` or it does not**, and the two documents give opposite answers. ⚠ **`SM-4` is unaffected — its `BOOKED` state is unambiguous — so the shipment side can proceed; the Order side cannot.**
+**d.** ⚠ **THE IMPLEMENTED `CanonicalOrderStatus` ENUM OMITS IT**, matching `SMA` and not `OM`. **That was never a decision** — the enum was derived from `SMA §5.2` and `OM §6.2`'s extra row was not noticed. 🔴 **`GAP-023` separately keeps `DRAFT` out, which is a decision; this omission is not.**
+**e.** ⚠ **NO CHANNEL ORDER CAN REACH IT TODAY**, because booking is a Trioloo-internal Warehouse act and no order has ever been booked. ✅ **That is why the contradiction has cost nothing so far, and exactly why it surfaces now.**
+
+**What is NOT in doubt.** ✅ **`BR-076` — Steadfast is the only courier and is assigned automatically; there is no selection step.** ✅ **`SM-4` Shipment is ratified and unambiguous.** ✅ **`PRM-092` now supplies the authority.** 🔴 **Only the Order-side state is disputed.**
+
+**Suggested documentation.** A single ratification stating whether `SM-1` carries `COURIER_BOOKED`:
+- **If YES** — `SMA §5.2` gains the state and `§5.4` gains its transitions (`READY_TO_SHIP → COURIER_BOOKED → DISPATCHED`), with trigger events and actors, and `CanonicalOrderStatus` gains it.
+- **If NO** — `OM §6.2` withdraws the row under `DOC-009` and `BR-082`'s boundary is re-expressed against a state that exists, or against the `SM-4` `BOOKED` fact.
+
+✅ **RESOLVED 2026-08-24 — THE PRODUCT OWNER RATIFIED THAT `COURIER_BOOKED` EXISTS.**
+
+**`STATE_MACHINE_ARCHITECTURE.md` §5.2 gains the state and §5.4 gains its transitions.** ✅ **`OM §6.2` needed no change — it was right, and the state-machine document was the incomplete one.** ✅ **`BR-082`'s stricter amendment boundary now attaches to a state that exists in both documents.**
+
+⚠ **TWO THINGS ARE DELIBERATELY NOT INVENTED ALONGSIDE IT.** 🔴 **No EVENT is created for the booking transition** — `EVA-019` requires a consumer and none was tested for, so the trigger is recorded `UNDECIDED` exactly as `SM-1`'s `FAILED_DELIVERY → RETURNED` already is. 🔴 **`READY_TO_SHIP → DISPATCHED` is RETAINED, not replaced**: own-staff delivery books no consignment and must still reach `DISPATCHED` (`DLV-022`, `BR-077`).
 
 ---
 

@@ -213,6 +213,7 @@ class SteadfastCourierClientTest {
     private static final class RecordingTransport implements SteadfastTransport {
         private final List<String> urls = new ArrayList<>();
         private String lastUrl;
+        private String lastBody;
         private Map<String, String> lastHeaders = Map.of();
         private int status = 200;
         private String body = "{}";
@@ -226,6 +227,15 @@ class SteadfastCourierClientTest {
         public Response get(String url, Map<String, String> headers) {
             urls.add(url);
             lastUrl = url;
+            lastHeaders = headers;
+            return new Response(status, body);
+        }
+
+        @Override
+        public Response post(String url, String payload, Map<String, String> headers) {
+            urls.add(url);
+            lastUrl = url;
+            lastBody = payload;
             lastHeaders = headers;
             return new Response(status, body);
         }
@@ -266,22 +276,21 @@ class SteadfastCourierClientTest {
     }
 
     @Test
-    @DisplayName("carries no booking, bulk, cancel or return capability at all")
-    void carriesNoWriteCapability() {
+    @DisplayName("carries no bulk, cancel or return capability")
+    void carriesNoUnratifiedWriteCapability() {
         /*
-          🔴 A STRUCTURAL ASSERTION, AND IT IS DELIBERATE. Two independent rules each forbid a
-          booking path here, and either alone would be sufficient:
+          ⚠ AMENDED 2026-08-24, AND THE TRIPWIRE DID ITS JOB. This asserted that NO write method
+          existed at all, for two reasons. Exactly ONE has been discharged:
 
-            - PRM-089.f — a capability whose code is not ratified is not implementable, and
-              implementation may never coin one. No delivery.* code exists anywhere in
-              PERMISSION_ARCHITECTURE.md, while DLV §22 requires every dispatch permissioned and
-              attributable.
-            - STF-010.b — whether Steadfast rejects a duplicate `invoice` or silently books a
-              SECOND parcel is unknown. BR-023 allows an order at most ONE active shipment, so a
-              silent double booking violates that invariant at the courier, where the ERP can
-              neither see it nor undo it.
+            - DISCHARGED: PRM-089.f held while no delivery.* code existed. PRM-092 now ratifies
+              delivery.shipment.book, so `book` is legitimate - enforced in the application
+              service, never here (PRM-004).
+            - NOT DISCHARGED: bulk-create, cancellation and return request remain unratified.
+              STF-006 found no endpoint for the latter two under the names probed, and GAP-034
+              keeps the bulk path blocked for want of a permitted-action inventory.
 
-          If someone adds a booking method, this test fails and they must read both rules first.
+          🔴 So the assertion is NARROWED to what is still forbidden, never deleted. Anyone adding
+          a bulk or cancel path fails here and must read GAP-034 and STF-006 first.
         */
         List<String> methods = java.util.Arrays.stream(SteadfastCourierClient.class.getDeclaredMethods())
                 .map(java.lang.reflect.Method::getName)
@@ -289,6 +298,58 @@ class SteadfastCourierClientTest {
                 .toList();
 
         assertThat(methods).noneSatisfy(name ->
-                assertThat(name.toLowerCase()).containsAnyOf("book", "create", "cancel", "return", "bulk"));
+                assertThat(name.toLowerCase()).containsAnyOf("bulk", "cancel", "return"));
+    }
+
+    @Test
+    @DisplayName("refuses to record a booking the provider gave no consignment id for")
+    void refusesABookingWithNoConsignmentId() {
+        /*
+          🔴 NO CONSIGNMENT ID MEANS NO EVIDENCE THE PARCEL EXISTS. Recording it anyway would
+          create a shipment the ERP believes is with the courier and can neither track, cancel nor
+          claim on - which is worse than having no record, because it looks complete.
+        */
+        transport.reply(200, "{\"status\":\"success\",\"message\":\"Order created\"}");
+
+        assertThatThrownBy(() -> client.book(new SteadfastCourierClient.BookingRequest(
+                "TR0001", "Test", "01700000000", "Dhaka", new BigDecimal("100"), null, null)))
+                .isInstanceOf(SteadfastProtocolException.class)
+                .hasMessageContaining("no evidence");
+    }
+
+    @Test
+    @DisplayName("reads the consignment whether the provider wraps it or not")
+    void readsBookingResponse() {
+        // ⚠ STF-010.a - the published shape is flat, and no live response has ever been observed.
+        // A nested `consignment` wrapper is accepted rather than failing on a shape nobody has
+        // confirmed either way.
+        transport.reply(200, "{\"status\":\"success\",\"consignment\":{\"consignment_id\":\"1234\","
+                + "\"tracking_code\":\"15BAEB78\",\"status\":\"in_review\"}}");
+
+        SteadfastCourierClient.Booking booking = client.book(new SteadfastCourierClient.BookingRequest(
+                "TR0001", "Test", "01700000000", "Dhaka", new BigDecimal("100"), null, null));
+
+        assertThat(booking.consignmentId()).isEqualTo("1234");
+        assertThat(booking.trackingCode()).isEqualTo("15BAEB78");
+        // ⚠ Raw and untranslated - STF-011, no SM-4 mapping exists yet.
+        assertThat(booking.providerStatusRaw()).isEqualTo("in_review");
+        // ✅ The whole body is retained so the FIRST real booking can be read rather than guessed.
+        assertThat(booking.rawBody()).contains("15BAEB78");
+    }
+
+    @Test
+    @DisplayName("sends the Trioloo invoice number as the courier's invoice reference")
+    void sendsTheTriolooInvoiceNumber() {
+        transport.reply(200, "{\"consignment_id\":\"1\",\"tracking_code\":\"T\"}");
+
+        client.book(new SteadfastCourierClient.BookingRequest(
+                "TR0158", "Test", "01700000000", "Dhaka", new BigDecimal("2500.50"), "note", "item"));
+
+        // ✅ OSC-057 - the Trioloo-issued number is unique, immutable and never reused, which is
+        // exactly what an external idempotency key needs to be (PRN-013, DB-012).
+        assertThat(transport.lastBody).contains("\"invoice\":\"TR0158\"");
+        // 💰 STF-010.d - cod_amount crosses as a JSON number because the provider's API is shaped
+        // that way, converted exactly once here at the edge from the authoritative BigDecimal.
+        assertThat(transport.lastBody).contains("2500.5");
     }
 }
