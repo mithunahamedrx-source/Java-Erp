@@ -391,25 +391,33 @@ describe('Orders first slice', () => {
     const exportBtn = screen.getByTestId('orders-export');
     expect(create.compareDocumentPosition(exportBtn) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
 
-    // A DISABLED primary must NOT keep its ink fill. A black "Create Order" that cannot be
-    // pressed reads as the one thing on the page you are meant to press, which is the opposite
-    // of what the disabled state means.
-    expect(create.style.background).not.toBe('var(--color-ink)');
+    // ✅ `RULE 3.11.d.a` — prominence comes from FILL, position and label, never from geometry.
+    // Create Order is enabled since `PRM-093`, so it carries the ink fill and Export does not.
+    expect(create.style.background).toBe('var(--color-ink)');
+    expect(exportBtn.style.background).not.toBe('var(--color-ink)');
+
+    // ⚠ AND A DISABLED PRIMARY STILL LOSES THAT FILL. Print is disabled with nothing selected,
+    // and a black button that cannot be pressed reads as the one thing you are meant to press —
+    // the opposite of what disabled means.
+    const print = screen.getByTestId('orders-print') as HTMLButtonElement;
+    expect(print.disabled).toBe(true);
+    expect(print.style.background).not.toBe('var(--color-ink)');
   });
 
-  it('refuses Create Order and says why in visible text', async () => {
+  it('offers Create Order and states the state it will create, before the act', async () => {
     renderAt('/sales/orders');
     await screen.findByRole('heading', { name: 'Orders' });
 
-    // BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRM-091` ratifies two Order codes and states
-    // that neither grants Order mutation; `PRM-089.b` is a spelling rule and not a generator.
+    // ✅ `PRM-093` ratified `order.order.create`, so this is no longer refused.
     const create = screen.getByTestId('orders-create') as HTMLButtonElement;
-    expect(create.disabled).toBe(true);
+    expect(create.disabled).toBe(false);
 
-    // The reason is VISIBLE text a screen reader reaches, never a tooltip: a `title` is
-    // unreachable by keyboard and invisible on touch.
-    const createReason = document.getElementById(create.getAttribute('aria-describedby')!);
-    expect(createReason?.textContent).toContain('PRM-091');
+    // ⚠ `UX-184`'s principle — a consequential transition must not happen invisibly — applies to
+    // what an operator is about to CREATE as much as to a takeover. The state is stated in
+    // VISIBLE text, and `PRM-093.b` is why it matters: creation is NOT confirmation.
+    const reason = document.getElementById('orders-create-reason');
+    expect(reason?.textContent).toContain('Pending verification');
+    expect(reason?.textContent).toContain('does not confirm');
   });
 
   it('enables Print for exactly one selected order and never for a set', async () => {

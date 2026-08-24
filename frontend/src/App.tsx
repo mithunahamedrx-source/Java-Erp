@@ -28,6 +28,7 @@ import ShopDetailPage from './system/ShopDetailPage';
 import OrdersPage from './order/OrdersPage';
 import OrderDetailPage from './order/OrderDetailPage';
 import InvoicePage from './order/InvoicePage';
+import NewOrderPage from './order/NewOrderPage';
 
 /**
  * Application routes.
@@ -125,6 +126,10 @@ export default function App(): React.JSX.Element {
 
         {/* `OSC-061` - Orders first slice: read-only FRAME 01 and FRAME 02 over API-managed channel orders. */}
         <Route path="/sales/orders" element={<OrdersPage />} />
+        {/* `UX-151` - a workflow needing more than a bounded decision gets a PAGE, not a
+            modal. Capturing a customer, an address and any number of priced lines is not a
+            bounded decision. */}
+        <Route path="/sales/orders/new" element={<NewOrderPage />} />
         <Route path="/sales/orders/:id" element={<OrderDetailPage />} />
         {/* The printable. A document, not a workspace - see InvoicePage for why its
             typography and geometry differ from the application shell. */}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Button, EmptyState, SegmentedControl, Select, buttonStyle } from '../ui/primitives';
 import OrderCard from './OrderCard';
@@ -26,6 +27,7 @@ import { ORDER_LIFECYCLE_ROLE, semanticRoleOf } from '../design/semanticRole';
 const ALL = '__ALL__';
 
 export default function OrdersPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const [items, setItems] = useState<readonly ChannelOrderRow[]>([]);
   const [summary, setSummary] = useState<ChannelOrderSummary | null>(null);
   const [searchDraft, setSearchDraft] = useState('');
@@ -260,16 +262,18 @@ export default function OrdersPage(): React.JSX.Element {
             </Button>
 
             {/*
-              BLOCKED - MISSING CANONICAL BUSINESS RULE. `PRM-091` ratifies exactly two Order
-              capability codes and states that NEITHER grants Order mutation; `PRM-089.b` is a
-              spelling rule and not a generator, so no create permission may be minted here.
-              `GAP-035` and `GAP-023` leave the modal's own behaviour unspecified. `OSC-058.a`.
+              UNBLOCKED 2026-08-24. `OSC-058.a` refused this because no Order-mutation capability
+              was ratified; `PRM-093` now ratifies `order.order.create`.
+
+              🔴 IT NAVIGATES TO A PAGE, NOT A MODAL. `UX-151` - a workflow needing more than a
+              bounded decision gets a PAGE - and capturing a customer, an address and any number of
+              priced lines is not a bounded decision. ⚠ The legacy system's New Sale MODAL is what
+              `GAP-035` and `GAP-023` describe, and both are open because of what it compresses.
             */}
             <Button
               variant="primary"
               size="page-header"
-              disabled
-              describedBy="orders-create-reason"
+              onClick={() => navigate('/sales/orders/new')}
               testId="orders-create"
             >
               Create Order
@@ -289,8 +293,9 @@ export default function OrdersPage(): React.JSX.Element {
           individually and <code>GAP-034</code> records no permitted bulk-action inventory.
         </span>{' '}
         <span id="orders-create-reason">
-          <strong>Create Order</strong> is unavailable: no Order-creation capability is ratified
-          (<code>PRM-091</code> grants view and sync only, and neither grants Order mutation).
+          <strong>Create Order</strong> captures a direct-channel order. It is created in
+          <strong> Pending verification</strong> — the same state an imported order arrives in —
+          and creating it does not confirm it (<code>PRM-093</code>).
         </span>
       </p>
 
