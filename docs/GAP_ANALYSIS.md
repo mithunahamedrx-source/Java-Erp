@@ -1,7 +1,7 @@
 # Documentation Gap Analysis
 
 **Owner:** Trioloo Technology · **Type:** Documentation completeness audit · **Status:** Findings
-**Version:** 2.71.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
+**Version:** 2.72.0 · **Performed:** 2026-08-04 · **Pre-freeze reconciliation:** 2026-08-09 · **Reconciled:** 2026-08-08 against `BUSINESS_DISCOVERY.md` · **Auditor:** Automated documentation audit · **+ Warehouse & Assembly §17** · **+ Purchase & Supplier §18** · **+ revenue recognition `BD-304`** · **+ Accounting §19**
 
 ---
 
@@ -2407,6 +2407,50 @@ credential-ownership decision.
 **`STATE_MACHINE_ARCHITECTURE.md` §5.2 gains the state and §5.4 gains its transitions.** ✅ **`OM §6.2` needed no change — it was right, and the state-machine document was the incomplete one.** ✅ **`BR-082`'s stricter amendment boundary now attaches to a state that exists in both documents.**
 
 ⚠ **TWO THINGS ARE DELIBERATELY NOT INVENTED ALONGSIDE IT.** 🔴 **No EVENT is created for the booking transition** — `EVA-019` requires a consumer and none was tested for, so the trigger is recorded `UNDECIDED` exactly as `SM-1`'s `FAILED_DELIVERY → RETURNED` already is. 🔴 **`READY_TO_SHIP → DISPATCHED` is RETAINED, not replaced**: own-staff delivery books no consignment and must still reach `DISPATCHED` (`DLV-022`, `BR-077`).
+
+---
+
+## GAP-140 — registered 2026-08-24
+
+**Category:** Delivery · Order Management · **Severity:** 🟠 High · **Class:** **C — the courier reports a condition the business decided cannot occur**
+**Source:** Steadfast `delivery_status` vocabulary, Phase 3 mapping, 2026-08-24
+
+**Problem.** **Steadfast publishes `partial_delivered` and `partial_delivered_approval_pending` as
+delivery statuses.** 🔴 **PARTIAL DELIVERY DOES NOT EXIST IN THIS ARCHITECTURE.** **`BD-442`
+removed `PARTIALLY_DELIVERED` from `SM-1`, withdrew `BR-025`, and `BR-158`/`BR-159` fix ONE ORDER
+AS ONE PARCEL PER ATTEMPT** — `OSC-035` carries the same rule onto the surface, where *"no split or
+partial shipment affordance exists"*.
+
+**Why it matters.**
+
+**a.** 🔴 **`DLV-025` MAKES THE COURIER SYSTEM OF RECORD FOR OUTCOME.** ⚠ **So the authority the
+architecture trusts for delivery outcomes can report an outcome the architecture has no state
+for.** **This is not a translation gap; it is a disagreement about what can happen.**
+**b.** 🔴 **THE TEMPTING WRONG ANSWER IS TO MAP IT TO `DELIVERED`.** ⚠ **That would report a
+partial delivery as a complete one — the customer received some goods, Trioloo's books say all of
+them, and the difference surfaces later as an unexplained stock or settlement variance.**
+**c.** ⚠ **MAPPING IT TO `FAILED_DELIVERY` IS EQUALLY WRONG.** **`DLV-046` requires a failure cause
+from a controlled vocabulary and `BD-073`'s seven confirmed causes are ALL WHOLE-PARCEL.**
+**d.** ✅ **`BD-442`'S REASONING IS RECORDED AND IS NOT OBVIOUSLY WRONG.** **It found that
+`OM §10.5`'s *customer accepts some items and refuses others* was the ONLY item-level acceptance in
+the corpus with no discovery behind it.** ⚠ **So the business may genuinely never partially
+deliver — and the provider may simply expose a status its other merchants use.** 🔴 **Which of
+those is true is a BUSINESS question, not a documentary one.**
+**e.** ⚠ **NO OCCURRENCE HAS BEEN OBSERVED.** **The only live consignments are two test parcels in
+`in_review`.** ✅ **The gap is registered before it can surprise anyone, not after.**
+
+**Current handling — deliberate and safe.** ✅ **`SteadfastDeliveryStatus` REFUSES both values with
+a recorded reason.** **The shipment keeps its previous `SM-4` state and the raw provider word is
+stored and shown** (`DLV-037`, `AUD-009`, `SYS-046`). 🔴 **Nothing is inferred, and an operator
+sees exactly what the courier said.**
+
+**Suggested documentation.** One determination:
+- **If the business never partially delivers** — record that the status is unreachable for Trioloo
+  and why, so the refusal is permanent rather than pending.
+- **If it can happen** — `BD-442` needs revisiting, and that is a large amendment touching `SM-1`,
+  `BR-023`, `BR-025`, `BR-158`, `BR-159` and `OSC-035`.
+
+🔴 **NEITHER IS CHOSEN HERE** (`CLAUDE.md` §5).
 
 ---
 
