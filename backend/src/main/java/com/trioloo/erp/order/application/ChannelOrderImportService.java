@@ -241,7 +241,7 @@ public class ChannelOrderImportService {
                     provider_created_at, provider_updated_at, imported_at, last_seen_at,
                     price, shipping_fee, shipping_fee_original, shipping_fee_discount_platform,
                     shipping_fee_discount_seller, voucher, voucher_platform, voucher_seller,
-                    cash_payment_fee, payment_method, voucher_code, items_count,
+                    cash_payment_fee, payment_method, payment_method_readable, voucher_code, items_count,
                     promised_shipping_times, warehouse_code, delivery_info, buyer_note, remarks,
                     gift_option, gift_message, national_registration_number1, branch_number, tax_code,
                     extra_attributes, customer_first_name, customer_last_name,
@@ -255,7 +255,7 @@ public class ChannelOrderImportService {
                     ?, ?, ?, 'API_MANAGED', CAST(? AS jsonb),
                     CAST(? AS jsonb), ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -282,6 +282,7 @@ public class ChannelOrderImportService {
                     voucher_seller = EXCLUDED.voucher_seller,
                     cash_payment_fee = EXCLUDED.cash_payment_fee,
                     payment_method = EXCLUDED.payment_method,
+                    payment_method_readable = EXCLUDED.payment_method_readable,
                     voucher_code = EXCLUDED.voucher_code,
                     items_count = EXCLUDED.items_count,
                     promised_shipping_times = EXCLUDED.promised_shipping_times,
@@ -330,7 +331,15 @@ public class ChannelOrderImportService {
                 ts(order.providerCreatedAt()), ts(order.providerUpdatedAt()), ts(now), ts(now),
                 order.price(), order.shippingFee(), order.shippingFeeOriginal(), order.shippingFeeDiscountPlatform(),
                 order.shippingFeeDiscountSeller(), order.voucher(), order.voucherPlatform(), order.voucherSeller(),
-                order.cashPaymentFee(), order.paymentMethod(), order.voucherCode(), order.itemsCount(),
+                order.cashPaymentFee(), order.paymentMethod(),
+                /*
+                  ⚠ BR-005 — the translation is the ADAPTER's, not this service's. A `switch` on a
+                  Daraz token here would be exactly the downstream channel-conditional behaviour
+                  that rule forbids, and would need repeating for the next channel.
+                */
+                com.trioloo.erp.integration.infrastructure.daraz.DarazPaymentMethod
+                        .forDisplay(order.paymentMethod()),
+                order.voucherCode(), order.itemsCount(),
                 order.promisedShippingTimes(), order.warehouseCode(), order.deliveryInfo(), order.buyerNote(), order.remarks(),
                 order.giftOption(), order.giftMessage(), order.nationalRegistrationNumber1(), order.branchNumber(),
                 order.taxCode(), order.extraAttributes(), order.customerFirstName(), order.customerLastName(),

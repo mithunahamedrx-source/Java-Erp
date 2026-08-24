@@ -49,7 +49,11 @@ public class ChannelOrderQueryService {
                        o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.statuses_json::text,
                        o.canonical_statuses_json::text, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
-                       o.price, o.payment_method, o.items_count, o.customer_first_name, o.customer_last_name,
+                       o.price,
+                       -- ⚠ BR-005 — the readable name the ADAPTER produced. The provider's own
+                       -- word stays in `payment_method` and is never overwritten (BR-171).
+                       coalesce(o.payment_method_readable, o.payment_method) AS payment_method,
+                       o.items_count, o.customer_first_name, o.customer_last_name,
                        o.shipping_phone, o.shipping_address1, o.shipping_address3, o.shipping_city,
                        o.shipping_post_code, o.buyer_note,
                        i.item_name, i.tracking_code, i.invoice_number, i.purchase_order_id,
