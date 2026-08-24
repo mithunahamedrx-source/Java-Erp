@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
-import { Button, EmptyState, SegmentedControl, Select, buttonStyle } from '../ui/primitives';
+import { Button, EmptyState, SegmentedControl, Select, buttonStyle, srOnly } from '../ui/primitives';
 import OrderCard from './OrderCard';
 import { ApiError } from '../platform/api';
 import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
@@ -304,10 +304,21 @@ export default function OrdersPage(): React.JSX.Element {
       />
 
       {/*
-        `Button.describedBy` points at VISIBLE text, deliberately: a disabled action's reason is
-        never tooltip-only, because a tooltip is unreachable by keyboard and invisible on touch.
+        🔴 THE REASONS ARE OFF THE LAYOUT AND STILL IN THE ACCESSIBILITY TREE (product owner,
+        2026-08-25). The prototype draws no explanatory block here, and a standing paragraph of
+        rule citations above the workspace is chrome an operator reads once and then scrolls past
+        forever.
+
+        ⚠ THEY ARE NOT DELETED, AND THE DISTINCTION IS THE WHOLE POINT. `Button.describedBy`
+        resolves to these ids, so a screen-reader user who lands on the disabled `Print` still
+        hears why. `srOnly` keeps the node rendered and exposed — unlike `display: none`, and
+        unlike a `title`, which is unreachable by keyboard and invisible on touch.
+
+        ✅ THE REASON IS ALSO EVIDENT WITHOUT THEM. `Print` enables the moment exactly one order
+        is ticked, and the bulk region states the per-record rule in visible words where an
+        operator meets it. Nothing here is the ONLY carrier of its meaning.
       */}
-      <p style={blockedReasonStyle}>
+      <p style={srOnly}>
         <span id="orders-print-reason">
           <strong>Print</strong> opens the invoice for <strong>one</strong> selected order.
           Bulk printing stays unavailable: <code>PRM-025</code> requires each record authorised
@@ -1154,13 +1165,6 @@ const headerActionsStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 'var(--space-3)',
   flexShrink: 0,
-};
-
-const blockedReasonStyle: React.CSSProperties = {
-  margin: '0 0 var(--space-6)',
-  fontSize: '12px',
-  lineHeight: 1.6,
-  color: 'var(--color-text-muted)',
 };
 
 const selectAllRowStyle: React.CSSProperties = {

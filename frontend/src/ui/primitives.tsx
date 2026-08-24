@@ -617,6 +617,34 @@ export function SegmentedControl({
   );
 }
 
+/* ------------------------------------------------------ Assistive-only text */
+
+/**
+ * Text that is removed from the LAYOUT but never from the ACCESSIBILITY TREE.
+ *
+ * <p>🔴 IT IS NOT `display: none`, NOT `visibility: hidden` AND NOT A `title`. All three remove
+ * the text from assistive technology as well as from the page, which is the opposite of what this
+ * is for. The clip-rect technique keeps the node rendered and exposed, so `aria-describedby`
+ * still resolves to real text.
+ *
+ * <p>⚠ USE IT ONLY WHERE THE REASON IS ALREADY EVIDENT TO A SIGHTED OPERATOR from the control's
+ * own state. A disabled button whose reason exists ONLY here has told a sighted user nothing —
+ * that is the failure the visible-reason rule exists to prevent, and this constant does not
+ * license it.
+ */
+export const srOnly: React.CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  margin: '-1px',
+  padding: 0,
+  border: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+};
+
 /* ------------------------------------------------- Detail tabs (§3.13.a) */
 
 /**

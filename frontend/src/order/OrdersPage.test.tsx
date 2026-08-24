@@ -515,6 +515,17 @@ describe('Orders first slice', () => {
     // results (SYS-073), and GAP-034 still records no permitted bulk-action inventory.
     const reason = document.getElementById('orders-print-reason');
     expect(reason?.textContent).toContain('GAP-034');
+
+    /*
+      🔴 AND IT IS OFF THE LAYOUT WHILE STILL BEING IN THE ACCESSIBILITY TREE (product owner,
+      2026-08-25). The prototype draws no explanatory block above the workspace. ⚠ The reason is
+      CLIPPED, never `display: none` and never moved into a `title` — both of those would take it
+      away from the screen-reader user the `describedBy` exists for.
+    */
+    const block = reason?.parentElement as HTMLElement;
+    expect(block.style.clipPath).toBe('inset(50%)');
+    expect(block.style.position).toBe('absolute');
+    expect(block.style.display).not.toBe('none');
   });
 
   it('keeps a selection when the page changes and drops it when the filter changes', async () => {
