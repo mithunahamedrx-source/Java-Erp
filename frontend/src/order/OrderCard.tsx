@@ -292,7 +292,7 @@ export default function OrderCard({
 
 function Demoted({ label, value }: { readonly label: string; readonly value: string }): React.JSX.Element {
   return (
-    <div style={{ paddingRight: 'var(--space-3)' }}>
+    <div style={{ paddingRight: 'var(--space-2)' }}>
       <div style={demotedLabelStyle}>{label}</div>
       <div className="tabular-nums" style={demotedValueStyle}>
         {value}
@@ -554,7 +554,15 @@ const subLineStyle: React.CSSProperties = {
 const economicsStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
-  marginLeft: 'auto',
+  /*
+    ⚠ `0 auto`, NOT `marginLeft: auto` — the product owner's decision, 2026-08-24. Equal margins
+    both sides CENTRE the run in the space between the line block and the actions, instead of
+    pushing it right until it meets the buttons.
+
+    🔴 IT IS STILL ONE BLOCK. The earlier defect was a margin on HALF the figures; this moves the
+    margin, not the grouping, so the five stay together (`order-economics` pins it).
+  */
+  margin: '0 auto',
   flexShrink: 0,
   minWidth: 'max-content',
 };
@@ -562,21 +570,28 @@ const economicsStyle: React.CSSProperties = {
 const demotedGroupStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
-  gap: 'var(--space-3)',
+  gap: 'var(--space-2)',
   flexShrink: 0,
   minWidth: 'max-content',
   paddingRight: 'var(--space-4)',
   borderRight: '1px solid var(--color-border-card)',
 };
 
+/*
+  ⚠ THE WHOLE RUN IS SMALLER THAN THE APPROVED DESIGN, ON THE OWNER'S INSTRUCTION 2026-08-24.
+  🔴 THE HIERARCHY IS PRESERVED, WHICH IS WHAT THE DESIGN ACTUALLY FIXES: the primary pair still
+  reads larger and darker than the demoted three, and `RULE 3.15`'s demoted-then-primary order is
+  untouched. ⚠ Scaling both tiers by the same step keeps the RATIO the design chose; shrinking only
+  one would flatten the hierarchy into decoration.
+*/
 const demotedLabelStyle: React.CSSProperties = {
-  fontSize: '10px',
+  fontSize: '9px',
   fontWeight: 500,
   color: 'var(--color-text-demoted)',
 };
 
 const demotedValueStyle: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 600,
   color: 'var(--color-text-muted)',
 };
@@ -584,9 +599,9 @@ const demotedValueStyle: React.CSSProperties = {
 const primaryGroupStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
-  gap: 'var(--space-7)',
+  gap: 'var(--space-5)',
   flexShrink: 0,
-  paddingLeft: 'var(--space-4)',
+  paddingLeft: 'var(--space-3)',
 };
 
 /*
@@ -596,13 +611,13 @@ const primaryGroupStyle: React.CSSProperties = {
   is recorded here rather than smuggled in as a literal.
 */
 const primaryLabelStyle: React.CSSProperties = {
-  fontSize: '11.5px',
+  fontSize: '10px',
   fontWeight: 500,
   color: 'var(--color-text-muted)',
 };
 
 const primaryValueStyle: React.CSSProperties = {
-  fontSize: '15px',
+  fontSize: '13px',
   fontWeight: 700,
   color: 'var(--color-text-primary)',
 };
