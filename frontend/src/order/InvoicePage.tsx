@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Button } from '../ui/primitives';
-import { apiRequest } from '../platform/api';
+import { ApiError, apiRequest } from '../platform/api';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
 
@@ -48,22 +48,37 @@ export default function InvoicePage(): React.JSX.Element {
   const backTo = origin === 'list' ? '/sales/orders' : `/sales/orders/${id}`;
   const backLabel = origin === 'list' ? 'Back to orders' : 'Back to order';
   const [invoice, setInvoice] = useState<InvoiceView | null>(null);
+  /*
+    🔴 THREE OUTCOMES, THREE ANSWERS — AND CONFLATING THEM WAS A REAL DEFECT.
+    This page previously rendered "No invoice has been issued for this order yet" for EVERY
+    failure, so a `403` from an operator who simply lacks `accounting.sales-invoice.view` was
+    reported as a fact about the ORDER. ⚠ That is precisely the fabrication `SYS-034` forbids:
+    a permission refusal and a business absence are different facts with different owners, and
+    only one of them is `BR-134`'s "absent is not empty".
+  */
+  const [outcome, setOutcome] = useState<'loading' | 'issued' | 'not-issued' | 'forbidden' | 'failed'>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!id) {
       return;
     }
-    setLoading(true);
+    setOutcome('loading');
     try {
       setInvoice(await apiRequest<InvoiceView>(`/api/accounting/orders/${id}/invoice`));
       setError(null);
+      setOutcome('issued');
     } catch (cause) {
       setInvoice(null);
-      setError(cause instanceof Error ? cause.message : 'The invoice could not be loaded.');
-    } finally {
-      setLoading(false);
+      if (cause instanceof ApiError && cause.status === 404) {
+        // ✅ `BR-134` — the ONLY case that is genuinely a fact about the order.
+        setOutcome('not-issued');
+      } else if (cause instanceof ApiError && cause.isForbidden) {
+        setOutcome('forbidden');
+      } else {
+        setError(cause instanceof Error ? cause.message : 'The invoice could not be loaded.');
+        setOutcome('failed');
+      }
     }
   }, [id]);
 
@@ -104,7 +119,7 @@ export default function InvoicePage(): React.JSX.Element {
     />
   );
 
-  if (loading) {
+  if (outcome === 'loading') {
     return (
       <>
         {header('Sales invoice', null)}
@@ -112,17 +127,68 @@ export default function InvoicePage(): React.JSX.Element {
       </>
     );
   }
-  if (error || !invoice) {
+
+  /*
+    🔴 A PERMISSION REFUSAL IS NOT A FACT ABOUT THE ORDER. `PRM-003` denies what was never
+    granted and `PRM-081.b` forbids a deployment handing out authority, so `V23` seeded
+    `accounting.sales-invoice.view` with ZERO holders — deliberately. ⚠ An operator meeting this
+    has not found a broken invoice; they have found an ungranted capability, and only an
+    authorised person may grant it (`PRM-094`).
+  */
+  if (outcome === 'forbidden') {
+    return (
+      <>
+        {header('Sales invoice', null)}
+        <div style={messageStyle} data-testid="invoice-forbidden">
+          <strong>You cannot view invoices.</strong>
+          <p style={reasonStyle}>
+            Your role does not include <code>accounting.sales-invoice.view</code>. The capability
+            exists and is held by nobody until an authorised person grants it — seeding a
+            permission is not granting it (<code>PRM-003</code>, <code>PRM-081.b</code>). Nothing
+            is wrong with this order.
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  if (outcome === 'failed') {
+    return (
+      <>
+        {header('Sales invoice', null)}
+        <div style={messageStyle} data-testid="invoice-failed">
+          <strong>The invoice could not be loaded.</strong>
+          <p style={reasonStyle}>{error}</p>
+        </div>
+      </>
+    );
+  }
+
+  if (outcome === 'not-issued' || !invoice) {
     /*
       ⚠ AN UNISSUED INVOICE IS AN ANSWER, NOT A FAULT (`BR-134`). Most orders have none, and the
       page says so rather than showing an empty document that looks like a rendering failure.
+
+      🔴 NO `Issue invoice` CONTROL IS DRAWN, AND ITS ABSENCE IS A REPORTED GAP RATHER THAN AN
+      OVERSIGHT. `POST /api/accounting/orders/{id}/invoice` exists and `PRM-094` permissions it,
+      but NOTHING IN THE CORPUS FIXES WHEN AN INVOICE IS ISSUED OR BY WHOM. `INV-39.1` retires a
+      cancelled number and `INV-39.2` snapshots the content, so issuing at the wrong moment
+      preserves the wrong prices and the wrong address permanently. ⚠ Putting a button here would
+      invent that trigger, which `CLAUDE.md` §5 forbids.
     */
     return (
       <>
         {header('Sales invoice', null)}
-        <p style={messageStyle} data-testid="invoice-absent">
-          No invoice has been issued for this order yet.
-        </p>
+        <div style={messageStyle} data-testid="invoice-absent">
+          <strong>No invoice has been issued for this order yet.</strong>
+          <p style={reasonStyle}>
+            The order already carries its Trioloo invoice NUMBER; what does not exist yet is the
+            issued <code>E-039</code> snapshot this page renders (<code>INV-39.2</code>,{' '}
+            <code>PRN-022</code>). No control issues one here: the corpus fixes the numbering, the
+            snapshot and the printable's source, but it does not fix WHEN an invoice is issued or
+            by whom — so that trigger is owed rather than invented.
+          </p>
+        </div>
       </>
     );
   }
@@ -549,5 +615,13 @@ const footerStyle: React.CSSProperties = {
 const messageStyle: React.CSSProperties = {
   padding: 'var(--space-8)',
   fontSize: '14px',
-  color: 'var(--color-text-secondary)',
+  color: 'var(--color-text-primary)',
+  maxWidth: '640px',
+};
+
+const reasonStyle: React.CSSProperties = {
+  margin: 'var(--space-3) 0 0',
+  fontSize: '13px',
+  lineHeight: 1.6,
+  color: 'var(--color-text-muted)',
 };
