@@ -246,6 +246,48 @@ describe('Orders first slice', () => {
     expect(strip.textContent).toContain('0');
   });
 
+  it('distinguishes an empty import from an empty filtered view', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        urls.push(url);
+        const json = (body: unknown): Response =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url.includes('/api/auth/me')) {
+          return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: ['order.channel-order.view'] });
+        }
+        if (url.includes('/summary')) {
+          return json(url.includes('status=DELIVERED') ? { ...SUMMARY, totalOrders: 0, totalItems: 0 } : SUMMARY);
+        }
+        if (url.includes('status=DELIVERED')) {
+          return json({ content: [], page: 0, size: 5, totalElements: 0, totalPages: 0 });
+        }
+        return json({ content: [ORDER_ROW], page: 0, size: 5, totalElements: 1, totalPages: 1 });
+      }),
+    );
+    render(
+      <AuthProvider>
+        <PageActionsProvider>
+          <MemoryRouter initialEntries={['/sales/orders']}>
+            <Routes>
+              <Route path="/sales/orders" element={<OrdersPage />} />
+            </Routes>
+          </MemoryRouter>
+        </PageActionsProvider>
+      </AuthProvider>,
+    );
+
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getAllByRole('tab').find((tab) => (tab.textContent ?? '').startsWith('Delivered'))!);
+
+    expect(await screen.findByText('No orders match this view')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Reset filters' })).not.toBeNull();
+    expect(screen.queryByText('No orders imported yet')).toBeNull();
+    expect(urls.some((url) => url.includes('status=DELIVERED'))).toBe(true);
+  });
+
   it('renders the canonical status and the marketplace status as two separate facts', async () => {
     renderAt('/sales/orders');
 

@@ -230,6 +230,17 @@ export default function OrdersPage(): React.JSX.Element {
   }, [searchDraft, filters.search]);
 
   const onlySelectedId = selected.size === 1 ? [...selected.keys()][0] : undefined;
+  const hasActiveFilters = Boolean(
+    filters.search || filters.status || filters.channelType || filters.channelInstanceId || filters.period,
+  );
+
+  const resetWorkspace = (): void => {
+    setSearchDraft('');
+    setFilters({});
+    setPage(0);
+    setBulkOpen(false);
+    setNotice('');
+  };
 
   return (
     <>
@@ -475,13 +486,7 @@ export default function OrdersPage(): React.JSX.Element {
         </button>
         <button
           type="button"
-          onClick={() => {
-            setSearchDraft('');
-            setFilters({});
-            setPage(0);
-            setBulkOpen(false);
-            setNotice('');
-          }}
+          onClick={resetWorkspace}
           style={resetStyle}
         >
           Reset
@@ -527,7 +532,7 @@ export default function OrdersPage(): React.JSX.Element {
         </OrdersSurface>
       ) : items.length === 0 ? (
         <OrdersSurface>
-          <EmptyState title="No orders imported yet" guidance="Run the approved Daraz order pull, then this workspace will show the imported channel orders." />
+          <EmptyOrdersState filtered={hasActiveFilters} onReset={resetWorkspace} />
         </OrdersSurface>
       ) : (
         <>
@@ -630,6 +635,36 @@ export default function OrdersPage(): React.JSX.Element {
 }
 
 /* ------------------------------------------------------------------ pieces */
+
+function EmptyOrdersState({
+  filtered,
+  onReset,
+}: {
+  readonly filtered: boolean;
+  readonly onReset: () => void;
+}): React.JSX.Element {
+  if (!filtered) {
+    return (
+      <EmptyState
+        title="No orders imported yet"
+        guidance="Run the approved Daraz order pull, then this workspace will show the imported channel orders."
+      />
+    );
+  }
+  return (
+    <div style={emptyFilteredStyle}>
+      <div style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--color-heading-ink)' }}>
+        No orders match this view
+      </div>
+      <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: 'var(--space-2)' }}>
+        Clear the active filters to return to the imported Orders workspace.
+      </div>
+      <button type="button" onClick={onReset} style={emptyResetButtonStyle}>
+        Reset filters
+      </button>
+    </div>
+  );
+}
 
 function OrdersSurface({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
   // The same separation the card list gets, so an empty workspace does not sit tighter than a
@@ -933,6 +968,18 @@ const ordersSurfaceStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-panel)',
   boxShadow: 'var(--elevation-card)',
   overflow: 'hidden',
+};
+
+const emptyFilteredStyle: React.CSSProperties = {
+  padding: '48px var(--space-8)',
+  textAlign: 'center',
+};
+
+const emptyResetButtonStyle: React.CSSProperties = {
+  ...buttonStyle('secondary', 'row-action'),
+  marginTop: 'var(--space-5)',
+  height: '34px',
+  padding: '0 var(--space-5)',
 };
 
 const summaryStripStyle: React.CSSProperties = {
