@@ -67,7 +67,8 @@ class OrderPermissionsTest {
                         "order.order.create",         // PRM-093
                         "order.order.cancel",         // PRM-095
                         "order.order.restore",        // PRM-095
-                        "order.order.edit");          // PRM-096
+                        "order.order.edit",           // PRM-096
+                        "order.order.receive-return"); // PRM-097
     }
 
     private static List<String> declaredCodes() {

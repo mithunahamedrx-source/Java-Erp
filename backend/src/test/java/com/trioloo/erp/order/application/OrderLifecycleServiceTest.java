@@ -198,6 +198,35 @@ class OrderLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("Return Received: only on a failed delivery; records who received it and who recorded it; reads RETURNED (BR-199)")
+    void receivesAReturn() {
+        UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        actingWith(OrderPermissions.ORDER_RECEIVE_RETURN);
+        // Not a failed delivery yet.
+        assertThatThrownBy(() -> lifecycle.receiveReturn(id, null, "x")).isInstanceOf(IllegalStateException.class);
+
+        shipment(id, "DELIVERY_ATTEMPTED");
+        assertThat(row(id).get("effective")).isEqualTo("[\"FAILED_DELIVERY\"]");
+        assertThatThrownBy(() -> lifecycle.receiveReturn(id, UUID.randomUUID(), "x"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("active user");
+
+        assertThat(lifecycle.receiveReturn(id, null, "  box intact ").canonicalStatus()).isEqualTo("RETURNED");
+        Map<String, Object> saved = jdbc.queryForMap(
+                "SELECT return_received_by, return_recorded_by, return_received_note FROM channel_order WHERE id = ?", id);
+        assertThat(saved.get("return_received_by")).isEqualTo(actorId);
+        assertThat(saved.get("return_recorded_by")).isEqualTo(actorId);
+        assertThat(saved.get("return_received_note")).isEqualTo("box intact");
+        assertThat(row(id).get("effective")).isEqualTo("[\"RETURNED\"]");
+        assertThatThrownBy(() -> lifecycle.receiveReturn(id, null, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("already");
+
+        actingWith(OrderPermissions.ORDER_CANCEL);
+        UUID other = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        assertThatThrownBy(() -> lifecycle.receiveReturn(other, null, null))
+                .isInstanceOf(AccessDeniedByPermissionException.class);
+    }
+
+    @Test
     @DisplayName("keeps the two permissions independent and refuses without them")
     void permissionsAreIndependent() {
         UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");

@@ -55,6 +55,7 @@ export default function OrderCard({
   onCancelOrder,
   onRestoreOrder,
   onEditOrder,
+  onReturnReceived,
 }: {
   readonly order: ChannelOrderRow;
   readonly selected: boolean;
@@ -65,6 +66,7 @@ export default function OrderCard({
   readonly onCancelOrder: (order: ChannelOrderRow) => void;
   readonly onRestoreOrder: (order: ChannelOrderRow) => void;
   readonly onEditOrder: (order: ChannelOrderRow) => void;
+  readonly onReturnReceived: (order: ChannelOrderRow) => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
 
@@ -260,7 +262,7 @@ export default function OrderCard({
             testId="order-actions-menu"
             compact
             triggerTestId="order-more-actions"
-            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder, onEditOrder)}
+            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder, onEditOrder, onReturnReceived)}
           />
         </div>
       </div>
@@ -318,6 +320,7 @@ function moreActions(
   onCancelOrder: (order: ChannelOrderRow) => void,
   onRestoreOrder: (order: ChannelOrderRow) => void,
   onEditOrder: (order: ChannelOrderRow) => void,
+  onReturnReceived: (order: ChannelOrderRow) => void,
 ): readonly MenuAction[] {
   const preDispatch = PRE_DISPATCH.has(canonical ?? '');
   const booked = Boolean(order.courierConsignmentId);
@@ -418,6 +421,18 @@ function moreActions(
     takes control of the order permanently and the marketplace is not told — is stated in the
     confirmation BEFORE the act (UX-184), not here.
   */
+  /*
+    ✅ RETURN RECEIVED (BR-199). Offered only on a FAILED DELIVERY order: the parcel is back, a popup takes who
+    received it and a note, and the order moves to Returned.
+  */
+  if (canonical === 'FAILED_DELIVERY') {
+    items.push({
+      label: 'Return Received',
+      description: 'The parcel is back — moves to Returned',
+      separatorBefore: true,
+      onSelect: () => onReturnReceived(order),
+    });
+  }
   if (canonical === 'CANCELLED' || canonical === 'PENDING_CANCELLATION') {
     items.push({
       label: 'Restore order',

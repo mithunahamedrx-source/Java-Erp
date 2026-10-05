@@ -342,6 +342,14 @@ export function restoreOrder(orderId: string): Promise<OrderLifecycleResult> {
   });
 }
 
+/** `BR-199` — the failed-delivery parcel is back: who received it, and a note. */
+export function receiveReturn(orderId: string, receivedBy: string | null, note: string): Promise<OrderLifecycleResult> {
+  return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/return-received`, {
+    method: 'POST',
+    body: JSON.stringify({ receivedBy, note: note.trim() || null }),
+  });
+}
+
 export type EditOrderPayload = {
   /** Optional note (owner, 2026-10-05). */
   readonly reason: string | null;

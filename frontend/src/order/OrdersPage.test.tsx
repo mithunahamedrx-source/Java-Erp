@@ -923,6 +923,10 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
           return json({ orderId: order.id, fieldsChanged: 1, note: 'Trioloo now controls this order.' });
         }
         if (url.includes('/api/order/channel-orders/' + order.id)) return json(ORDER_DETAIL);
+        if (url.includes('/capture-options')) {
+          return json({ shops: [], users: [{ id: 'u1', fullName: 'Rafiq Hasan' }] });
+        }
+        if (url.endsWith('/return-received')) return json({ orderId: order.id, canonicalStatus: 'RETURNED', marketplaceNote: null });
         if (url.includes('/cancel') || url.includes('/restore')) {
           return json({ orderId: order.id, canonicalStatus: 'CANCELLED', marketplaceNote: 'The marketplace is not told.' });
         }
@@ -968,6 +972,33 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
       expect(String(post?.init?.body)).toContain('CHANGED_MIND');
     });
     await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('cancelled'));
+  });
+
+  it('offers Return Received only on a failed delivery, takes who received it and a note, and posts (BR-199)', async () => {
+    const { calls } = renderWith({ ...ORDER_ROW, canonicalStatuses: ['FAILED_DELIVERY'] });
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    fireEvent.click(within(await screen.findByTestId('order-actions-menu')).getByRole('menuitem', { name: /Return Received/ }));
+
+    const dialog = await screen.findByTestId('return-received-dialog');
+    await within(dialog).findByRole('option', { name: 'Rafiq Hasan' });
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'u1' } });
+    fireEvent.change(within(dialog).getByPlaceholderText(/Condition of the parcel/), { target: { value: 'box intact' } });
+    fireEvent.click(within(dialog).getAllByRole('button').find((b) => b.textContent === 'Done') as HTMLButtonElement);
+
+    await waitFor(() => {
+      const post = calls.find((c) => c.url.endsWith('/return-received'));
+      expect(post?.init?.method).toBe('POST');
+      expect(JSON.parse(String(post?.init?.body))).toEqual({ receivedBy: 'u1', note: 'box intact' });
+    });
+    await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('Returned'));
+  });
+
+  it('does not offer Return Received on an order whose delivery has not failed', async () => {
+    renderWith(ORDER_ROW);
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    expect(within(await screen.findByTestId('order-actions-menu')).queryByRole('menuitem', { name: /Return Received/ })).toBeNull();
   });
 
   it('offers Restore on a cancelled order and not Cancel', async () => {

@@ -130,6 +130,38 @@ public class OrderLifecycleService {
         return new Outcome(orderId, "PENDING_VERIFICATION", marketplaceNote(state, "restored"));
     }
 
+    /**
+     * {@code BR-199} — the failed-delivery parcel is back. The act is attributed twice, as the fact it is:
+     * who RECEIVED it (chosen in the popup, defaulting to the operator) and who RECORDED it.
+     */
+    @Transactional
+    public Outcome receiveReturn(UUID orderId, UUID receivedBy, String note) {
+        UUID actor = require(OrderPermissions.ORDER_RECEIVE_RETURN);
+        OrderState state = load(orderId);
+
+        if (state.effective().contains("RETURNED")) {
+            throw new IllegalStateException("This order's return has already been received.");
+        }
+        if (!state.effective().contains("FAILED_DELIVERY")) {
+            throw new IllegalStateException(
+                    "A return can be received only on an order whose delivery failed.");
+        }
+        UUID receiver = receivedBy == null ? actor : receivedBy;
+        Integer active = jdbc.queryForObject(
+                "SELECT count(*) FROM operational_user_profile WHERE id = ? AND lifecycle_state = 'ACTIVE'",
+                Integer.class, receiver);
+        if (active == null || active == 0) {
+            throw new IllegalArgumentException("Received by must be an active user.");
+        }
+        jdbc.update("""
+                UPDATE channel_order
+                   SET return_received_at = now(), return_received_by = ?, return_recorded_by = ?,
+                       return_received_note = ?, version = version + 1
+                 WHERE id = ?
+                """, receiver, actor, blankToNull(note), orderId);
+        return new Outcome(orderId, "RETURNED", null);
+    }
+
     private static String marketplaceNote(OrderState state, String verb) {
         return state.apiManaged()
                 ? "Trioloo now controls this order and marketplace updates will not overwrite it "

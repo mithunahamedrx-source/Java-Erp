@@ -33,7 +33,8 @@ public class OrderCaptureOptions {
     public Options read() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean permitted = auth != null && auth.getAuthorities().stream()
-                .anyMatch(g -> OrderPermissions.ORDER_CREATE.equals(g.getAuthority()));
+                .anyMatch(g -> OrderPermissions.ORDER_CREATE.equals(g.getAuthority())
+                        || OrderPermissions.ORDER_RECEIVE_RETURN.equals(g.getAuthority()));
         if (!permitted) {
             throw new AccessDeniedByPermissionException(OrderPermissions.ORDER_CREATE);
         }

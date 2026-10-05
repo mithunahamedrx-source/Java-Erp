@@ -48,6 +48,15 @@ public class OrderLifecycleController {
         return lifecycle.restore(orderId);
     }
 
+    @PostMapping("/{orderId}/return-received")
+    public OrderLifecycleService.Outcome returnReceived(@PathVariable UUID orderId,
+                                                        @RequestBody ReturnReceivedRequest request) {
+        return lifecycle.receiveReturn(orderId, request.receivedBy(), request.note());
+    }
+
+    public record ReturnReceivedRequest(UUID receivedBy, String note) {
+    }
+
     public record CancelRequest(String reason, String note) {
     }
 

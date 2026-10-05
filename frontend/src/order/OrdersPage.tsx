@@ -5,6 +5,7 @@ import { Button, EmptyState, SegmentedControl, Select, buttonStyle, srOnly } fro
 import { ConfirmDialog } from '../ui/Overlay';
 import OrderCard from './OrderCard';
 import EditOrderDialog from './EditOrderDialog';
+import ReturnReceivedDialog from './ReturnReceivedDialog';
 import { ApiError } from '../platform/api';
 import { CANCEL_REASONS, bookOrderShipment, cancelOrder, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking, restoreOrder } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
@@ -272,6 +273,7 @@ export default function OrdersPage(): React.JSX.Element {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelNote, setCancelNote] = useState('');
   const [editTarget, setEditTarget] = useState<ChannelOrderRow | null>(null);
+  const [returnTarget, setReturnTarget] = useState<ChannelOrderRow | null>(null);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
@@ -693,6 +695,7 @@ export default function OrdersPage(): React.JSX.Element {
                 onCancelOrder={(target) => openLifecycle('cancel', target)}
                 onRestoreOrder={(target) => openLifecycle('restore', target)}
                 onEditOrder={setEditTarget}
+                onReturnReceived={setReturnTarget}
               />
             ))}
           </div>
@@ -762,6 +765,17 @@ export default function OrdersPage(): React.JSX.Element {
             const reference = editTarget.triolooInvoiceNumber ?? editTarget.externalOrderId;
             setNotice(`${reference} updated (${result.fieldsChanged} field${result.fieldsChanged === 1 ? '' : 's'} changed).${result.note ? ` ${result.note}` : ''}`);
             setEditTarget(null);
+            void load();
+          }}
+        />
+      ) : null}
+      {returnTarget ? (
+        <ReturnReceivedDialog
+          order={returnTarget}
+          onClose={() => setReturnTarget(null)}
+          onDone={() => {
+            setNotice(`${returnTarget.triolooInvoiceNumber ?? returnTarget.externalOrderId} return received — moved to Returned.`);
+            setReturnTarget(null);
             void load();
           }}
         />

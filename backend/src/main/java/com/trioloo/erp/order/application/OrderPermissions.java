@@ -78,6 +78,12 @@ public final class OrderPermissions {
     public static final String ORDER_RESTORE = "order.order.restore";
 
     /**
+     * {@code BR-199} — record that a failed-delivery parcel came back and who received it, moving the
+     * order to Returned. Independent of every other order capability.
+     */
+    public static final String ORDER_RECEIVE_RETURN = "order.order.receive-return";
+
+    /**
      * {@code PRM-096} — EDIT AN ORDER before dispatch: recipient, phone, address, line descriptions
      * and prices, and the total, with a reason ({@code OM §7.9}). Ratified on the product owner's
      * instruction, 2026-10-05.
