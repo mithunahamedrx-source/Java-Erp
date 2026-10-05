@@ -1,4 +1,4 @@
-import { apiRequest } from '../platform/api';
+﻿import { apiRequest } from '../platform/api';
 
 /**
  * An authoritative monetary amount, as it crosses the API.
@@ -162,6 +162,11 @@ export type ChannelOrderItemRow = {
 
 export type ChannelOrderDetail = ChannelOrderRow & {
   readonly channelType: string | null;
+  /** `BR-167` — `AUTO_CONFIRMED` or `HUMAN`; `null` = not yet confirmed. */
+  readonly confirmationMode: string | null;
+  readonly confirmedAt: string | null;
+  /** `BR-014` — why verification was not required. */
+  readonly confirmationReason: string | null;
   readonly importedAt: string | null;
   readonly shippingFee: DecimalValue;
   readonly shippingFeeOriginal: DecimalValue;
@@ -227,4 +232,33 @@ export function fetchChannelOrderSummary(filters: ChannelOrderFilters): Promise<
 
 export function fetchChannelOrder(id: string): Promise<ChannelOrderDetail> {
   return apiRequest<ChannelOrderDetail>(`/api/order/channel-orders/${encodeURIComponent(id)}`);
+}
+
+export type ShipmentBookingResult = {
+  readonly shipmentId: string;
+  readonly consignmentId: string | null;
+  readonly trackingCode: string | null;
+  readonly providerStatusRaw: string | null;
+};
+
+export type ShipmentTrackingResult = {
+  readonly shipmentId: string;
+  readonly state: string;
+  readonly providerStatusRaw: string | null;
+  readonly translated: boolean;
+  readonly note: string | null;
+};
+
+export function bookOrderShipment(orderId: string): Promise<ShipmentBookingResult> {
+  return apiRequest<ShipmentBookingResult>(
+    `/api/delivery/orders/${encodeURIComponent(orderId)}/shipment-booking`,
+    { method: 'POST' },
+  );
+}
+
+export function refreshOrderTracking(orderId: string): Promise<ShipmentTrackingResult> {
+  return apiRequest<ShipmentTrackingResult>(
+    `/api/delivery/orders/${encodeURIComponent(orderId)}/tracking-refresh`,
+    { method: 'POST' },
+  );
 }

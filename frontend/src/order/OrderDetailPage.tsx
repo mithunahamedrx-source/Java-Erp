@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../shell/AppShell';
 import { Button, DetailTabs, EmptyState } from '../ui/primitives';
 import type { SemanticTone } from '../ui/primitives';
-import { fetchChannelOrder } from './orderApi';
+import { bookOrderShipment, fetchChannelOrder, refreshOrderTracking } from './orderApi';
 import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow } from './orderApi';
 import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
@@ -58,6 +58,8 @@ export default function OrderDetailPage(): React.JSX.Element {
   const navigate = useNavigate();
   const [order, setOrder] = useState<ChannelOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [deliveryBusy, setDeliveryBusy] = useState<'booking' | 'tracking' | null>(null);
   /*
     ⚠ THE ACTIVE PANEL LIVES IN THE URL, NOT ONLY IN STATE. The workspace's row menu deep-links
     straight to `Activity` and `Fulfilment`, and a panel that could only be reached by clicking
@@ -81,6 +83,39 @@ export default function OrderDetailPage(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const bookShipment = useCallback(async () => {
+    if (!id || !order) return;
+    setDeliveryBusy('booking');
+    setNotice('');
+    try {
+      const result = await bookOrderShipment(id);
+      setNotice(`Steadfast booking ${result.consignmentId ?? result.shipmentId} was created.`);
+      await load();
+      setParams({ panel: 'Fulfilment' });
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Steadfast booking could not be created.');
+    } finally {
+      setDeliveryBusy(null);
+    }
+  }, [id, order, load, setParams]);
+
+  const refreshTracking = useCallback(async () => {
+    if (!id || !order) return;
+    setDeliveryBusy('tracking');
+    setNotice('');
+    try {
+      const result = await refreshOrderTracking(id);
+      setNotice(result.note ?? `Steadfast tracking refreshed: ${result.providerStatusRaw ?? result.state}.`);
+      await load();
+      setParams({ panel: 'Fulfilment' });
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Steadfast tracking could not be refreshed.');
+    } finally {
+      setDeliveryBusy(null);
+    }
+  }, [id, order, load, setParams]);
+
 
   if (error && !order) {
     return (
@@ -115,6 +150,7 @@ export default function OrderDetailPage(): React.JSX.Element {
   const name = order.triolooInvoiceNumber ?? orderTitle(order);
   const channel = displayStatus(order.channelType) || 'Channel not recorded';
   const direct = order.ownership === 'ERP_MANAGED';
+  const booked = Boolean(order.courierConsignmentId);
 
   return (
     <>
@@ -169,10 +205,13 @@ export default function OrderDetailPage(): React.JSX.Element {
             <Button
               variant="primary"
               size="page-header"
-              onClick={() => setParams({ panel: 'Fulfilment' })}
+              onClick={() => booked ? void refreshTracking() : void bookShipment()}
+              disabled={deliveryBusy !== null}
               testId="order-open-shipment"
             >
-              Open shipment
+              {booked
+                ? deliveryBusy === 'tracking' ? 'Refreshing...' : 'Refresh tracking'
+                : deliveryBusy === 'booking' ? 'Booking...' : 'Send to Steadfast'}
             </Button>
           </>
         }
@@ -183,6 +222,16 @@ export default function OrderDetailPage(): React.JSX.Element {
         records no permitted-action inventory. A hold names the actor who placed it and never
         expires, ages or releases itself (<code>BR-151</code>).
       </p>
+
+      {notice ? (
+        <div style={noticeStyle} data-testid="order-delivery-notice">
+          <span style={noticeDotStyle} aria-hidden="true" />
+          <span style={{ flex: 1 }}>{notice}</span>
+          <button type="button" style={noticeDismissStyle} onClick={() => setNotice('')}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <div style={{ marginBottom: 'var(--space-7)' }}>
         <DetailTabs
@@ -197,7 +246,7 @@ export default function OrderDetailPage(): React.JSX.Element {
       {panel === 'Items' && <Items order={order} />}
       {panel === 'Buyer' && <Buyer order={order} />}
       {panel === 'Payment' && <Payment order={order} canonical={canonical} />}
-      {panel === 'Fulfilment' && <Fulfilment order={order} />}
+      {panel === 'Fulfilment' && <Fulfilment order={order} deliveryBusy={deliveryBusy} onBookShipment={bookShipment} onRefreshTracking={refreshTracking} />}
       {panel === 'Marketplace' && <Marketplace order={order} canonical={canonical} reported={reported} channel={channel} direct={direct} />}
       {panel === 'Activity' && <Activity order={order} canonical={canonical} reported={reported} channel={channel} />}
       {panel === 'Exceptions' && <Exceptions />}
@@ -326,8 +375,16 @@ function Overview({
                 `BR-176` forbids the sync path writing it; no other path writes it either, so the
                 honest value is that nothing recorded a confirmer.
               */
-              { label: 'Confirmed by', value: 'Not recorded — no confirmer is held for this order', muted: true },
-              { label: 'Confirmed at', value: 'Not recorded', muted: true },
+              /*
+                ✅ BR-184 / BR-167 — the confirmation is a RECORDED property. `AUTO_CONFIRMED` says
+                so in words and names nobody; an unconfirmed order says that instead (SYS-034).
+              */
+              order.confirmationMode === 'AUTO_CONFIRMED'
+                ? { label: 'Confirmed by', value: 'Confirmed automatically — no person confirmed this order', muted: true }
+                : { label: 'Confirmed by', value: 'Not recorded — no confirmer is held for this order', muted: true },
+              order.confirmedAt
+                ? { label: 'Confirmed at', value: displayMoment(order.confirmedAt) }
+                : { label: 'Confirmed at', value: 'Not recorded', muted: true },
               { label: `${channel} order id`, value: order.externalOrderId, mono: true },
               { label: 'Imported at', value: displayMoment(order.importedAt) },
             ]}
@@ -621,7 +678,17 @@ function Payment({
  * is correct, a hold for known unavailability is not — cannot be rendered from nothing. Each field
  * states its absence.
  */
-function Fulfilment({ order }: { readonly order: ChannelOrderDetail }): React.JSX.Element {
+function Fulfilment({
+  order,
+  deliveryBusy,
+  onBookShipment,
+  onRefreshTracking,
+}: {
+  readonly order: ChannelOrderDetail;
+  readonly deliveryBusy: 'booking' | 'tracking' | null;
+  readonly onBookShipment: () => void;
+  readonly onRefreshTracking: () => void;
+}): React.JSX.Element {
   const booked = Boolean(order.courierConsignmentId);
   return (
     <div style={splitStyle}>
@@ -653,6 +720,19 @@ function Fulfilment({ order }: { readonly order: ChannelOrderDetail }): React.JS
             <span style={neutralChipStyle}>
               {order.shipmentState ? displayStatus(order.shipmentState) : 'Not created'}
             </span>
+          }
+          actions={
+            <button
+              type="button"
+              onClick={booked ? onRefreshTracking : onBookShipment}
+              disabled={deliveryBusy !== null}
+              style={panelActionStyle}
+              data-testid="order-shipment-action"
+            >
+              {booked
+                ? deliveryBusy === 'tracking' ? 'Refreshing...' : 'Refresh tracking'
+                : deliveryBusy === 'booking' ? 'Booking...' : 'Send to Steadfast'}
+            </button>
           }
           body
         >
@@ -941,6 +1021,7 @@ function Section({
   title,
   meta,
   badge,
+  actions,
   body,
   footer,
   children,
@@ -948,6 +1029,7 @@ function Section({
   readonly title: string;
   readonly meta?: string;
   readonly badge?: React.ReactNode;
+  readonly actions?: React.ReactNode;
   /** `body` wraps the children in the panel's own `22px` padding. */
   readonly body?: boolean;
   readonly footer?: React.ReactNode;
@@ -959,6 +1041,7 @@ function Section({
         <h2 style={panelTitleStyle}>{title}</h2>
         {badge}
         {meta && <span style={panelMetaStyle}>{meta}</span>}
+        {actions}
       </header>
       {body ? <div style={{ padding: '22px' }}>{children}</div> : children}
       {footer && <div style={panelFooterStyle}>{footer}</div>}
@@ -1329,4 +1412,55 @@ const reasonStyle: React.CSSProperties = {
   fontSize: '12px',
   lineHeight: 1.6,
   color: 'var(--color-text-muted)',
+};
+
+const noticeStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-4)',
+  padding: '11px var(--space-6)',
+  marginBottom: 'var(--space-6)',
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-border-control)',
+  borderRadius: 'var(--radius-card)',
+  boxShadow: 'var(--elevation-card)',
+  fontSize: '13px',
+  color: 'var(--color-text-primary)',
+};
+
+const noticeDotStyle: React.CSSProperties = {
+  width: '6px',
+  height: '6px',
+  borderRadius: '50%',
+  background: 'var(--color-ink)',
+  flexShrink: 0,
+};
+
+const noticeDismissStyle: React.CSSProperties = {
+  height: '28px',
+  padding: '0 var(--space-3)',
+  borderRadius: 'var(--radius-control-small)',
+  border: '1px solid var(--color-border-control)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-nav-label)',
+  font: 'inherit',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  flexShrink: 0,
+};
+
+const panelActionStyle: React.CSSProperties = {
+  marginLeft: 'auto',
+  height: 'var(--control-height-row-action)',
+  padding: '0 var(--space-4)',
+  borderRadius: 'var(--radius-control)',
+  border: '1px solid var(--color-border-secondary-button)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-secondary-text)',
+  font: 'inherit',
+  fontSize: '13px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
 };

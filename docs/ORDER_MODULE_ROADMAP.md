@@ -1,7 +1,7 @@
 # Order Module — implementation roadmap
 
 **Owner:** Trioloo Engineering · **Status:** 📌 **WORKING RECORD — NOT CANONICAL ARCHITECTURE**
-**Version:** 1.0.0 · **Established:** 2026-08-24 · **Rule prefix:** none, by design
+**Version:** 1.1.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-03 · **Rule prefix:** none, by design
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It sequences work already decided elsewhere and records
 > where each phase stands. **It issues no rule, defines no business behaviour and closes no gap.**
@@ -50,7 +50,7 @@ attributable since ratification, with no code to enforce it.
 
 ---
 
-### ⬜ Phase 2 — Steadfast booking · **NEXT**
+### ✅ Phase 2 — Steadfast booking · **DONE** (single order and selected bulk, 2026-09-06; `V21`)
 
 | | |
 |---|---|
@@ -135,6 +135,41 @@ state an imported order arrives in, so both enter one verification queue.
 
 ---
 
+### ✅ Phase 7 — Order flow simplification and the end-to-end core · **DONE 2026-10-03**
+
+| | |
+|---|---|
+| **Page contract** | `OSC-062` · `OSC-030.a` (superseded) |
+| **Canonical basis** | `OM §30` — `BR-184`, `BR-185` (added by the owner's decision) |
+| **Migration** | `V26__order_auto_confirmation_and_effective_status.sql` |
+
+**Owner's decisions, 2026-10-03:**
+- ✅ **No human verification step.** Every order — imported or manual — is **confirmed automatically on arrival and the decision is recorded** (`AUTO_CONFIRMED`, reason `VERIFICATION_NOT_REQUIRED`); no person is named as confirmer.
+- ✅ **`Pending verification`, `Released`, `In fulfilment` and `Courier booked` are not status tabs.** The states stay in `SM-1`; the strip groups them under the tab they lead to and the card shows the exact stage as a hover title.
+- ✅ **Scope: the core flow first.**
+
+**What the flow is now, end to end**
+1. **Arrives** — Daraz pull (every 5 min as deployed) or manual `Create Order` → **Confirmed** automatically.
+2. **Send to Steadfast** — single or selected bulk, once per invoice (`V21` unique indexes) → reads **Ready to ship** (courier booked).
+3. **Tracking** — manual refresh per order, plus a **scheduled courier pull** (`trioloo.delivery.tracking.enabled`, off by default, `PT30M`) → **Delivered** when the courier reports `delivered`.
+4. **Invoice** — `E-039` snapshot, 0% VAT for now.
+
+**Shipped:** auto-confirmation record · derived effective status (tabs, counts, collectable, card, detail) · scheduled tracking · `Today's dispatched` stamped from courier states · tab strip and copy · `FRAME 02` confirmation facts.
+
+🔴 **NOT BUILT, AND WHY (each needs an owner decision or a ratified rule — none is invented):**
+| Item | Blocker |
+|---|---|
+| **Cancel order** (pre-dispatch) | No `order.order.cancel` capability is ratified (`PRM-089.f`); cancel consequences unspecified (`GAP-020`) |
+| **Hold / release hold / release reserved quantity** | No capability ratified; `BR-149`–`BR-152` define behaviour but no code exists |
+| **`Dispatched` for Steadfast parcels** | Only `in_review`, `delivered`, `cancelled` translate (`STF-011`); `pending` is refused. **Owner decision:** map `pending`, or ratify a hand-over act and its capability |
+| **`Failed delivery` from Steadfast** | The courier publishes no failed-delivery word in its observed vocabulary (`GAP-140` is the sibling for partial delivery) |
+| **Inventory reservation at confirmation** (`BR-096`) | Inventory side of orders not built in this slice |
+| **Payments / remittance reconciliation, returns, exchange** | Later phases; `GAP-019`, `GAP-003`, `GAP-035` |
+
+⚠ **Migration number:** `V26` was taken from the repository ceiling. **`DEP-031` pre-flight against production `flyway_schema_history` is still owed before deploying** (`OSC-060.f`, `DEP-070.b`).
+
+---
+
 ## Open questions carried
 
 | # | Question | Owning gap |
@@ -144,6 +179,8 @@ state an imported order arrives in, so both enter one verification queue.
 | 3 | **Abandoned capture form disposition** | `GAP-023` |
 | 4 | **Bulk action inventory** — `Send to Steadfast`, `Print invoices` | `GAP-034` |
 | 5 | **Courier rate structure** — no rate is exposed by the API | `GAP-138.e` |
+| 6 | **Steadfast `pending` → which order state?** Or ratify a hand-over act | `OM §30.2.e` |
+| 7 | **Cancel and hold capabilities** — codes to ratify before those actions can exist | `PRM-089.f`, `GAP-020` |
 
 ---
 
@@ -151,4 +188,5 @@ state an imported order arrives in, so both enter one verification queue.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.1.0** | **2026-10-03** | **Phase 2 recorded DONE; Phase 7 added** — owner removed the verification step and the Released / In fulfilment / Courier booked tabs; core flow built (auto-confirmation, effective status, scheduled tracking). Cancel, hold and automatic Dispatched are listed as blocked with their reasons. |
 | **1.0.0** | **2026-08-24** | **Initial record.** Sequences the Order module into six phases and fixes the per-phase discipline the product owner instructed: **page contract → API mismatch check → design → build → report**. ✅ **Phase 1 DONE.** 🔴 **Issues no rule and closes no gap; five open questions carried explicitly rather than resolved.** |

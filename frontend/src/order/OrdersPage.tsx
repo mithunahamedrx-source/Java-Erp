@@ -4,7 +4,7 @@ import { PageHeader } from '../shell/AppShell';
 import { Button, EmptyState, SegmentedControl, Select, buttonStyle, srOnly } from '../ui/primitives';
 import OrderCard from './OrderCard';
 import { ApiError } from '../platform/api';
-import { fetchChannelOrderSummary, listChannelOrders } from './orderApi';
+import { bookOrderShipment, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
 import { ORDER_STATUS_TABS, displayMoney, displayStatus } from './orderView';
 import { buildOrderCsv, orderCsvFilename } from './orderCsv';
@@ -60,6 +60,7 @@ export default function OrdersPage(): React.JSX.Element {
   */
   const [selected, setSelected] = useState<ReadonlyMap<string, ChannelOrderRow>>(new Map());
   const [exporting, setExporting] = useState(false);
+  const [bulkBooking, setBulkBooking] = useState(false);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,7 @@ export default function OrdersPage(): React.JSX.Element {
   */
   const [bulkOpen, setBulkOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [busyOrder, setBusyOrder] = useState<{ readonly id: string; readonly action: 'booking' | 'tracking' } | null>(null);
   /*
     The channel options are held separately from `summary` so they survive a failed or empty
     reload. Rebuilding them from every response would make the control the operator just used
@@ -229,6 +231,74 @@ export default function OrdersPage(): React.JSX.Element {
     return () => clearTimeout(timer);
   }, [searchDraft, filters.search]);
 
+  const bookShipment = useCallback(async (order: ChannelOrderRow) => {
+    setBusyOrder({ id: order.id, action: 'booking' });
+    setNotice('');
+    try {
+      const result = await bookOrderShipment(order.id);
+      setNotice(`Steadfast booking ${result.consignmentId ?? result.shipmentId} was created for ${order.triolooInvoiceNumber ?? order.externalOrderId}.`);
+      await load();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Steadfast booking could not be created.');
+    } finally {
+      setBusyOrder(null);
+    }
+  }, [load]);
+
+  const refreshTracking = useCallback(async (order: ChannelOrderRow) => {
+    setBusyOrder({ id: order.id, action: 'tracking' });
+    setNotice('');
+    try {
+      const result = await refreshOrderTracking(order.id);
+      setNotice(result.note ?? `Steadfast tracking refreshed: ${result.providerStatusRaw ?? result.state}.`);
+      await load();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Steadfast tracking could not be refreshed.');
+    } finally {
+      setBusyOrder(null);
+    }
+  }, [load]);
+
+  const bookSelectedShipments = useCallback(async () => {
+    const orders = [...selected.values()];
+    if (orders.length === 0) {
+      setNotice('Select at least one order before sending to Steadfast.');
+      return;
+    }
+
+    setBulkBooking(true);
+    setNotice('');
+    let booked = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failures: string[] = [];
+
+    for (const order of orders) {
+      if (order.courierConsignmentId) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await bookOrderShipment(order.id);
+        booked += 1;
+      } catch (cause) {
+        failed += 1;
+        if (failures.length < 3) {
+          const reference = order.triolooInvoiceNumber ?? order.externalOrderId;
+          failures.push(`${reference}: ${cause instanceof Error ? cause.message : 'booking failed'}`);
+        }
+      }
+    }
+
+    const failureText = failures.length > 0 ? ` ${failures.join(' | ')}` : '';
+    setNotice(`Steadfast bulk booking finished: ${booked} booked, ${skipped} skipped, ${failed} failed.${failureText}`);
+    setSelected(new Map());
+    setBulkOpen(false);
+    setBulkBooking(false);
+    await load();
+  }, [load, selected]);
+
   const onlySelectedId = selected.size === 1 ? [...selected.keys()][0] : undefined;
   const hasActiveFilters = Boolean(
     filters.search || filters.status || filters.channelType || filters.channelInstanceId || filters.period,
@@ -336,9 +406,9 @@ export default function OrdersPage(): React.JSX.Element {
           individually and <code>GAP-034</code> records no permitted bulk-action inventory.
         </span>{' '}
         <span id="orders-create-reason">
-          <strong>Create Order</strong> captures a direct-channel order. It is created in
-          <strong> Pending verification</strong> — the same state an imported order arrives in —
-          and creating it does not confirm it (<code>PRM-093</code>).
+          <strong>Create Order</strong> captures a direct-channel order. It is confirmed
+          <strong> automatically</strong> — Trioloo runs no verification queue (<code>BR-184</code>) —
+          and the confirmation is recorded without naming a person (<code>PRM-093</code>, <code>BR-166</code>).
         </span>
       </p>
 
@@ -360,7 +430,7 @@ export default function OrdersPage(): React.JSX.Element {
           options={ORDER_STATUS_TABS.map((tab) => ({
             value: tab.value ?? ALL,
             label: tab.label,
-            count: tab.value === null ? summary?.totalOrders : statusCounts.get(tab.value),
+            count: tab.value === null ? summary?.totalOrders : statusCountFor(statusCounts, tab.value),
             /*
               🔴 The role comes from `semanticRole.ts`, the one source of semantic-role truth
               (`RULE 3.3.d`). It is NEVER derived from the label text here.
@@ -499,7 +569,9 @@ export default function OrdersPage(): React.JSX.Element {
           selectedCount={selected.size}
           onlySelectedId={onlySelectedId}
           exporting={exporting}
+          bulkBooking={bulkBooking}
           onExport={() => void exportCsv()}
+          onBookSelected={() => void bookSelectedShipments()}
           onPrint={() => onlySelectedId && navigate(`/sales/orders/${onlySelectedId}/invoice`, { state: { from: 'list' } })}
           onClear={() => {
             setSelected(new Map());
@@ -568,7 +640,10 @@ export default function OrdersPage(): React.JSX.Element {
                 key={order.id}
                 order={order}
                 selected={selected.has(order.id)}
+                busyAction={busyOrder?.id === order.id ? busyOrder.action : undefined}
                 onSelectedChange={(next) => setSelectedFor(order, next)}
+                onBookShipment={bookShipment}
+                onRefreshTracking={refreshTracking}
               />
             ))}
           </div>
@@ -693,15 +768,19 @@ function BulkRegion({
   selectedCount,
   onlySelectedId,
   exporting,
+  bulkBooking,
   onExport,
   onPrint,
+  onBookSelected,
   onClear,
 }: {
   readonly selectedCount: number;
   readonly onlySelectedId: string | undefined;
   readonly exporting: boolean;
+  readonly bulkBooking: boolean;
   readonly onExport: () => void;
   readonly onPrint: () => void;
+  readonly onBookSelected: () => void;
   readonly onClear: () => void;
 }): React.JSX.Element {
   const none = selectedCount === 0;
@@ -722,9 +801,10 @@ function BulkRegion({
             title="Opens the invoice for one selected order. PRM-025 requires each record authorised individually and GAP-034 records no permitted bulk-action inventory."
           />
           <BulkButton
-            label="Send to Steadfast"
-            disabled
-            title="Courier booking is ORDER_MODULE_ROADMAP Phase 2 and is not built. GAP-034 records no permitted bulk-action inventory."
+            label={bulkBooking ? 'Sending...' : 'Send to Steadfast'}
+            disabled={none || bulkBooking}
+            onClick={onBookSelected}
+            title="Books each selected order through the same Steadfast action and reports per-order results."
           />
           <BulkButton
             label="Place hold"
@@ -1318,6 +1398,20 @@ function download(csv: string, filename: string): void {
  * `UX-044.c` — an all-records export is a DELIBERATE choice, never a silent default. The label
  * says which one is about to happen, so the operator is not told after the fact by a filename.
  */
+function statusCountFor(statusCounts: ReadonlyMap<string, number>, status: string): number | undefined {
+  // BR-184 / OSC-030.a - the stages the owner does not want as tabs are GROUPED under the tab they
+  // lead to (mirrors the server's statusFilterNames), so no order is orphaned from every tab.
+  const grouped = TAB_GROUPS[status];
+  if (grouped) {
+    return grouped.reduce((sum, name) => sum + (statusCounts.get(name) ?? 0), 0);
+  }
+  return statusCounts.get(status);
+}
+
+const TAB_GROUPS: Readonly<Record<string, readonly string[]>> = {
+  CONFIRMED: ['CONFIRMED', 'PENDING_VERIFICATION', 'RELEASED', 'IN_FULFILLMENT'],
+  READY_TO_SHIP: ['READY_TO_SHIP', 'COURIER_BOOKED'],
+};
 function exportLabel(selectedCount: number): string {
   return selectedCount > 0 ? `Export ${selectedCount}` : 'Export all';
 }

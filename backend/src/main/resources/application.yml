@@ -145,6 +145,15 @@ trioloo:
       # required either way.
       admit-draft-shops: ${ORDER_PULL_ADMIT_DRAFT_SHOPS:false}
 
+  # Courier status pull - DLV-031, BR-029. Same stance as the Daraz pull above: OFF by default
+  # so no test, diagnostic launch or laptop reads the live courier account on its own, and the
+  # cadence is configuration, conservative by choice because no rate limit is published.
+  delivery:
+    tracking:
+      enabled: ${DELIVERY_TRACKING_ENABLED:false}
+      interval: ${DELIVERY_TRACKING_INTERVAL:PT30M}
+      initial-delay: ${DELIVERY_TRACKING_INITIAL_DELAY:PT2M}
+
   # Sales invoice - E-039, INV-39.2.
   #
   # ✅ 0 IS THE PRODUCT OWNER'S DECISION, 2026-08-24 - VAT/tax is 0 for now.

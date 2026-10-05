@@ -43,9 +43,11 @@ import java.util.UUID;
 public class ManualOrderService {
 
     private final JdbcTemplate jdbc;
+    private final OrderAutoConfirmation autoConfirmation;
 
-    public ManualOrderService(JdbcTemplate jdbc) {
+    public ManualOrderService(JdbcTemplate jdbc, OrderAutoConfirmation autoConfirmation) {
         this.jdbc = jdbc;
+        this.autoConfirmation = autoConfirmation;
     }
 
     @Transactional
@@ -111,7 +113,15 @@ public class ManualOrderService {
                     line.unitPrice(), line.unitPrice());
         }
 
-        return new Created(id, invoiceNumber, CanonicalOrderStatus.PENDING_VERIFICATION.name());
+        /*
+          ✅ BR-014 / BR-184 — owner decision 2026-10-03: no human verification queue. The order is
+          confirmed by POLICY in the same transaction and the decision is recorded; no human
+          Confirmed By is written (BR-166, BR-176). 🔴 This is a SYSTEM act, not a claim by the
+          person who typed the order — PRM-093 still confers no confirmation authority.
+        */
+        autoConfirmation.confirmIfAwaitingVerification(id);
+
+        return new Created(id, invoiceNumber, CanonicalOrderStatus.CONFIRMED.name());
     }
 
     /* ------------------------------------------------------------------ internals */

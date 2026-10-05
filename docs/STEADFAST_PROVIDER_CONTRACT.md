@@ -211,7 +211,7 @@ every shape below was OBSERVED, and everything not observed is marked as such.**
 | `alternative_phone` · `recipient_email` · `note` · `item_description` · `total_lot` · `delivery_type` | ⬜ optional | published field list |
 
 **Response fields published:** `consignment_id` · `tracking_code` · `status` · `message`.
-**Bulk endpoint published as `bulk-create`, maximum 500 orders per request.**
+**Bulk endpoint published as `bulk-create`, maximum 500 orders per request.** For the current prototype, selected bulk booking is implemented as repeated single-order booking rather than the provider bulk endpoint, so the ERP keeps per-order validation, authorisation and duplicate defence (`BR-023`) unchanged.
 
 > **a.** 🔴 **UNVERIFIED UNTIL A CONTROLLED FIRST BOOKING IS RUN AND ACCEPTED**, exactly as `DZC-057` did for
 > the first Daraz read and `DZC-041` for the controlled write probe. ⚠ **No implementation may treat this

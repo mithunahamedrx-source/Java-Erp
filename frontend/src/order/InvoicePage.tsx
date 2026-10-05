@@ -209,15 +209,77 @@ export default function InvoicePage(): React.JSX.Element {
           {/* ── Header ─────────────────────────────────────────────── */}
           <div style={headerStyle}>
             <div>
-              <div style={logoSlotStyle}>TRIOLOO</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '11px',
+                  border: '1px dashed #c8c8c8',
+                  background: '#f7f7f7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <span style={{
+                    fontSize: '8px',
+                    fontWeight: 600,
+                    letterSpacing: '0.3px',
+                    color: '#9a9a9a',
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                  }}>
+                    TRIOLOO<br />LOGO
+                  </span>
+                </div>
+                <div style={logoSlotStyle}>TRIOLOO</div>
+              </div>
               <div style={sellerStyle}>
                 R.B Tower 4th Floor (Lift-3), 56/9, Panthapath, Dhaka-1205, Bangladesh<br />
-                01805-026454 · 01805-026465 · 01894-830932<br />
-                trioloobd@gmail.com · contract@trioloo.com.bd
+                01805-026454 &nbsp;·&nbsp; 01805-026465 &nbsp;·&nbsp; 01894-830932<br />
+                trioloobd@gmail.com &nbsp;·&nbsp; contract@trioloo.com.bd
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={invoiceWordStyle}>INVOICE</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '18px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* Status chips from design reference */}
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '6px 13px',
+                    borderRadius: '999px',
+                    background: '#fdecec',
+                  }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#c12d2b' }}></span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.4px', color: '#c12d2b' }}>Due</span>
+                  </div>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '6px 13px',
+                    borderRadius: '999px',
+                    background: invoice.consignmentReference ? '#e8f0fe' : '#fef3e2',
+                  }}>
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: invoice.consignmentReference ? '#2f6df0' : '#e08a16',
+                    }}></span>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      letterSpacing: '0.4px',
+                      color: invoice.consignmentReference ? '#1f55c4' : '#b56a09',
+                    }}>
+                      {invoice.consignmentReference ? 'Shipped' : 'Processing'}
+                    </span>
+                  </div>
+                </div>
+                <div style={invoiceWordStyle}>Invoice</div>
+              </div>
               <div style={refBlockStyle}>
                 {/*
                   ✅ THE TRIOLOO NUMBER IS THE IDENTITY AND SITS FIRST; the courier booking and the
@@ -226,8 +288,8 @@ export default function InvoicePage(): React.JSX.Element {
                   same string, and the design's unlabelled `Parcel ID.` is exactly that ambiguity.
                 */}
                 <Ref label="No." value={invoice.invoiceNumber} strong />
-                <Ref label="Steadfast booking" value={invoice.consignmentReference} />
-                <Ref label="Daraz order" value={invoice.externalOrderReference} />
+                <Ref label="Parcel ID." value={invoice.consignmentReference} />
+                <Ref label="Order Ref." value={invoice.externalOrderReference} />
                 <Ref label="Date" value={formatMoment(invoice.issuedAt) ?? '—'} />
               </div>
             </div>
@@ -237,7 +299,21 @@ export default function InvoicePage(): React.JSX.Element {
           <div style={billRowStyle}>
             <div style={{ flex: 1 }}>
               <div style={sectionLabelStyle}>Bill To</div>
-              <div style={customerNameStyle}>{invoice.customerName}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '7px' }}>
+                <span style={customerNameStyle}>{invoice.customerName}</span>
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  letterSpacing: '0.4px',
+                  color: '#555555',
+                  background: '#f2f2f2',
+                  border: '1px solid #e0e0e0',
+                  padding: '3px 9px',
+                  borderRadius: '999px',
+                }}>
+                  {invoice.externalOrderReference ? 'Daraz' : 'Direct'}
+                </span>
+              </div>
               <div style={sellerStyle}>
                 {invoice.customerAddress || 'Address not recorded'}<br />
                 {invoice.customerPhone || 'Contact not recorded'}
@@ -291,9 +367,22 @@ export default function InvoicePage(): React.JSX.Element {
             </table>
           </div>
 
-          {/* ── Totals ─────────────────────────────────────────────── */}
+          {/* ── Totals + Warranty/Note ──────────────────────────────── */}
           <div style={totalsRowStyle}>
             <div style={{ flex: 1, paddingTop: '2px' }}>
+              <div style={sectionLabelStyle}>Warranty &amp; Policies</div>
+              <ul style={{
+                margin: '0 0 20px',
+                paddingLeft: '16px',
+                fontSize: '11.5px',
+                color: '#555555',
+                lineHeight: 1.7,
+                textAlign: 'justify',
+              }}>
+                <li style={{ paddingLeft: '2px' }}>All televisions and computers carry a minimum 3-year manufacturer's warranty.</li>
+                <li style={{ paddingLeft: '2px' }}>Returns are accepted within 7 days with product replacement.</li>
+                <li style={{ paddingLeft: '2px' }}>Warranty void if seal is broken or physical/liquid damage occurs.</li>
+              </ul>
               <div style={sectionLabelStyle}>Note</div>
               <div style={noteStyle}>
                 Physically damaged and burned items will not be covered under warranty.
@@ -316,8 +405,22 @@ export default function InvoicePage(): React.JSX.Element {
                 bordered
               />
               <div style={balanceDueStyle}>
-                <span style={{ fontSize: '14px', letterSpacing: '0.5px', fontWeight: 500 }}>Balance Due</span>
-                <span style={{ fontSize: '22px', fontWeight: 700 }} data-testid="invoice-total">
+                <span style={{
+                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                  fontSize: '14px',
+                  letterSpacing: '0.5px',
+                  fontWeight: 500,
+                }}>
+                  Balance Due
+                </span>
+                <span
+                  style={{
+                    fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                    fontSize: '22px',
+                    fontWeight: 700,
+                  }}
+                  data-testid="invoice-total"
+                >
                   {money(invoice.total)}
                 </span>
               </div>
@@ -325,7 +428,13 @@ export default function InvoicePage(): React.JSX.Element {
           </div>
 
           <div style={footerStyle}>
-            <div style={{ fontSize: '15px', fontWeight: 600 }}>Thank you for your purchase.</div>
+            <div style={{
+              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+              fontSize: '15px',
+              fontWeight: 600,
+            }}>
+              Thank you for your purchase.
+            </div>
             <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
           </div>
         </article>
@@ -440,6 +549,8 @@ type InvoiceView = {
  * the document prints inside two margins and loses its geometry.
  */
 const PRINT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
 @media print {
   @page { size: A4; margin: 0; }
   body { background: #ffffff !important; }

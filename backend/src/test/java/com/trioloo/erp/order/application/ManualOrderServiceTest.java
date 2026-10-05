@@ -34,6 +34,8 @@ class ManualOrderServiceTest {
     @Autowired
     private ManualOrderService orders;
     @Autowired
+    private OrderAutoConfirmation autoConfirmation;
+    @Autowired
     private JdbcTemplate jdbc;
 
     private UUID shopId;
@@ -65,28 +67,108 @@ class ManualOrderServiceTest {
     }
 
     @Test
-    @DisplayName("creates the order in PENDING_VERIFICATION and stops there")
-    void createsInPendingVerification() {
+    @DisplayName("confirms the order by policy, records it, and fabricates no human confirmer")
+    void confirmsByPolicy() {
         ManualOrderService.Created created = orders.create(order());
 
         /*
-          ✅ The product owner's decision, 2026-08-24, and also the state a channel order arrives
-          in (OM §7.4, §7.8) - so a manual order and an imported one enter the SAME verification
-          queue and no state is skipped because a person typed it.
+          ✅ Owner decision 2026-10-03 (BR-184): no human verification queue. BR-014 already
+          permits it - "not required" is itself a decision, recorded with its reason - so the
+          order is CONFIRMED and the decision is on the record.
         */
-        assertThat(created.canonicalStatus()).isEqualTo("PENDING_VERIFICATION");
+        assertThat(created.canonicalStatus()).isEqualTo("CONFIRMED");
 
         Map<String, Object> row = jdbc.queryForMap(
-                "SELECT ownership, canonical_statuses_json::text AS canon, statuses_json::text AS raw "
+                "SELECT ownership, canonical_statuses_json::text AS canon, statuses_json::text AS raw, "
+                        + "confirmation_mode, confirmation_reason, confirmed_at, confirmed_by, "
+                        + "channel_order_effective_statuses(id)::text AS effective "
                         + "FROM channel_order WHERE id = ?", created.id());
+        // The marketplace-style mirror is left exactly as written (BR-171); the ERP reading is derived.
         assertThat(row.get("canon")).asString().contains("PENDING_VERIFICATION");
-        // 🔴 BR-168 — a direct-channel order is ERP_MANAGED from creation. There is no marketplace
-        // to hold authority over it and no takeover occurs (BR-169).
+        assertThat(row.get("effective")).asString().contains("CONFIRMED")
+                .doesNotContain("PENDING_VERIFICATION");
+        assertThat(row.get("confirmation_mode")).isEqualTo("AUTO_CONFIRMED");
+        assertThat(row.get("confirmation_reason")).isEqualTo("VERIFICATION_NOT_REQUIRED");
+        assertThat(row.get("confirmed_at")).isNotNull();
+        // 🔴 BR-166 - no human Confirmed By is invented.
+        assertThat(row.get("confirmed_by")).isNull();
+        // 🔴 BR-168 — a direct-channel order is ERP_MANAGED from creation (no takeover, BR-169).
         assertThat(row.get("ownership")).isEqualTo("ERP_MANAGED");
-        // 🔴 BR-171 / SYS-034 — no marketplace said anything about this order, so its external
-        // status array is EMPTY rather than carrying a fabricated word.
+        // 🔴 BR-171 / SYS-034 — no marketplace said anything, so the external array is EMPTY.
         assertThat(row.get("raw")).isEqualTo("[]");
     }
+
+    @Test
+    @DisplayName("the order follows its shipment: booked, delivered, and CANCELLED is never overridden")
+    void followsTheShipment() {
+        ManualOrderService.Created created = orders.create(order());
+
+        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+
+        UUID shipment = insertShipment(created, "BOOKED");
+        assertThat(effective(created.id())).isEqualTo("[\"COURIER_BOOKED\"]");
+
+        // DLV-025 - the courier is system of record for the parcel's outcome.
+        jdbc.update("UPDATE shipment SET state = 'DELIVERED' WHERE id = ?", shipment);
+        assertThat(effective(created.id())).isEqualTo("[\"DELIVERED\"]");
+
+        // A shipment state with no ratified Order consequence maps to nothing (DLV-027, SYS-034):
+        // the order falls back to its confirmation instead of inventing a reading.
+        jdbc.update("UPDATE shipment SET state = 'LOST' WHERE id = ?", shipment);
+        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+
+        // A cancelled parcel is not the order's reading either.
+        jdbc.update("UPDATE shipment SET state = 'CANCELLED' WHERE id = ?", shipment);
+        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+
+        // 🔴 A marketplace CANCELLED is never painted over by a shipment (BR-011, OM 6.5).
+        jdbc.update("UPDATE shipment SET state = 'IN_TRANSIT' WHERE id = ?", shipment);
+        jdbc.update("UPDATE channel_order SET canonical_statuses_json = '[\"CANCELLED\"]'::jsonb "
+                + "WHERE id = ?", created.id());
+        assertThat(effective(created.id())).isEqualTo("[\"CANCELLED\"]");
+    }
+
+    @Test
+    @DisplayName("auto-confirmation is idempotent and never moves the first confirmation")
+    void autoConfirmationIsIdempotent() {
+        ManualOrderService.Created created = orders.create(order());
+        Object first = jdbc.queryForObject(
+                "SELECT confirmed_at FROM channel_order WHERE id = ?", Object.class, created.id());
+
+        assertThat(autoConfirmation.confirmIfAwaitingVerification(created.id())).isFalse();
+
+        Object after = jdbc.queryForObject(
+                "SELECT confirmed_at FROM channel_order WHERE id = ?", Object.class, created.id());
+        assertThat(after).isEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("the schema refuses an automatic confirmation that names a human")
+    void schemaRefusesFabricatedConfirmer() {
+        ManualOrderService.Created created = orders.create(order());
+        UUID someone = actorId;
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE channel_order SET confirmed_by = ? WHERE id = ?", someone, created.id()))
+                .hasMessageContaining("channel_order_confirmation_consistent");
+    }
+
+    private String effective(UUID orderId) {
+        return jdbc.queryForObject(
+                "SELECT channel_order_effective_statuses(?)::text", String.class, orderId)
+                .replace(" ", "");
+    }
+
+    private UUID insertShipment(ManualOrderService.Created created, String state) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO shipment (id, channel_order_id, trioloo_invoice_number, state,
+                                      consignment_id, recipient_name, recipient_phone,
+                                      recipient_address, cod_amount)
+                VALUES (?, ?, ?, ?, ?, 'Test', '01700000000', 'Test address', 100.00)
+                """, id, created.id(), created.invoiceNumber(), state, "C-" + id);
+        return id;
+    }
+
 
     @Test
     @DisplayName("issues a Trioloo invoice number from the one sequence")
@@ -196,6 +278,9 @@ class ManualOrderServiceTest {
     }
 
     private void clean() {
+        jdbc.update("DELETE FROM shipment WHERE channel_order_id IN "
+                + "(SELECT id FROM channel_order WHERE channel_instance_id IN "
+                + "(SELECT id FROM channel_instance WHERE code LIKE 'MANUAL-SHOP-%'))");
         jdbc.update("DELETE FROM channel_order_item WHERE channel_order_id IN "
                 + "(SELECT id FROM channel_order WHERE channel_instance_id IN "
                 + "(SELECT id FROM channel_instance WHERE code LIKE 'MANUAL-SHOP-%'))");

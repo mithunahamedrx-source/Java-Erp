@@ -272,13 +272,63 @@ class ChannelOrderImportServiceTest {
         service.importWindow(shop, AFTER, BEFORE, 100);
 
         actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
-        var page = queries.list(new ChannelOrderQueryService.Filter(shop, null, CanonicalOrderStatus.PENDING_VERIFICATION.name(), "ORD-O-600", null),
+        var page = queries.list(new ChannelOrderQueryService.Filter(shop, null, CanonicalOrderStatus.CONFIRMED.name(), "ORD-O-600", null),
                 PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().getFirst().externalOrderId()).isEqualTo("O-600");
         assertThat(page.getContent().getFirst().statuses()).containsExactly("pending");
+        // BR-014 / BR-184 - the marketplace says pending; Trioloo confirmed it by policy. Two facts.
+        assertThat(page.getContent().getFirst().canonicalStatuses()).containsExactly("CONFIRMED");
         assertThat(page.getContent().getFirst().ownership()).isEqualTo("API_MANAGED");
+    }
+
+    @Test
+    @DisplayName("confirms an imported pending order by policy, once, without taking authority")
+    void confirmsImportedOrderByPolicy() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-610", "OI-610"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+        Object first = jdbc.queryForObject(
+                "SELECT confirmed_at FROM channel_order WHERE external_order_id = 'O-610'", Object.class);
+
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-610", "OI-610"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        var row = jdbc.queryForMap("SELECT ownership, confirmation_mode, confirmation_reason, confirmed_by, "
+                + "confirmed_at FROM channel_order WHERE external_order_id = 'O-610'");
+        assertThat(row.get("confirmation_mode")).isEqualTo("AUTO_CONFIRMED");
+        assertThat(row.get("confirmation_reason")).isEqualTo("VERIFICATION_NOT_REQUIRED");
+        // BR-166 - no human confirmer is fabricated; BR-169 - a system confirmation is no takeover.
+        assertThat(row.get("confirmed_by")).isNull();
+        assertThat(row.get("ownership")).isEqualTo("API_MANAGED");
+        // A re-poll never moves the first confirmation.
+        assertThat(row.get("confirmed_at")).isEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("ready to ship filter includes courier booked orders")
+    void readyToShipFilterIncludesCourierBookedOrders() {
+        PAGES.add(new ChannelOrderProvider.Page(2, 2, List.of(
+                order("O-601", "OI-601"),
+                order("O-602", "OI-602"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+        jdbc.update("""
+                UPDATE channel_order
+                   SET canonical_statuses_json = '["READY_TO_SHIP"]'::jsonb
+                 WHERE external_order_id = 'O-601'
+                """);
+        jdbc.update("""
+                UPDATE channel_order
+                   SET canonical_statuses_json = '["COURIER_BOOKED"]'::jsonb
+                 WHERE external_order_id = 'O-602'
+                """);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        var page = queries.list(new ChannelOrderQueryService.Filter(
+                shop, null, CanonicalOrderStatus.READY_TO_SHIP.name(), null, null), PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(ChannelOrderQueryService.ChannelOrderRow::externalOrderId)
+                .containsExactlyInAnyOrder("O-601", "O-602");
     }
 
     @Test

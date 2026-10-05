@@ -67,10 +67,22 @@ public class ShipmentBookingService {
           idempotency key has to be. ⚠ Booking against a null reference would hand the courier an
           empty `invoice` and destroy the only thread back from a consignment to an order.
         */
-        if (order.invoiceNumber() == null || order.invoiceNumber().isBlank()) {
+        if (isBlank(order.invoiceNumber())) {
             throw new ShipmentBookingRefusedException(
                     "Order " + channelOrderId + " has no Trioloo invoice number, so there is no "
                             + "reference to book against (OSC-057).");
+        }
+        if (isBlank(order.recipientPhone())) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " has no delivery phone number to send to Steadfast.");
+        }
+        if (isBlank(order.recipientAddress())) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " has no delivery address to send to Steadfast.");
+        }
+        if (order.codAmount() == null) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " has no COD amount to send to Steadfast.");
         }
 
         Instant now = Instant.now(clock);
@@ -168,6 +180,10 @@ public class ShipmentBookingService {
                         + "attributable (AGV-001, DLV-011).");
     }
 
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private OrderForBooking loadOrder(UUID channelOrderId) {
         return Optional.ofNullable(jdbc.query("""
                 SELECT o.trioloo_invoice_number, o.price,
@@ -194,7 +210,7 @@ public class ShipmentBookingService {
                     rs.getString("address"),
                     // 💰 COD is what the courier is asked to collect. TEC-015 / DB-079 — never a
                     // float, and ZERO is a real amount rather than a stand-in for unknown.
-                    price == null ? BigDecimal.ZERO : price,
+                    price,
                     rs.getString("item_name"));
         }, channelOrderId)).orElseThrow(() -> new ShipmentBookingRefusedException(
                 "Order " + channelOrderId + " does not exist."));

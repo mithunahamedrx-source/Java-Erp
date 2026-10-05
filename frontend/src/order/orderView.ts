@@ -58,18 +58,19 @@ export function primaryStatus(statuses: readonly string[]): string {
  * state and the channel reports it. `OSC-030.a`'s written tab list omits it; that omission is
  * reported to the contract's owner rather than treated as a prohibition.
  *
- * ⚠ Several tabs can only be empty in this read-only slice: `CONFIRMED`, `RELEASED`,
- * `IN_FULFILLMENT`, `ON_HOLD` and `CLOSED` are reached by Trioloo's own acts, and this slice
- * performs none of them. An empty tab is an honest fact, not a defect.
+ * ✅ PRODUCT-OWNER DECISION, 2026-10-03 (`BR-184`, `OSC-030.a`): there is NO `Pending verification`,
+ * `Released` or `In fulfilment` TAB, and no `Courier booked` tab either. The states still exist in
+ * `SM-1` and an order in one of them is never orphaned — the server groups them under the tab they
+ * lead to (`CONFIRMED` ← pending verification, released, in fulfilment; `READY_TO_SHIP` ← courier
+ * booked), and the card keeps the exact stage visible as a hover title (`stageNote`).
+ *
+ * ⚠ Some tabs can still be empty: `ON_HOLD` and `CLOSED` are reached by acts this slice does not
+ * perform. An empty tab is an honest fact, not a defect.
  */
 export const ORDER_STATUS_TABS: readonly { readonly value: string | null; readonly label: string }[] = [
   { value: null, label: 'All' },
-  { value: 'PENDING_VERIFICATION', label: 'Pending verification' },
   { value: 'CONFIRMED', label: 'Confirmed' },
-  { value: 'RELEASED', label: 'Released' },
-  { value: 'IN_FULFILLMENT', label: 'In fulfilment' },
   { value: 'READY_TO_SHIP', label: 'Ready to ship' },
-  { value: 'COURIER_BOOKED', label: 'Courier booked' },
   { value: 'DISPATCHED', label: 'Dispatched' },
   { value: 'DELIVERED', label: 'Delivered' },
   { value: 'FAILED_DELIVERY', label: 'Failed delivery' },
@@ -105,8 +106,43 @@ export function canonicalStatusLabel(status: string | null | undefined): string 
   if (!status) {
     return 'Not recorded';
   }
+  if (status === 'COURIER_BOOKED') {
+    return 'Ready to ship';
+  }
+  if (status === 'PENDING_VERIFICATION' || status === 'RELEASED' || status === 'IN_FULFILLMENT') {
+    return HIDDEN_STAGE_LABELS[status];
+  }
   const tab = ORDER_STATUS_TABS.find((candidate) => candidate.value === status);
   return tab ? tab.label : displayStatus(status);
+}
+
+/**
+ * The stages the owner removed from the tab strip (`BR-184`). They keep an operator-facing name so
+ * an order in one still reads correctly on the `All` tab, spelled `fulfilment` as `OSC-030.a` does.
+ */
+const HIDDEN_STAGE_LABELS = {
+  PENDING_VERIFICATION: 'Pending verification',
+  RELEASED: 'Released',
+  IN_FULFILLMENT: 'In fulfilment',
+} as const;
+
+/**
+ * Where the exact stage lives now that it is not a tab: a hover title on the status chip.
+ * `null` where the chip already says everything.
+ */
+export function stageNote(status: string | null | undefined): string | null {
+  switch (status) {
+    case 'COURIER_BOOKED':
+      return 'Stage: courier booked — the consignment exists with the courier and the order can no longer be changed (BR-082).';
+    case 'RELEASED':
+      return 'Stage: released to the warehouse.';
+    case 'IN_FULFILLMENT':
+      return 'Stage: in fulfilment — picking and packing under way.';
+    case 'PENDING_VERIFICATION':
+      return 'Stage: awaiting a verification decision.';
+    default:
+      return null;
+  }
 }
 
 /**

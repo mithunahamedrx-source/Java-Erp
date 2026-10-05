@@ -49,10 +49,72 @@ public class ShipmentTrackingService {
         this.clock = clock;
     }
 
+    /**
+     * Resolves the currently active shipment from an order card/detail action, then refreshes it.
+     * BR-023 allows at most one active shipment per order, so this endpoint has one visible target.
+     */
+    @Transactional
+    public Tracked refreshForOrder(UUID channelOrderId) {
+        requireTrackingAuthority();
+        UUID shipmentId = Optional.ofNullable(jdbc.query("""
+                SELECT id
+                  FROM shipment
+                 WHERE channel_order_id = ?
+                   AND state NOT IN (?, ?, ?, ?, ?)
+                 ORDER BY created_at DESC
+                 LIMIT 1
+                """, rs -> rs.next() ? (UUID) rs.getObject("id") : null,
+                channelOrderId,
+                ShipmentState.DELIVERED.name(),
+                ShipmentState.RETURNED_TO_WAREHOUSE.name(),
+                ShipmentState.LOST.name(),
+                ShipmentState.DAMAGED.name(),
+                ShipmentState.CANCELLED.name()))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Order " + channelOrderId + " has no active shipment to track."));
+        return refreshLoaded(shipmentId);
+    }
+
     @Transactional
     public Tracked refresh(UUID shipmentId) {
         requireTrackingAuthority();
 
+        return refreshLoaded(shipmentId);
+    }
+
+    /**
+     * The scheduled pull's entry point — a NAMED SYSTEM ACTOR, not a person ({@code BR-059}).
+     *
+     * <p>🔴 Only {@link ShipmentTrackingScheduler} calls it; no controller exposes it, so it is not
+     * a way around {@code delivery.shipment.track} for a human caller ({@code PRM-004}).
+     */
+    @Transactional
+    public Tracked refreshAsSystem(UUID shipmentId) {
+        return refreshLoaded(shipmentId);
+    }
+
+    /**
+     * Shipments the courier still owns the outcome of: booked and not yet in a settled state.
+     *
+     * <p>⚠ {@code CREATED} rows are excluded — a claimed slot with no consignment has nothing to
+     * read, and {@code STF-007} makes a status read of an unknown invoice indistinguishable from a
+     * foreign one.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<UUID> activeBookedShipmentIds() {
+        return jdbc.query("""
+                SELECT id
+                  FROM shipment
+                 WHERE consignment_id IS NOT NULL
+                   AND state NOT IN (?, ?, ?, ?, ?)
+                 ORDER BY updated_at ASC
+                """, (rs, n) -> (UUID) rs.getObject("id"),
+                ShipmentState.DELIVERED.name(), ShipmentState.RETURNED_TO_WAREHOUSE.name(),
+                ShipmentState.LOST.name(), ShipmentState.DAMAGED.name(),
+                ShipmentState.CANCELLED.name());
+    }
+
+    private Tracked refreshLoaded(UUID shipmentId) {
         Shipment shipment = load(shipmentId);
         if (shipment.invoiceNumber() == null) {
             throw new IllegalStateException(
@@ -114,6 +176,18 @@ public class ShipmentTrackingService {
                         """, raw, Timestamp.from(now), reported.get().trackingCode(),
                         Timestamp.from(now), shipmentId));
 
+        /*
+          ✅ SM-4 PICKED_UP "Emit Order.Dispatched" (STATE_MACHINE_ARCHITECTURE 8.6). The ERP's own
+          first observation of the order in flight is written ONCE and never rewritten
+          (OSC-053.c) - it feeds "Today's dispatched". Only states that mean the parcel has left
+          Trioloo count; BOOKED does not.
+        */
+        translated.filter(ShipmentTrackingService::inFlight).ifPresent(state -> jdbc.update("""
+                UPDATE channel_order
+                   SET dispatch_observed_at = coalesce(dispatch_observed_at, ?)
+                 WHERE id = (SELECT channel_order_id FROM shipment WHERE id = ?)
+                """, Timestamp.from(now), shipmentId));
+
         return new Tracked(
                 shipmentId,
                 translated.map(Enum::name).orElse(shipment.state()),
@@ -139,6 +213,11 @@ public class ShipmentTrackingService {
         if (!permitted) {
             throw new AccessDeniedByPermissionException(DeliveryPermissions.SHIPMENT_TRACK);
         }
+    }
+
+    private static boolean inFlight(ShipmentState state) {
+        return state == ShipmentState.PICKED_UP || state == ShipmentState.IN_TRANSIT
+                || state == ShipmentState.AT_HUB || state == ShipmentState.OUT_FOR_DELIVERY;
     }
 
     private Shipment load(UUID shipmentId) {

@@ -1,7 +1,7 @@
 # Order Module — page contract and design brief
 
 **Owner:** Trioloo Engineering · **Status:** 📌 **WORKING RECORD — NOT CANONICAL ARCHITECTURE**
-**Version:** 1.0.0 · **Established:** 2026-08-24 · **Rule prefix:** none, by design
+**Version:** 1.2.0 · **Established:** 2026-08-24 · **Rule prefix:** none, by design
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It consolidates what
 > [`ORDERS_SCREEN_CONTRACT.md`](ORDERS_SCREEN_CONTRACT.md) already fixes across nine frame
@@ -91,7 +91,7 @@ status-tab filtering · channel, shop, search and period filters · **select** (
 ### MUST NOT
 | Refused | Why |
 |---|---|
-| **Bulk action bar** | `PRM-025` per-record authorisation · `GAP-034` no permitted-action inventory |
+| **Bulk lifecycle/status transition bar** | `PRM-025` per-record authorisation; only `Send to Steadfast` is now allowed as a per-order shipment-booking loop |
 | **Ageing / SLA badges** | `GAP-024` — no residency threshold exists |
 | **A `DRAFT` tab** | `GAP-023` — the lifecycle is blocked |
 | **Legacy labels** — `RTS`, `Shipped`, `B2C Pending` | `GAP-017` · `BR-079` (`RTS` is ambiguous) |
@@ -101,7 +101,7 @@ status-tab filtering · channel, shop, search and period filters · **select** (
 | **Margin painted green** | `RULE 3.14.a.a` — an unknown margin is not a gain |
 
 ### TODAY
-✅ Cards, tabs with counts, four KPIs, filters, five per page, selection, Export.
+✅ Cards, tabs with counts, four KPIs, filters, five per page, selection, Export, single and selected bulk Send to Steadfast.
 ⚠ **Thin:** `More Actions` has no actions behind it (`OSC-056.f`).
 
 ---
@@ -343,9 +343,9 @@ Now design: [PASTE THE PAGE BLOCK FROM §7.2]
 ```text
 An orders list. Four summary figures across the top: Total orders, Today's orders,
 Today's dispatched, Total collectable. Below them a single-row segmented control of status tabs,
-each with a small superscript count: All, Pending verification, Confirmed, Released, In fulfilment,
-Ready to ship, Courier booked, Dispatched, Delivered, Failed delivery, Returned, On hold,
-Cancelled, Closed. Then a filter row: a narrow search box first, then channel, shop and period
+each with a small superscript count: All, Confirmed,
+Ready to ship, Dispatched, Delivered, Failed delivery, Returned, On hold,
+Cancelled, Closed. Pending verification, Released, In fulfilment and Courier booked are NOT tabs (owner decision 2026-10-03, OSC-062): they are grouped under Confirmed and Ready to ship, and the card shows the exact stage as a hover title. Then a filter row: a narrow search box first, then channel, shop and period
 selects, then Reset. Page header carries Export, Print and Create Order (Create Order is the one
 dark primary, rightmost). Then a list of order CARDS — not a table — five per page.
 
@@ -420,4 +420,6 @@ Show VAT / Tax at 0%. Do not invent a tax rate.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-10-03** | **Status tab strip simplified** per the owner (`OSC-062`, `OM BR-184`/`BR-185`): no Pending verification, Released, In fulfilment or Courier booked tab; stages grouped, not withdrawn; auto-confirmation on arrival. Design prompt P1 updated. |
+| **1.1.0** | **2026-09-06** | **Selected bulk Send to Steadfast ratified.** The bulk control is not a new lifecycle transition and does not create a second authority path: it calls the same shipment-booking action once per selected order, with per-record permission/validation and a reported result for each record. Daraz orders may also be sent to Steadfast; after booking, the shipment/tracking reference is Steadfast-issued and COD/payment tracking is refreshed from Steadfast where the provider exposes it. Cancel/hold remain outside this amendment. |
 | **1.0.0** | **2026-08-24** | **Initial record.** Consolidates `ORDERS_SCREEN_CONTRACT.md` into a per-PAGE build sheet and supplies the Claude Design brief. 🔴 **The finding that changes what gets designed: `OSC-020.a` makes `FRAME 03`–`FRAME 09` PANELS of the `FRAME 02` surface, so the module is FOUR pages and not nine.** ⚠ **Two live surfaces have no frame number — manual capture and the invoice printable — recorded as owed rather than numbered here.** 🔴 **Issues no rule, claims no prefix, and yields to the contract on any conflict.** |

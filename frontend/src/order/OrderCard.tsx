@@ -6,6 +6,7 @@ import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../
 import {
   canonicalStatus,
   canonicalStatusLabel,
+  stageNote,
   customerName,
   displayMoment,
   displayMoney,
@@ -46,11 +47,17 @@ import {
 export default function OrderCard({
   order,
   selected,
+  busyAction,
   onSelectedChange,
+  onBookShipment,
+  onRefreshTracking,
 }: {
   readonly order: ChannelOrderRow;
   readonly selected: boolean;
+  readonly busyAction?: 'booking' | 'tracking';
   readonly onSelectedChange: (selected: boolean) => void;
+  readonly onBookShipment: (order: ChannelOrderRow) => void;
+  readonly onRefreshTracking: (order: ChannelOrderRow) => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
 
@@ -112,7 +119,7 @@ export default function OrderCard({
           </span>
         </div>
 
-        <span style={chipStyle(role)}>
+        <span style={chipStyle(role)} title={stageNote(canonical) ?? undefined}>
           {canonical ? canonicalStatusLabel(canonical) : 'Status not translated'}
         </span>
         {/*
@@ -241,7 +248,7 @@ export default function OrderCard({
             menuWidth="264px"
             testId="order-actions-menu"
             triggerTestId="order-more-actions"
-            actions={moreActions(order, canonical, navigate)}
+            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking)}
           />
         </div>
       </div>
@@ -293,6 +300,9 @@ function moreActions(
   order: ChannelOrderRow,
   canonical: string | null,
   navigate: ReturnType<typeof useNavigate>,
+  busyAction: 'booking' | 'tracking' | undefined,
+  onBookShipment: (order: ChannelOrderRow) => void,
+  onRefreshTracking: (order: ChannelOrderRow) => void,
 ): readonly MenuAction[] {
   const preDispatch = PRE_DISPATCH.has(canonical ?? '');
   const booked = Boolean(order.courierConsignmentId);
@@ -319,6 +329,13 @@ function moreActions(
       description: 'Courier record and tracking events',
       onSelect: () => navigate(`/sales/orders/${order.id}?panel=Fulfilment`),
     });
+    items.push({
+      label: busyAction === 'tracking' ? 'Refreshing tracking...' : 'Refresh tracking',
+      description: 'Pulls the active Steadfast shipment status by Trioloo invoice',
+      disabled: busyAction === 'tracking',
+      reason: busyAction === 'tracking' ? 'Tracking refresh is already running for this order.' : undefined,
+      onSelect: () => onRefreshTracking(order),
+    });
   }
 
   if (preDispatch) {
@@ -340,16 +357,19 @@ function moreActions(
   }
 
   items.push({
-    label: 'Send to Steadfast',
+    label: busyAction === 'booking' ? 'Booking with Steadfast...' : 'Send to Steadfast',
     description: booked
-      ? `Already booked as ${order.courierConsignmentId} · resending is refused`
-      : 'Books the courier for this order · Steadfast is the only courier and is assigned for you',
+      ? `Already booked as ${order.courierConsignmentId} - resending is refused`
+      : 'Books one Steadfast consignment for this order',
     separatorBefore: !preDispatch,
-    disabled: true,
+    disabled: booked || busyAction === 'booking',
     reason: booked
       ? 'BR-023 allows one active shipment per order, so a second booking is refused.'
-      : 'Courier booking is ORDER_MODULE_ROADMAP Phase 2 and is not built. A booking is real, costs money and dispatches a rider.',
-    onSelect: () => undefined,
+      : busyAction === 'booking'
+        ? 'The booking call is already running for this order.'
+        : undefined,
+    emphasis: !booked,
+    onSelect: () => onBookShipment(order),
   });
   items.push({
     label: 'Place hold',

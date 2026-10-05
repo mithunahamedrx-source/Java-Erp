@@ -47,7 +47,7 @@ public class ChannelOrderQueryService {
         List<ChannelOrderRow> rows = jdbc.query("""
                 SELECT o.id, o.channel_instance_id, ci.name AS channel_name,
                        o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.statuses_json::text,
-                       o.canonical_statuses_json::text, o.dispatch_observed_at,
+                       channel_order_effective_statuses(o.id)::text AS canonical_statuses_json, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
                        o.price,
                        -- ⚠ BR-005 — the readable name the ADAPTER produced. The provider's own
@@ -164,7 +164,7 @@ public class ChannelOrderQueryService {
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                 """ + where + and(where) + """
-                 o.canonical_statuses_json ?? ?
+                 channel_order_effective_statuses(o.id) ?? ?
                 """, append(args, CanonicalOrderStatus.DELIVERED.name()), BigDecimal.class);
 
         Long items = jdbc.queryForObject("""
@@ -198,7 +198,7 @@ public class ChannelOrderQueryService {
                 SELECT s.status, count(*) AS order_count
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
-                  CROSS JOIN LATERAL jsonb_array_elements_text(o.canonical_statuses_json) AS s(status)
+                  CROSS JOIN LATERAL jsonb_array_elements_text(channel_order_effective_statuses(o.id)) AS s(status)
                 """ + countWhere + """
                  GROUP BY s.status
                 """, args(withoutStatus),
@@ -228,7 +228,7 @@ public class ChannelOrderQueryService {
     public ChannelOrderDetail detail(UUID id) {
         requireViewer();
         List<ChannelOrderDetail> found = jdbc.query("""
-                SELECT o.*, ci.name AS channel_name, ci.channel_type
+                SELECT o.*, channel_order_effective_statuses(o.id)::text AS effective_statuses_json, ci.name AS channel_name, ci.channel_type
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                  WHERE o.id = ?
@@ -265,7 +265,19 @@ public class ChannelOrderQueryService {
         // tabs are named for SM-1 states (OM §6.2), so filtering on a channel's own spelling
         // would put channel-conditional behaviour in a downstream stage (BR-005).
         if (present(f.status())) {
-            sql.append(" AND o.canonical_statuses_json ?? ?");
+            List<String> statuses = statusFilterNames(f.status());
+            if (statuses.size() == 1) {
+                sql.append(" AND channel_order_effective_statuses(o.id) ?? ?");
+            } else {
+                sql.append(" AND (");
+                for (int i = 0; i < statuses.size(); i++) {
+                    if (i > 0) {
+                        sql.append(" OR ");
+                    }
+                    sql.append("channel_order_effective_statuses(o.id) ?? ?");
+                }
+                sql.append(")");
+            }
         }
         Period period = Period.resolve(f.period());
         if (period != null) {
@@ -305,10 +317,7 @@ public class ChannelOrderQueryService {
             values.add(f.channelType().trim().toUpperCase(java.util.Locale.ROOT));
         }
         if (present(f.status())) {
-            // An unrecognised tab value is not passed through as a free-text probe: it resolves
-            // to a ratified state name or it matches nothing.
-            CanonicalOrderStatus requested = CanonicalOrderStatus.resolve(f.status());
-            values.add(requested == null ? "" : requested.name());
+            values.addAll(statusFilterNames(f.status()));
         }
         if (present(f.search())) {
             String needle = "%" + f.search().trim().toLowerCase() + "%";
@@ -320,6 +329,29 @@ public class ChannelOrderQueryService {
         }
         return values.toArray();
     }
+
+    private static List<String> statusFilterNames(String status) {
+        CanonicalOrderStatus requested = CanonicalOrderStatus.resolve(status);
+        if (requested == null) {
+            return List.of("");
+        }
+        /*
+          ✅ Owner decision 2026-10-03 (BR-184, OSC-030.a): there are no tabs for pending
+          verification, released or in fulfilment. The states remain in SM-1, so an order in one is
+          GROUPED under the tab it leads to rather than orphaned from every tab.
+        */
+        if (requested == CanonicalOrderStatus.CONFIRMED) {
+            return List.of(CanonicalOrderStatus.CONFIRMED.name(),
+                    CanonicalOrderStatus.PENDING_VERIFICATION.name(),
+                    CanonicalOrderStatus.RELEASED.name(),
+                    CanonicalOrderStatus.IN_FULFILLMENT.name());
+        }
+        if (requested == CanonicalOrderStatus.READY_TO_SHIP) {
+            return List.of(CanonicalOrderStatus.READY_TO_SHIP.name(), CanonicalOrderStatus.COURIER_BOOKED.name());
+        }
+        return List.of(requested.name());
+    }
+
 
     /** Continues an existing WHERE. {@link #where(Filter)} always opens one, so this is always AND. */
     private static String and(String currentWhere) {
@@ -350,7 +382,7 @@ public class ChannelOrderQueryService {
                 rs.getString("channel_type"), rs.getString("external_order_id"),
                 rs.getString("order_number"), rs.getString("ownership"),
                 statuses(rs.getString("statuses_json")),
-                statuses(rs.getString("canonical_statuses_json")), instant(rs, "dispatch_observed_at"),
+                statuses(rs.getString("effective_statuses_json")), instant(rs, "dispatch_observed_at"),
                 instant(rs, "provider_created_at"),
                 instant(rs, "provider_updated_at"), instant(rs, "imported_at"), instant(rs, "last_seen_at"),
                 rs.getBigDecimal("price"), rs.getBigDecimal("shipping_fee"),
@@ -364,7 +396,9 @@ public class ChannelOrderQueryService {
                 rs.getString("national_registration_number1"), rs.getString("branch_number"),
                 rs.getString("tax_code"), rs.getString("extra_attributes"),
                 rs.getString("customer_first_name"), rs.getString("customer_last_name"),
-                address(rs, "billing"), address(rs, "shipping"), List.of());
+                address(rs, "billing"), address(rs, "shipping"),
+                rs.getString("confirmation_mode"), instant(rs, "confirmed_at"),
+                rs.getString("confirmation_reason"), List.of());
     }
 
     private ChannelOrderItemRow item(ResultSet rs) throws SQLException {
@@ -612,7 +646,9 @@ public class ChannelOrderQueryService {
                                      String nationalRegistrationNumber1, String branchNumber,
                                      String taxCode, String extraAttributes, String customerFirstName,
                                      String customerLastName, AddressView billingAddress,
-                                     AddressView shippingAddress, List<ChannelOrderItemRow> items) {
+                                     AddressView shippingAddress,
+                                     String confirmationMode, Instant confirmedAt,
+                                     String confirmationReason, List<ChannelOrderItemRow> items) {
         ChannelOrderDetail withItems(List<ChannelOrderItemRow> items) {
             return new ChannelOrderDetail(id, channelInstanceId, channelName, channelType,
                     externalOrderId, orderNumber, ownership, statuses,
@@ -623,7 +659,8 @@ public class ChannelOrderQueryService {
                     voucherCode, itemsCount, promisedShippingTimes, warehouseCode, deliveryInfo,
                     buyerNote, remarks, giftOption, giftMessage, nationalRegistrationNumber1,
                     branchNumber, taxCode, extraAttributes, customerFirstName, customerLastName,
-                    billingAddress, shippingAddress, items == null ? List.of() : List.copyOf(items));
+                    billingAddress, shippingAddress, confirmationMode, confirmedAt, confirmationReason,
+                    items == null ? List.of() : List.copyOf(items));
         }
     }
 
