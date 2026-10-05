@@ -75,7 +75,9 @@ class WebsiteIntegrationTest {
         // The division is appended only when the address does not already name it.
         assertThat(order.shippingAddress().address1()).isEqualTo("House 4, Road 2, Mirpur, Dhaka");
         assertThat(order.shippingAddress().phone()).isEqualTo("01712345678");
-        assertThat(order.price()).isEqualByComparingTo("30000.50");
+        // The price is the whole amount payable (subtotal + delivery); online-paid means that amount is the advance.
+        assertThat(order.price()).isEqualByComparingTo("30120.50");
+        assertThat(order.paymentReceived()).isEqualByComparingTo("30120.50");
         assertThat(order.shippingFee()).isEqualByComparingTo("120.00");
         assertThat(order.paymentMethod()).isEqualTo("bKash");
         assertThat(order.statuses()).containsExactly("PENDING");
@@ -87,6 +89,8 @@ class WebsiteIntegrationTest {
         assertThat(order.items().get(0).externalOrderItemId()).isNotEqualTo(order.items().get(1).externalOrderItemId());
         // An address that already names the division is not given it twice.
         assertThat(page.orders().get(1).shippingAddress().address1()).isEqualTo("Dhanmondi, Dhaka");
+        // A cash-on-delivery order paid nothing, so there is no advance.
+        assertThat(page.orders().get(1).paymentReceived()).isNull();
         assertThat(transport.urls.get(0)).contains("/erp/orders?updatedAfter=2026-09-01T00:00:00Z");
     }
 

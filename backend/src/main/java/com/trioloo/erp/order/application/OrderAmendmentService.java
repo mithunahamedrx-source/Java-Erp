@@ -217,7 +217,8 @@ public class OrderAmendmentService {
             // AGV-001 - who recorded the correction and when; a cleared advance clears all three together.
             jdbc.update("""
                     UPDATE channel_order
-                       SET advance_received = ?, advance_recorded_at = ?, advance_recorded_by = ?
+                       SET advance_received = ?, advance_recorded_at = ?, advance_recorded_by = ?,
+                           advance_source = NULL
                      WHERE id = ?
                     """, newAdvance, newAdvance == null ? null : java.sql.Timestamp.from(java.time.Instant.now()),
                     newAdvance == null ? null : actor, orderId);

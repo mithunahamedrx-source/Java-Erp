@@ -357,6 +357,19 @@ public class ChannelOrderImportService {
                 postCode(order.shippingAddress()), country(order.shippingAddress()))).orElseThrow();
         issueInvoiceNumber(id);
 
+        /*
+          BR-203 - a payment the CHANNEL reports (a website order paid online) is the advance: the courier is then asked
+          to collect only the due amount. Written only while the order is still the channel's own (API_MANAGED) and has
+          no advance, so a person's later correction - or clearing it - is never overwritten by the next poll.
+        */
+        if (order.paymentReceived() != null && order.paymentReceived().signum() > 0) {
+            jdbc.update("""
+                    UPDATE channel_order
+                       SET advance_received = ?, advance_recorded_at = ?, advance_source = 'CHANNEL_PAYMENT'
+                     WHERE id = ? AND ownership = 'API_MANAGED' AND advance_received IS NULL
+                    """, order.paymentReceived(), ts(now), id);
+        }
+
         return new Upsert(id, jdbc.queryForObject("""
                 SELECT version = 0 FROM channel_order WHERE id = ?
                 """, Boolean.class, id) == Boolean.TRUE);

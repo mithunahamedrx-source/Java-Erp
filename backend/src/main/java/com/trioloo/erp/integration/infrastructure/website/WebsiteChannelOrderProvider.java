@@ -213,16 +213,21 @@ public class WebsiteChannelOrderProvider implements ChannelOrderProvider {
             remarks.add(email.trim());
         }
 
+        // The price is what the customer pays in all: the site's total (subtotal + delivery). The courier is asked to
+        // collect that less what was already paid, so a paid order reaches Steadfast with nothing to collect (BR-203).
+        BigDecimal total = money(node.path("total"));
+        boolean paidOnline = paymentStatus != null && paymentStatus.trim().equalsIgnoreCase("PAID");
         return new ChannelOrderSnapshot(
                 number, number, created, updated,
-                money(node.path("subtotal")), money(node.path("delivery")),
+                total, money(node.path("delivery")),
                 null, null, null, null, null, null, null,
                 payment, null, items.size(),
                 status == null ? List.of() : List.of(status),
                 null, null, null, null,
                 remarks.isEmpty() ? null : String.join(" · ", remarks),
                 null, null, null, null, null, null,
-                first, last, shipping, shipping, items);
+                first, last, shipping, shipping, items,
+                paidOnline ? total : null);
     }
 
     private static String paymentName(String code) {
