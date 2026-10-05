@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Button, Select } from '../ui/primitives';
 import { apiRequest } from '../platform/api';
-import { fetchChannelOrderSummary } from './orderApi';
-import type { ChannelOrderSummary } from './orderApi';
+import { ORDER_TYPES, WARRANTY_TERMS, fetchCaptureOptions, warrantyTermLabel } from './orderApi';
+import type { CaptureOptions } from './orderApi';
+import { useAuth } from '../auth/AuthContext';
 import { listChannelListings } from '../product/channelListingApi';
 import type { ChannelListing } from '../product/channelListingApi';
 import { formatMoneyForDisplay } from '../platform/money';
@@ -39,7 +40,15 @@ import { formatMoneyForDisplay } from '../platform/money';
  */
 export default function NewOrderPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const [shops, setShops] = useState<ChannelOrderSummary['shops']>([]);
+  const [options, setOptions] = useState<CaptureOptions>({ shops: [], users: [] });
+  const { session } = useAuth();
+  const me = session.status === 'authenticated' ? session.user.id : '';
+  // V32 — the three attributes that share one row.
+  const [customerType, setCustomerType] = useState('');
+  const [soldBy, setSoldBy] = useState('');
+  // BR-127 — money received before delivery, a STRING typed by staff (TEC-015).
+  const [advance, setAdvance] = useState('');
+  const [warranty, setWarranty] = useState('');
   const [shopId, setShopId] = useState('');
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,6 +61,7 @@ export default function NewOrderPage(): React.JSX.Element {
   ]);
   const [nextLineId, setNextLineId] = useState(3);
   const [search, setSearch] = useState('');
+  const [quickTotal, setQuickTotal] = useState('');
   const [results, setResults] = useState<readonly ChannelListing[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,15 +69,23 @@ export default function NewOrderPage(): React.JSX.Element {
   useEffect(() => {
     void (async () => {
       try {
-        const summary = await fetchChannelOrderSummary({});
-        setShops(summary.shops ?? []);
+        // Shops come from the REGISTER and users from the active profiles, so a new shop can take its
+        // first manual order. Gated by order.order.create on the server.
+        setOptions(await fetchCaptureOptions());
       } catch {
-        // ⚠ The shop list failing does not disable capture; the field simply has no options and
-        // the server refuses without one (BR-002). A silent empty select is honest here.
-        setShops([]);
+        // ⚠ The lists failing does not disable capture; the fields simply have no options and the server
+        // refuses without a shop (BR-002). A silent empty select is honest here.
+        setOptions({ shops: [], users: [] });
       }
     })();
   }, []);
+
+  // Sold by defaults to the person creating the order, once, and stays theirs to change.
+  useEffect(() => {
+    if (!soldBy && me && options.users.some((user) => user.id === me)) {
+      setSoldBy(me);
+    }
+  }, [me, options.users, soldBy]);
 
   /*
     🔴 THE SEARCH READS THE REAL LISTING CATALOGUE, NOT A SAMPLE ONE. The prototype searches an
@@ -103,8 +121,22 @@ export default function NewOrderPage(): React.JSX.Element {
     JavaScript number. A `reduce` over `Number(price)` would round 0.1 + 0.2 into an amount nobody
     typed, and this is the figure that becomes the order's price and the invoice's subtotal.
   */
-  const total = useMemo(() => sumMinorUnits(lines.map((line) => line.unitPrice)), [lines]);
-  const priced = lines.some((line) => /^\d+(\.\d{0,2})?$/.test(line.unitPrice.trim()));
+  /*
+    ✅ OWNER DECISION, 2026-10-05 — THE QUICK LINE. Filling the search line (as free text) and a total
+    price is enough to create the order, with no item description rows; the order is then tagged
+    WALK-IN. 🔴 The total is the string the operator typed (TEC-015) and is not derived.
+    ⚠ If any description row IS filled the ordinary path applies and the quick line is only a search.
+  */
+  const describedLines = lines.filter((line) => line.description.trim());
+  const quickMode = search.trim().length > 0 && describedLines.length === 0;
+  const quickTotalValid = /^\d+(\.\d{1,2})?$/.test(quickTotal.trim());
+  const total = useMemo(
+    () => (quickMode ? quickTotal.trim() : sumMinorUnits(lines.map((line) => line.unitPrice))),
+    [quickMode, quickTotal, lines],
+  );
+  const priced = quickMode
+    ? quickTotalValid
+    : lines.some((line) => /^\d+(\.\d{0,2})?$/.test(line.unitPrice.trim()));
 
   const updateLine = useCallback((id: number, patch: Partial<LineDraft>) => {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
@@ -118,6 +150,20 @@ export default function NewOrderPage(): React.JSX.Element {
   }, [nextLineId]);
 
   const submit = useCallback(async (thenPrint: boolean) => {
+    if (quickMode) {
+      if (!shopId) {
+        setError('Choose a shop for the order (BR-002).');
+        return;
+      }
+      if (!quickTotalValid) {
+        setError('Enter the total price — a quick order needs the item line and a total.');
+        return;
+      }
+    }
+    if (advance.trim() && !/^\d+(\.\d{1,2})?$/.test(advance.trim())) {
+      setError('The advance must be an amount such as 500 or 500.50.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -134,14 +180,22 @@ export default function NewOrderPage(): React.JSX.Element {
           paymentMethod,
           note,
           total,
-          lines: lines
-            .filter((line) => line.description.trim())
-            .map((line, index) => ({
-              lineNumber: index + 1,
-              name: line.description,
-              sku: null,
-              unitPrice: line.unitPrice || '0',
-            })),
+          // Quick order: the typed line IS the item, priced at the total. Otherwise the ordinary rows.
+          lines: quickMode
+            ? [{ lineNumber: 1, name: search.trim(), sku: null, unitPrice: quickTotal.trim() }]
+            : lines
+              .filter((line) => line.description.trim())
+              .map((line, index) => ({
+                lineNumber: index + 1,
+                name: line.description,
+                sku: null,
+                unitPrice: line.unitPrice || '0',
+              })),
+          walkIn: quickMode,
+          orderType: customerType || null,
+          soldBy: soldBy || null,
+          advanceReceived: advance.trim() || null,
+          warrantyTerm: warranty || null,
         },
       });
       /*
@@ -154,7 +208,7 @@ export default function NewOrderPage(): React.JSX.Element {
     } finally {
       setSaving(false);
     }
-  }, [shopId, customer, phone, address, paymentMethod, note, lines, total, navigate]);
+  }, [shopId, customer, phone, address, paymentMethod, note, lines, total, navigate, quickMode, quickTotal, quickTotalValid, search, customerType, soldBy, advance, warranty]);
 
   const units = lines.length;
 
@@ -227,49 +281,56 @@ export default function NewOrderPage(): React.JSX.Element {
                 />
               </Field>
               {/*
-                🔴 DIMMED — `channel_order` HOLDS NO CUSTOMER TYPE. `CUSTOMER_ARCHITECTURE.md` owns
-                the customer classification and no column carries it onto an order, so a value
-                chosen here would be discarded on save.
+                ✅ OWNER INSTRUCTION, 2026-10-05: CUSTOMER TYPE, SHOP AND SOLD BY SHARE ONE ROW.
+                - Customer type is the order's SOURCE — Walk-in, Marketplace or Website — stored as a recorded
+                  attribute (V32). ⚠ It is NOT the individual / corporate / reseller classification
+                  CUSTOMER_ARCHITECTURE.md owns, which no column carries onto an order.
+                - Shop is the channel INSTANCE (BR-002), listed from the register.
+                - Sold by is a USER, defaulting to the person creating the order (V32). Attribution only: no
+                  commission rule exists (GAP-123/GAP-124).
               */}
-              <Field label="Customer type" reason="Not stored: no customer-type column exists on the order.">
-                <Select value="" onChange={() => undefined} disabled>
-                  <option value="">Not recorded</option>
-                </Select>
-              </Field>
-              <Field label="Shop" required>
-                {/* 🔴 `BR-002` — channel type is never sufficient attribution; the INSTANCE is named. */}
-                <Select value={shopId} onChange={setShopId}>
-                  <option value="">Choose a shop</option>
-                  {shops.map((shop) => (
-                    <option key={shop.channelInstanceId} value={shop.channelInstanceId}>
-                      {shop.name ?? shop.code}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {/*
-                🔴 DIMMED — NO `Sold by` ATTRIBUTION IS RATIFIED ON AN ORDER. ⚠ CLAUDE.md §8's
-                attribution rule is precisely why this is not improvised: a first-class actor fact
-                is captured when the authoritative action occurs, and inventing a salesperson field
-                here would create an attribution nothing else in the corpus recognises.
-              */}
-              <Field label="Sold by" reason="Not stored: no order-level salesperson attribution is ratified.">
-                <Select value="" onChange={() => undefined} disabled>
-                  <option value="">Not recorded</option>
-                </Select>
-              </Field>
+              <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 'var(--space-8)' }}>
+                <Field label="Customer type">
+                  <Select value={customerType} onChange={setCustomerType}>
+                    <option value="">Not recorded</option>
+                    {ORDER_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Shop" required>
+                  {/* 🔴 `BR-002` — channel type is never sufficient attribution; the INSTANCE is named. */}
+                  <Select value={shopId} onChange={setShopId}>
+                    <option value="">Choose a shop</option>
+                    {options.shops.map((shop) => (
+                      <option key={shop.id} value={shop.id}>
+                        {shop.name ?? shop.code}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Sold by">
+                  <Select value={soldBy} onChange={setSoldBy}>
+                    <option value="">Not recorded</option>
+                    {options.users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.fullName}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
             </div>
           </Panel>
 
           {/* ── 2 · Lines ──────────────────────────────────────────────── */}
           <Panel
             step="2"
-            title="Lines"
+            title="Product lines"
             meta="Unit price is entered by staff"
             flush
           >
             <div style={{ padding: '16px 22px 0' }}>
-              <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                 <input
                   style={inputStyle}
                   value={search}
@@ -338,9 +399,23 @@ export default function NewOrderPage(): React.JSX.Element {
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }}>
-                No match is needed — pressing Enter with no result adds the text you typed as a
-                non-catalogued line, and mapping it stays owed.
+              <input
+                style={{ ...inputStyle, width: '170px', flexShrink: 0, textAlign: 'right' }}
+                className="tabular-nums"
+                value={quickTotal}
+                onChange={(event) => setQuickTotal(event.target.value)}
+                placeholder="Total price"
+                inputMode="decimal"
+                aria-label="Total price"
+                data-testid="new-order-quick-total"
+              />
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }} data-testid="new-order-quick-hint">
+                {quickMode
+                  ? (quickTotalValid
+                    ? 'Walk-in order: this line and the total price are enough. No item rows are needed, and the order will be tagged Walk-in.'
+                    : 'Walk-in order: enter the total price to create the order from this line alone.')
+                  : 'No match is needed — pressing Enter with no result adds the text you typed as a non-catalogued line, and mapping it stays owed. Or fill this line and a total price alone to create a Walk-in order.'}
               </div>
             </div>
 
@@ -425,7 +500,7 @@ export default function NewOrderPage(): React.JSX.Element {
           </Panel>
 
           {/* ── 3 · Payment and note ───────────────────────────────────── */}
-          <Panel step="3" title="Payment and note" meta="No receipt is recorded at capture">
+          <Panel step="3" title="Payment and note" meta="An advance may be recorded; no receivable or settlement is">
             <div style={fieldGridStyle}>
               <Field label="Collection mode">
                 <Select value={paymentMethod} onChange={setPaymentMethod}>
@@ -442,6 +517,23 @@ export default function NewOrderPage(): React.JSX.Element {
               */}
               <Field label="Delivery & handling" reason="Not stored: the manual capture path writes no shipping fee.">
                 <input style={{ ...inputStyle, ...rightAlign, ...disabledInputStyle }} value="" placeholder="Not recorded" disabled aria-label="Delivery and handling — not stored" />
+              </Field>
+              {/*
+                ✅ OWNER INSTRUCTION, 2026-10-05 (BR-127): money the customer has ALREADY paid. It is a recorded
+                fact on the order — with who and when — and recognises nothing: advances are neither revenue
+                nor expense. The courier is later asked to collect only the BALANCE, and the invoice prints it.
+              */}
+              <Field label="Advance received">
+                <input
+                  style={{ ...inputStyle, ...rightAlign }}
+                  className="tabular-nums"
+                  placeholder="0 — none received"
+                  inputMode="decimal"
+                  value={advance}
+                  onChange={(event) => setAdvance(event.target.value)}
+                  aria-label="Advance received"
+                  data-testid="new-order-advance"
+                />
               </Field>
               <Field label="Note for operations" full>
                 <input
@@ -504,7 +596,7 @@ export default function NewOrderPage(): React.JSX.Element {
               <RailRow label="Goods" value={priced ? formatMoneyForDisplay(total) ?? 'Not entered' : 'Not entered'} />
               <RailRow label="Reaches customer by" value="Not recorded" muted />
               <RailRow label="Warranty charge" value="Not recorded" muted />
-              <RailRow label="Warranty package" value="Not recorded" muted />
+              <RailRow label="Warranty package" value={warrantyTermLabel(warranty) ?? 'Not recorded'} muted={!warranty} />
               <RailRow label="Delivery & handling" value="Not recorded" muted />
               {/*
                 🔴 UNKNOWN, NEVER `0` (`INV-32.4`, `BR-007`). A manual line carries no cost
@@ -516,9 +608,13 @@ export default function NewOrderPage(): React.JSX.Element {
 
           <section style={railCardStyle}>
             <div style={railCapStyle}>WARRANTY</div>
-            <Field label="Overall warranty package" reason="Not stored: no order-level warranty term is ratified. WARRANTY_REPAIR_ARCHITECTURE.md owns the policy.">
-              <Select value="" onChange={() => undefined} disabled>
-                <option value="">Per line, from each product's policy</option>
+            <Field label="Overall warranty package">
+              {/* BR-197 — printed on the invoice as "Warranty: <term>". */}
+              <Select value={warranty} onChange={setWarranty}>
+                <option value="">No warranty term</option>
+                {WARRANTY_TERMS.map((term) => (
+                  <option key={term.value} value={term.value}>{term.label}</option>
+                ))}
               </Select>
             </Field>
             <div style={{ marginTop: 'var(--space-5)' }}>

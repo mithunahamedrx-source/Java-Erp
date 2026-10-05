@@ -412,13 +412,18 @@ public class ChannelOrderImportService {
                 )
                 ON CONFLICT (channel_order_id, external_order_item_id) DO UPDATE SET
                     external_order_id = EXCLUDED.external_order_id,
-                    sku = EXCLUDED.sku,
+                    -- BR-170: for an ERP_MANAGED order the pull never overwrites the lines Trioloo edited.
+                    sku = CASE WHEN (SELECT o.ownership FROM channel_order o WHERE o.id = channel_order_item.channel_order_id) = 'ERP_MANAGED'
+                                 THEN channel_order_item.sku ELSE EXCLUDED.sku END,
                     shop_sku = EXCLUDED.shop_sku,
                     sku_id = EXCLUDED.sku_id,
-                    item_name = EXCLUDED.item_name,
+                    item_name = CASE WHEN (SELECT o.ownership FROM channel_order o WHERE o.id = channel_order_item.channel_order_id) = 'ERP_MANAGED'
+                                 THEN channel_order_item.item_name ELSE EXCLUDED.item_name END,
                     variation = EXCLUDED.variation,
-                    item_price = EXCLUDED.item_price,
-                    paid_price = EXCLUDED.paid_price,
+                    item_price = CASE WHEN (SELECT o.ownership FROM channel_order o WHERE o.id = channel_order_item.channel_order_id) = 'ERP_MANAGED'
+                                 THEN channel_order_item.item_price ELSE EXCLUDED.item_price END,
+                    paid_price = CASE WHEN (SELECT o.ownership FROM channel_order o WHERE o.id = channel_order_item.channel_order_id) = 'ERP_MANAGED'
+                                 THEN channel_order_item.paid_price ELSE EXCLUDED.paid_price END,
                     status = EXCLUDED.status,
                     reason = EXCLUDED.reason,
                     tracking_code = EXCLUDED.tracking_code,

@@ -1,5 +1,6 @@
 package com.trioloo.erp.order.api;
 
+import com.trioloo.erp.order.application.OrderAmendmentService;
 import com.trioloo.erp.order.application.OrderLifecycleService;
 import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Cancel and restore — {@code PRM-095}. 🔴 THE AUTHORISATION IS IN THE SERVICE, NOT HERE
+ * Cancel, restore and edit — {@code PRM-095}, {@code PRM-096}. 🔴 THE AUTHORISATION IS IN THE SERVICE, NOT HERE
  * ({@code PRM-004}).
  */
 @RestController
@@ -23,15 +24,23 @@ import java.util.UUID;
 public class OrderLifecycleController {
 
     private final OrderLifecycleService lifecycle;
+    private final OrderAmendmentService amendments;
 
-    public OrderLifecycleController(OrderLifecycleService lifecycle) {
+    public OrderLifecycleController(OrderLifecycleService lifecycle, OrderAmendmentService amendments) {
         this.lifecycle = lifecycle;
+        this.amendments = amendments;
     }
 
     @PostMapping("/{orderId}/cancel")
     public OrderLifecycleService.Outcome cancel(@PathVariable UUID orderId,
                                                 @RequestBody CancelRequest request) {
         return lifecycle.cancel(orderId, request.reason(), request.note());
+    }
+
+    @PostMapping("/{orderId}/edit")
+    public OrderAmendmentService.Outcome edit(@PathVariable UUID orderId,
+                                              @RequestBody OrderAmendmentService.Edit request) {
+        return amendments.edit(orderId, request);
     }
 
     @PostMapping("/{orderId}/restore")

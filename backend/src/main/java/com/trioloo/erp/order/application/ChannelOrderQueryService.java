@@ -46,7 +46,7 @@ public class ChannelOrderQueryService {
         Object[] args = args(f);
         List<ChannelOrderRow> rows = jdbc.query("""
                 SELECT o.id, o.channel_instance_id, ci.name AS channel_name,
-                       o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.statuses_json::text,
+                       o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.order_tag, o.statuses_json::text,
                        channel_order_effective_statuses(o.id)::text AS canonical_statuses_json, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
                        o.price,
@@ -228,7 +228,9 @@ public class ChannelOrderQueryService {
     public ChannelOrderDetail detail(UUID id) {
         requireViewer();
         List<ChannelOrderDetail> found = jdbc.query("""
-                SELECT o.*, channel_order_effective_statuses(o.id)::text AS effective_statuses_json, ci.name AS channel_name, ci.channel_type
+                SELECT o.*, channel_order_effective_statuses(o.id)::text AS effective_statuses_json,
+                       (SELECT p.full_name FROM operational_user_profile p WHERE p.id = o.sold_by) AS sold_by_name,
+                       ci.name AS channel_name, ci.channel_type
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
                  WHERE o.id = ?
@@ -239,7 +241,7 @@ public class ChannelOrderQueryService {
                 SELECT id, external_order_item_id, external_order_id, sku, shop_sku, sku_id,
                        item_name, variation, item_price, paid_price, status, reason,
                        tracking_code, shipment_provider, shipping_provider_type, invoice_number,
-                       purchase_order_id, digital_delivery_info, provider_created_at, provider_updated_at
+                       purchase_order_id, digital_delivery_info, provider_created_at, provider_updated_at, quantity
                   FROM channel_order_item
                  WHERE channel_order_id = ?
                  ORDER BY external_order_item_id ASC
@@ -371,7 +373,7 @@ public class ChannelOrderQueryService {
                 rs.getString("item_name"), rs.getString("tracking_code"),
                 rs.getString("invoice_number"), rs.getString("purchase_order_id"),
                 rs.getString("courier_consignment_id"), rs.getString("courier_tracking_code"),
-                rs.getString("shipment_state"));
+                rs.getString("shipment_state"), rs.getString("order_tag"));
     }
 
     private ChannelOrderDetail detail(ResultSet rs) throws SQLException {
@@ -396,7 +398,8 @@ public class ChannelOrderQueryService {
                 rs.getString("customer_first_name"), rs.getString("customer_last_name"),
                 address(rs, "billing"), address(rs, "shipping"),
                 rs.getString("confirmation_mode"), instant(rs, "confirmed_at"),
-                rs.getString("confirmation_reason"), List.of());
+                rs.getString("confirmation_reason"), rs.getString("order_tag"),
+                rs.getBigDecimal("advance_received"), rs.getString("sold_by_name"), List.of());
     }
 
     private ChannelOrderItemRow item(ResultSet rs) throws SQLException {
@@ -407,7 +410,8 @@ public class ChannelOrderQueryService {
                 rs.getString("reason"), rs.getString("tracking_code"), rs.getString("shipment_provider"),
                 rs.getString("shipping_provider_type"), rs.getString("invoice_number"),
                 rs.getString("purchase_order_id"), rs.getString("digital_delivery_info"),
-                instant(rs, "provider_created_at"), instant(rs, "provider_updated_at"));
+                instant(rs, "provider_created_at"), instant(rs, "provider_updated_at"),
+                rs.getInt("quantity"));
     }
 
     private AddressView address(ResultSet rs, String prefix) throws SQLException {
@@ -620,7 +624,9 @@ public class ChannelOrderQueryService {
                                     card unable to say who to ask about a parcel.
                                   */
                                   String courierConsignmentId, String courierTrackingCode,
-                                  String shipmentState) {}
+                                  String shipmentState,
+                                  /** A recorded attribute of how the order was captured (`V30`), or {@code null}. */
+                                  String orderTag) {}
 
     public record ChannelOrderDetail(UUID id, UUID channelInstanceId, String channelName,
                                      String channelType, String externalOrderId, String orderNumber,
@@ -646,7 +652,12 @@ public class ChannelOrderQueryService {
                                      String customerLastName, AddressView billingAddress,
                                      AddressView shippingAddress,
                                      String confirmationMode, Instant confirmedAt,
-                                     String confirmationReason, List<ChannelOrderItemRow> items) {
+                                     String confirmationReason, String orderTag,
+                                     /** BR-127 — money received before delivery; {@code null} = none recorded. */
+                                     @MonetaryAmount BigDecimal advanceReceived,
+                                     /** V32 — the user the sale is attributed to, or {@code null} = not recorded. */
+                                     String soldByName,
+                                     List<ChannelOrderItemRow> items) {
         ChannelOrderDetail withItems(List<ChannelOrderItemRow> items) {
             return new ChannelOrderDetail(id, channelInstanceId, channelName, channelType,
                     externalOrderId, orderNumber, ownership, statuses,
@@ -657,7 +668,7 @@ public class ChannelOrderQueryService {
                     voucherCode, itemsCount, promisedShippingTimes, warehouseCode, deliveryInfo,
                     buyerNote, remarks, giftOption, giftMessage, nationalRegistrationNumber1,
                     branchNumber, taxCode, extraAttributes, customerFirstName, customerLastName,
-                    billingAddress, shippingAddress, confirmationMode, confirmedAt, confirmationReason,
+                    billingAddress, shippingAddress, confirmationMode, confirmedAt, confirmationReason, orderTag, advanceReceived, soldByName,
                     items == null ? List.of() : List.copyOf(items));
         }
     }
@@ -675,5 +686,7 @@ public class ChannelOrderQueryService {
                                       String shipmentProvider, String shippingProviderType,
                                       String invoiceNumber, String purchaseOrderId,
                                       String digitalDeliveryInfo, Instant providerCreatedAt,
-                                      Instant providerUpdatedAt) {}
+                                      Instant providerUpdatedAt,
+                                      /** OM 7.9 — units on this line (V34); 1 for every Daraz row. */
+                                      int quantity) {}
 }

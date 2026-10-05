@@ -77,7 +77,7 @@ export const ORDER_STATUS_TABS: readonly { readonly value: string | null; readon
   { value: 'RETURNED', label: 'Returned' },
   { value: 'ON_HOLD', label: 'On hold' },
   { value: 'CANCELLED', label: 'Cancelled' },
-  { value: 'CLOSED', label: 'Closed' },
+  { value: 'PENDING_CANCELLATION', label: 'Pending cancellation' },
 ];
 
 /**
@@ -120,6 +120,8 @@ export function canonicalStatusLabel(status: string | null | undefined): string 
  */
 export function stageNote(status: string | null | undefined): string | null {
   switch (status) {
+    case 'PENDING_CANCELLATION':
+      return 'Cancelled in Trioloo — waiting for the marketplace to cancel it too (BR-196). It can still be restored.';
     case 'COURIER_BOOKED':
       return 'Stage: courier booked — the consignment exists with the courier and the order can no longer be changed (BR-082).';
     case 'CONFIRMED':

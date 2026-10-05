@@ -69,11 +69,11 @@ class OrderLifecycleServiceTest {
 
         OrderLifecycleService.Outcome outcome = lifecycle.cancel(id, "CUSTOMER_REQUESTED", "  called us ");
 
-        assertThat(outcome.canonicalStatus()).isEqualTo("CANCELLED");
+        assertThat(outcome.canonicalStatus()).isEqualTo("PENDING_CANCELLATION");
         // BR-172 / the screen: Daraz is not told, and the operator is.
         assertThat(outcome.marketplaceNote()).contains("not told");
         Map<String, Object> row = row(id);
-        assertThat(row.get("effective")).isEqualTo("[\"CANCELLED\"]");
+        assertThat(row.get("effective")).isEqualTo("[\"PENDING_CANCELLATION\"]");
         assertThat(row.get("cancel_reason")).isEqualTo("CUSTOMER_REQUESTED");
         assertThat(row.get("cancel_note")).isEqualTo("called us");
         assertThat(row.get("cancelled_by")).isEqualTo(actorId);
@@ -110,7 +110,7 @@ class OrderLifecycleServiceTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Steadfast");
         // Once the consignment is cancelled at the courier and tracking records it, cancel is open.
         jdbc.update("UPDATE shipment SET state = 'CANCELLED' WHERE channel_order_id = ?", booked);
-        assertThat(lifecycle.cancel(booked, "CHANGED_MIND", null).canonicalStatus()).isEqualTo("CANCELLED");
+        assertThat(lifecycle.cancel(booked, "CHANGED_MIND", null).canonicalStatus()).isEqualTo("PENDING_CANCELLATION");
 
         assertThatThrownBy(() -> lifecycle.cancel(booked, "CHANGED_MIND", null))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("already cancelled");
@@ -150,9 +150,26 @@ class OrderLifecycleServiceTest {
 
         // A second cancellation after the restore wins, because it is the later fact.
         lifecycle.cancel(id, "CHANGED_MIND", null);
-        assertThat(row(id).get("effective")).isEqualTo("[\"CANCELLED\"]");
+        assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_CANCELLATION\"]");
         lifecycle.restore(id);
         assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_VERIFICATION\"]");
+    }
+
+    @Test
+    @DisplayName("an ERP-cancelled marketplace order waits as PENDING_CANCELLATION until the marketplace cancels it; a walk-in is final at once (BR-196)")
+    void pendingCancellationUntilTheMarketplaceAgrees() {
+        UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        lifecycle.cancel(id, "CHANGED_MIND", null);
+        assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_CANCELLATION\"]");
+
+        // The marketplace's own word is final: its mirror turns CANCELLED -> the order is CANCELLED.
+        jdbc.update("UPDATE channel_order SET canonical_statuses_json = '[\"CANCELLED\"]'::jsonb WHERE id = ?", id);
+        assertThat(row(id).get("effective")).isEqualTo("[\"CANCELLED\"]");
+
+        UUID walkIn = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        jdbc.update("UPDATE channel_instance SET channel_type = 'WALKIN' WHERE id = ?", shopId);
+        lifecycle.cancel(walkIn, "CHANGED_MIND", null);
+        assertThat(row(walkIn).get("effective")).isEqualTo("[\"CANCELLED\"]");
     }
 
     @Test

@@ -236,6 +236,8 @@ export const ORDER_LIFECYCLE_ROLE = {
   ON_HOLD: 'warning',
   CANCELLED: 'neutral',
   // `BR-010` — the only clean terminal state, reached when every sub-machine is terminal.
+  // BR-196 — cancelled in the ERP, awaiting the marketplace's own cancellation.
+  PENDING_CANCELLATION: 'warning',
   CLOSED: 'success',
 } as const satisfies Record<string, SemanticTone>;
 

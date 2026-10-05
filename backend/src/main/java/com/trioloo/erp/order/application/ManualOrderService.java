@@ -42,6 +42,9 @@ import java.util.UUID;
 @Service
 public class ManualOrderService {
 
+    /** The owner's three order types (V32). A recorded attribute; nothing branches on it (BR-001). */
+    static final java.util.Set<String> ORDER_TYPES = java.util.Set.of("WALK_IN", "MARKETPLACE", "WEBSITE");
+
     private final JdbcTemplate jdbc;
 
     public ManualOrderService(JdbcTemplate jdbc) {
@@ -50,8 +53,16 @@ public class ManualOrderService {
 
     @Transactional
     public Created create(NewOrder request) {
-        requireCreateAuthority();
+        UUID actor = requireCreateAuthority();
         validate(request);
+        if (request.soldBy() != null) {
+            Integer active = jdbc.queryForObject(
+                    "SELECT count(*) FROM operational_user_profile WHERE id = ? AND lifecycle_state = 'ACTIVE'",
+                    Integer.class, request.soldBy());
+            if (active == null || active == 0) {
+                throw new IllegalArgumentException("Sold by must be an active user.");
+            }
+        }
 
         /*
           🔴 THE NUMBER IS TAKEN BEFORE THE INSERT, UNLIKE THE IMPORT PATH, AND THE REASON IS THE
@@ -64,6 +75,10 @@ public class ManualOrderService {
                 "SELECT 'TR' || lpad(nextval('trioloo_invoice_number_seq')::text, 4, '0')",
                 String.class);
 
+        // A zero or blank advance is NO advance: the column holds NULL, never a stand-in zero (SYS-034).
+        BigDecimal advance = request.advanceReceived() != null && request.advanceReceived().signum() > 0
+                ? request.advanceReceived() : null;
+
         UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO channel_order (
@@ -71,10 +86,11 @@ public class ManualOrderService {
                     trioloo_invoice_number, ownership, statuses_json, canonical_statuses_json,
                     price, customer_first_name, customer_last_name, shipping_first_name,
                     shipping_last_name, shipping_phone, shipping_address1, shipping_city,
-                    payment_method, buyer_note, items_count,
+                    payment_method, buyer_note, items_count, order_tag,
+                    advance_received, advance_recorded_at, advance_recorded_by, sold_by, warranty_term,
                     provider_created_at, imported_at, last_seen_at)
                 VALUES (?, ?, ?, ?, ?, 'ERP_MANAGED', CAST(? AS jsonb), CAST(? AS jsonb),
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now(), now())
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now(), now())
                 """,
                 id, request.channelInstanceId(),
                 /*
@@ -89,10 +105,16 @@ public class ManualOrderService {
                 // said anything about this order (BR-171, SYS-034).
                 "[]",
                 canonicalJson(CanonicalOrderStatus.PENDING_VERIFICATION),
-                request.total(), request.customerFirstName(), request.customerLastName(),
-                request.customerFirstName(), request.customerLastName(),
-                request.customerPhone(), request.shippingAddress(), request.shippingCity(),
-                request.paymentMethod(), request.note(), request.lines().size());
+                request.total(), nullIfBlank(request.customerFirstName()), nullIfBlank(request.customerLastName()),
+                nullIfBlank(request.customerFirstName()), nullIfBlank(request.customerLastName()),
+                nullIfBlank(request.customerPhone()), nullIfBlank(request.shippingAddress()),
+                nullIfBlank(request.shippingCity()),
+                request.paymentMethod(), request.note(), request.lines().size(),
+                request.effectiveOrderType(),
+                // BR-127 / AGV-001 - recorded only when money was actually received, with who and when.
+                advance, advance == null ? null : java.sql.Timestamp.from(java.time.Instant.now()),
+                advance == null ? null : actor,
+                request.soldBy(), request.warrantyTerm());
 
         for (NewOrderLine line : request.lines()) {
             jdbc.update("""
@@ -121,8 +143,25 @@ public class ManualOrderService {
             // 🔴 BR-002 — channel type alone is never sufficient attribution; the INSTANCE is named.
             throw new IllegalArgumentException("A shop must be chosen for the order (BR-002).");
         }
-        if (blank(request.customerFirstName()) && blank(request.customerLastName())) {
+        // A walk-in customer is present at the counter and may give no name: the name is then ABSENT
+        // rather than invented (SYS-034). Every other order still needs one.
+        if (!request.isWalkIn() && blank(request.customerFirstName()) && blank(request.customerLastName())) {
             throw new IllegalArgumentException("A customer name is required.");
+        }
+        if (request.orderType() != null && !ORDER_TYPES.contains(request.orderType())) {
+            throw new IllegalArgumentException("The customer type must be Walk-in, Marketplace or Website.");
+        }
+        if (request.warrantyTerm() != null && !request.warrantyTerm().matches("D7|D15|M1|M3|M6|Y([1-9]|1[0-2])")) {
+            throw new IllegalArgumentException("The warranty term must be one of the listed terms (BR-197).");
+        }
+        if (request.advanceReceived() != null) {
+            if (request.advanceReceived().signum() < 0) {
+                throw new IllegalArgumentException("An advance is never negative.");
+            }
+            // BR-127 - an advance cannot exceed what the customer owes on the order.
+            if (request.total() != null && request.advanceReceived().compareTo(request.total()) > 0) {
+                throw new IllegalArgumentException("The advance cannot be more than the order total.");
+            }
         }
         if (request.lines() == null || request.lines().isEmpty()) {
             throw new IllegalArgumentException("An order needs at least one line.");
@@ -147,22 +186,28 @@ public class ManualOrderService {
         return "[\"" + status.name() + "\"]";
     }
 
+    /** SYS-034 — a value nobody gave is ABSENT, never an empty string that reads as one. */
+    private static String nullIfBlank(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private static boolean blank(String value) {
         return value == null || value.isBlank();
     }
 
     /** 🔴 {@code PRM-004} — the gate is in the application service, never a controller annotation. */
-    private void requireCreateAuthority() {
+    private UUID requireCreateAuthority() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean permitted = auth != null && auth.getAuthorities().stream()
                 .anyMatch(g -> OrderPermissions.ORDER_CREATE.equals(g.getAuthority()));
         if (!permitted) {
             throw new AccessDeniedByPermissionException(OrderPermissions.ORDER_CREATE);
         }
-        if (auth == null || !(auth.getPrincipal() instanceof AccessUserDetails)) {
+        if (auth == null || !(auth.getPrincipal() instanceof AccessUserDetails details)) {
             throw new IllegalStateException(
                     "The creating actor could not be identified (AGV-001).");
         }
+        return details.getProfileId();
     }
 
     /**
@@ -174,7 +219,58 @@ public class ManualOrderService {
                            String customerPhone, String shippingAddress, String shippingCity,
                            String paymentMethod, String note,
                            @MonetaryAmount BigDecimal total,
-                           List<NewOrderLine> lines) {
+                           List<NewOrderLine> lines, Boolean walkIn,
+                           /** BR-127 — money received before delivery; {@code null} or zero = none. */
+                           @MonetaryAmount BigDecimal advanceReceived,
+                           /** V32 — WALK_IN, MARKETPLACE or WEBSITE; {@code null} = not chosen. */
+                           String orderType,
+                           /** V32 — the user the sale is attributed to; {@code null} = not recorded. */
+                           UUID soldBy,
+                           /** V36 / BR-197 — D7, D15, M1, M3, M6 or Y1..Y12; {@code null} = none chosen. */
+                           String warrantyTerm) {
+
+        /** Every existing caller: an order that is not tagged walk-in. */
+        public NewOrder(UUID channelInstanceId, String customerFirstName, String customerLastName,
+                        String customerPhone, String shippingAddress, String shippingCity,
+                        String paymentMethod, String note, BigDecimal total, List<NewOrderLine> lines) {
+            this(channelInstanceId, customerFirstName, customerLastName, customerPhone, shippingAddress,
+                    shippingCity, paymentMethod, note, total, lines, Boolean.FALSE, null, null, null, null);
+        }
+
+        public NewOrder(UUID channelInstanceId, String customerFirstName, String customerLastName,
+                        String customerPhone, String shippingAddress, String shippingCity,
+                        String paymentMethod, String note, BigDecimal total, List<NewOrderLine> lines,
+                        Boolean walkIn) {
+            this(channelInstanceId, customerFirstName, customerLastName, customerPhone, shippingAddress,
+                    shippingCity, paymentMethod, note, total, lines, walkIn, null, null, null, null);
+        }
+
+        public NewOrder(UUID channelInstanceId, String customerFirstName, String customerLastName,
+                        String customerPhone, String shippingAddress, String shippingCity,
+                        String paymentMethod, String note, BigDecimal total, List<NewOrderLine> lines,
+                        Boolean walkIn, BigDecimal advanceReceived) {
+            this(channelInstanceId, customerFirstName, customerLastName, customerPhone, shippingAddress,
+                    shippingCity, paymentMethod, note, total, lines, walkIn, advanceReceived, null, null, null);
+        }
+
+        /** Callers that predate {@code V36}: no warranty term. */
+        public NewOrder(UUID channelInstanceId, String customerFirstName, String customerLastName,
+                        String customerPhone, String shippingAddress, String shippingCity,
+                        String paymentMethod, String note, BigDecimal total, List<NewOrderLine> lines,
+                        Boolean walkIn, BigDecimal advanceReceived, String orderType, UUID soldBy) {
+            this(channelInstanceId, customerFirstName, customerLastName, customerPhone, shippingAddress,
+                    shippingCity, paymentMethod, note, total, lines, walkIn, advanceReceived, orderType, soldBy, null);
+        }
+
+        /** {@code V30} — created from the quick item line and a total price, customer present. */
+        public boolean isWalkIn() {
+            return Boolean.TRUE.equals(walkIn) || "WALK_IN".equals(orderType);
+        }
+
+        /** The chosen type wins; otherwise the quick order is a walk-in; otherwise no type. */
+        public String effectiveOrderType() {
+            return orderType != null ? orderType : Boolean.TRUE.equals(walkIn) ? "WALK_IN" : null;
+        }
     }
 
     public record NewOrderLine(int lineNumber, String name, String sku,

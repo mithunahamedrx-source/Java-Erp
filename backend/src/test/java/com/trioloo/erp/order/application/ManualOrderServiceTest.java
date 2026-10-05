@@ -34,6 +34,8 @@ class ManualOrderServiceTest {
     @Autowired
     private ManualOrderService orders;
     @Autowired
+    private OrderCaptureOptions captureOptions;
+    @Autowired
     private JdbcTemplate jdbc;
 
     private UUID shopId;
@@ -126,6 +128,124 @@ class ManualOrderServiceTest {
         assertThatThrownBy(() -> jdbc.update(
                 "UPDATE channel_order SET confirmed_by = ? WHERE id = ?", someone, created.id()))
                 .hasMessageContaining("channel_order_confirmation_consistent");
+    }
+
+    @Test
+    @DisplayName("a walk-in order needs only the item line and a total: tagged WALK_IN, customer ABSENT not invented")
+    void createsAWalkInOrder() {
+        ManualOrderService.Created created = orders.create(new ManualOrderService.NewOrder(
+                shopId, "", "", null, null, null, "Cash", null, new BigDecimal("4500.00"),
+                List.of(line(1, "Logitech keyboard and mouse", "4500.00")), Boolean.TRUE));
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT order_tag, price, customer_first_name, shipping_phone, shipping_address1, ownership, "
+                        + "channel_order_effective_statuses(id)::text AS effective FROM channel_order WHERE id = ?",
+                created.id());
+        assertThat(row.get("order_tag")).isEqualTo("WALK_IN");
+        assertThat((BigDecimal) row.get("price")).isEqualByComparingTo("4500.00");
+        // SYS-034 - nobody gave a name, phone or address, so there are none (not "Walk-in customer").
+        assertThat(row.get("customer_first_name")).isNull();
+        assertThat(row.get("shipping_phone")).isNull();
+        assertThat(row.get("shipping_address1")).isNull();
+        assertThat(row.get("ownership")).isEqualTo("ERP_MANAGED");
+        // A tag is a label: it skips no state (BR-013 is not implemented by it).
+        assertThat(row.get("effective")).asString().contains("PENDING_VERIFICATION");
+    }
+
+    @Test
+    @DisplayName("an ordinary order is not tagged, and still needs a customer name")
+    void ordinaryOrdersAreUntaggedAndNeedAName() {
+        ManualOrderService.Created created = orders.create(order());
+        assertThat(jdbc.queryForObject("SELECT order_tag FROM channel_order WHERE id = ?", String.class, created.id()))
+                .isNull();
+
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "", "", null, null, null, "Cash", null, new BigDecimal("10.00"),
+                List.of(line(1, "Item", "10.00")))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("customer name");
+    }
+
+    @Test
+    @DisplayName("records an advance with who and when; a blank or zero advance is no advance")
+    void recordsAnAdvance() {
+        ManualOrderService.Created with = orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", "01700000000", "House 5", "Dhaka", "Cash", null,
+                new BigDecimal("1500.00"), List.of(line(1, "Keyboard", "1500.00")), Boolean.FALSE,
+                new BigDecimal("500.00")));
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT advance_received, advance_recorded_at, advance_recorded_by FROM channel_order WHERE id = ?",
+                with.id());
+        assertThat((BigDecimal) row.get("advance_received")).isEqualByComparingTo("500.00");
+        assertThat(row.get("advance_recorded_at")).isNotNull();
+        assertThat(row.get("advance_recorded_by")).isEqualTo(actorId);
+
+        // BR-127 / SYS-034 - zero is NOT recorded as an advance; the column stays absent.
+        ManualOrderService.Created zero = orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", "01700000000", "House 5", "Dhaka", "Cash", null,
+                new BigDecimal("1500.00"), List.of(line(1, "Keyboard", "1500.00")), Boolean.FALSE,
+                BigDecimal.ZERO));
+        assertThat(jdbc.queryForObject("SELECT advance_received FROM channel_order WHERE id = ?",
+                BigDecimal.class, zero.id())).isNull();
+    }
+
+    @Test
+    @DisplayName("refuses an advance that is negative or more than the order total")
+    void refusesABadAdvance() {
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("100.00"),
+                List.of(line(1, "Item", "100.00")), Boolean.FALSE, new BigDecimal("-1"))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("negative");
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("100.00"),
+                List.of(line(1, "Item", "100.00")), Boolean.FALSE, new BigDecimal("100.01"))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("more than the order total");
+    }
+
+    @Test
+    @DisplayName("records the chosen warranty term and refuses one outside the list (BR-197)")
+    void recordsWarrantyTerm() {
+        ManualOrderService.Created created = orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("100.00"),
+                List.of(line(1, "Item", "100.00")), Boolean.FALSE, null, null, null, "Y2"));
+        assertThat(jdbc.queryForObject("SELECT warranty_term FROM channel_order WHERE id = ?", String.class, created.id()))
+                .isEqualTo("Y2");
+
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("1.00"),
+                List.of(line(1, "Item", "1.00")), Boolean.FALSE, null, null, null, "Y13")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("warranty term");
+    }
+
+    @Test
+    @DisplayName("records the customer type and who sold it; refuses an unknown type or an inactive seller")
+    void recordsTypeAndSoldBy() {
+        ManualOrderService.Created created = orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", "01700000000", "House 5", "Dhaka", "Cash", null,
+                new BigDecimal("100.00"), List.of(line(1, "Item", "100.00")), Boolean.FALSE, null,
+                "MARKETPLACE", actorId));
+        Map<String, Object> row = jdbc.queryForMap("SELECT order_tag, sold_by FROM channel_order WHERE id = ?", created.id());
+        assertThat(row.get("order_tag")).isEqualTo("MARKETPLACE");
+        assertThat(row.get("sold_by")).isEqualTo(actorId);
+
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("1.00"),
+                List.of(line(1, "Item", "1.00")), Boolean.FALSE, null, "RETAIL", null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("customer type");
+        assertThatThrownBy(() -> orders.create(new ManualOrderService.NewOrder(
+                shopId, "Rahim", "Uddin", null, null, null, "Cash", null, new BigDecimal("1.00"),
+                List.of(line(1, "Item", "1.00")), Boolean.FALSE, null, null, UUID.randomUUID())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("active user");
+    }
+
+    @Test
+    @DisplayName("the capture options list shops from the register and active users, and need order.order.create")
+    void captureOptions() {
+        OrderCaptureOptions.Options options = captureOptions.read();
+        assertThat(options.shops()).extracting(OrderCaptureOptions.Shop::id).contains(shopId);
+        assertThat(options.users()).extracting(OrderCaptureOptions.User::id).contains(actorId);
+
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        assertThatThrownBy(() -> captureOptions.read()).isInstanceOf(AccessDeniedByPermissionException.class);
     }
 
     private String effective(UUID orderId) {

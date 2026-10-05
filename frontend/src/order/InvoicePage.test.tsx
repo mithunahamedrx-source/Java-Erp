@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../auth/AuthContext';
 import { PageActionsProvider } from '../shell/PageActions';
@@ -71,20 +71,158 @@ describe('Sales invoice printable', () => {
     expect(screen.queryByText(/No invoice has been issued/)).toBeNull();
   });
 
-  it('reports a genuinely unissued invoice as an answer, and offers no control that would invent its trigger', async () => {
-    // ⚠ `BR-134` — the ONE case that is genuinely a fact about the order. Most orders have none.
-    renderWith(() => json({ message: 'not found' }, 404));
+  function renderIssuing(opts: { autoPrint: boolean; issueStatus?: number }): {
+    readonly calls: { url: string; method: string }[];
+    readonly print: ReturnType<typeof vi.fn>;
+  } {
+    const calls: { url: string; method: string }[] = [];
+    let issued = false;
+    const print = vi.fn();
+    vi.stubGlobal('print', print);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method });
+        if (url.includes('/api/auth/me')) {
+          return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: [] }, 200);
+        }
+        if (method === 'POST') {
+          if (opts.issueStatus && opts.issueStatus !== 201) {
+            return json({ message: 'refused' }, opts.issueStatus);
+          }
+          issued = true;
+          return json({ id: 'x' }, 201);
+        }
+        return issued
+          ? json({
+              invoiceNumber: 'TR0200', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Walk-in',
+              customerPhone: null, customerAddress: null, externalOrderReference: null,
+              consignmentReference: null, subtotal: '5000.00', deliveryCharge: null,
+              taxRatePercent: '0.000', taxAmount: '0.00', total: '5000.00',
+              lines: [{ name: 'Keyboard', sku: null, quantity: 1, unitPrice: '5000.00', lineTotal: '5000.00' }],
+            }, 200)
+          : json({ message: 'not found' }, 404);
+      }),
+    );
+    render(
+      <AuthProvider>
+        <PageActionsProvider>
+          <MemoryRouter initialEntries={[{ pathname: `/sales/orders/${ORDER_ID}/invoice`, state: { from: 'list', autoPrint: opts.autoPrint } }]}>
+            <Routes>
+              <Route path="/sales/orders/:id/invoice" element={<InvoicePage />} />
+            </Routes>
+          </MemoryRouter>
+        </PageActionsProvider>
+      </AuthProvider>,
+    );
+    return { calls, print };
+  }
 
-    expect(await screen.findByTestId('invoice-absent')).not.toBeNull();
-    expect(screen.getByText(/No invoice has been issued for this order yet/)).not.toBeNull();
+  it('prepares an unissued invoice by itself, once, and prints it when the operator asked to print', async () => {
+    // Owner decision 2026-10-05: "Print invoice" means print - no intermediate button to press.
+    const { calls, print } = renderIssuing({ autoPrint: true });
 
-    /*
-      🔴 NO `Issue invoice` CONTROL. The endpoint exists and `PRM-094` permissions it, but nothing
-      in the corpus fixes WHEN an invoice is issued or by whom. `INV-39.2` snapshots the content,
-      so issuing at the wrong moment preserves the wrong prices and address permanently — putting
-      a button here would invent that trigger (`CLAUDE.md` §5).
-    */
-    expect(screen.queryByRole('button', { name: /Issue/i })).toBeNull();
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+    expect(screen.getByTestId('invoice-total').textContent).toContain('5,000');
+    await waitFor(() => expect(print).toHaveBeenCalled());
+  });
+
+  it('prepares the invoice but does not open the print dialog when the page was not reached by Print', async () => {
+    const { print } = renderIssuing({ autoPrint: false });
+
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    // The Print button is still there for the operator; nothing prints on its own.
+    expect(print).not.toHaveBeenCalled();
+  });
+
+  it('reports a refused issue instead of looping, and keeps a deliberate retry', async () => {
+    const { calls } = renderIssuing({ autoPrint: true, issueStatus: 403 });
+
+    expect(await screen.findByTestId('invoice-issue-error')).not.toBeNull();
+    expect(screen.getByText(/You cannot issue invoices/)).not.toBeNull();
+    // Attempted ONCE, not retried in a loop.
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+    expect(screen.getByTestId('invoice-issue').textContent).toContain('Try again');
+  });
+
+  it('does not crash when the tax rate arrives as a JSON number', async () => {
+    // A server that sends 0.000 as a number blanked the whole page (trim on a number). The page
+    // must survive it whatever the wire format.
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0001', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '100.00', deliveryCharge: null,
+          taxRatePercent: 0, taxAmount: '0.00', total: '100.00', lines: [],
+        },
+        200,
+      ),
+    );
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    expect(screen.getByText(/VAT \/ Tax \(0%\)/)).not.toBeNull();
+  });
+
+  it('shows Advance received straight after the subtotal, and the balance as Balance Due', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0300', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '1500.00', deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '1500.00',
+          advanceReceived: '500.00', balanceDue: '1000.00',
+          lines: [{ name: 'Keyboard', sku: null, quantity: 1, unitPrice: '1500.00', lineTotal: '1500.00' }],
+        },
+        200,
+      ),
+    );
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    const advance = screen.getByTestId('invoice-advance');
+    expect(advance.textContent).toContain('Advance received');
+    expect(advance.textContent).toContain('500');
+    // It sits immediately after the subtotal row.
+    const subtotal = screen.getByText('Subtotal').parentElement as HTMLElement;
+    expect(subtotal.nextElementSibling).toBe(advance);
+    // Balance Due is the SERVER's balance, not a browser subtraction (TEC-095).
+    expect(screen.getByTestId('invoice-total').textContent).toContain('1,000');
+  });
+
+  it('prints the order warranty term, and falls back to the standing policy line when none was chosen (BR-197)', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0302', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '100.00', deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '100.00', lines: [], warrantyTerm: 'Y2',
+        },
+        200,
+      ),
+    );
+    expect((await screen.findByTestId('invoice-warranty')).textContent).toContain('Warranty: 2 years');
+    // No note was typed on the order, so nothing is printed under Note.
+    expect(screen.queryByTestId('invoice-note')).toBeNull();
+  });
+
+  it('shows no Advance row when none was recorded', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0301', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '100.00', deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '100.00', lines: [],
+        },
+        200,
+      ),
+    );
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    expect(screen.queryByTestId('invoice-advance')).toBeNull();
+    expect(screen.getByTestId('invoice-total').textContent).toContain('100');
   });
 
   it('reports a transport failure as a failure, not as an absence', async () => {
@@ -129,6 +267,10 @@ describe('Sales invoice printable', () => {
     expect(screen.getByTestId('invoice-total').textContent).toContain('66,430');
     expect(screen.getByText('Intel Core i5 Gaming PC')).not.toBeNull();
     expect(screen.queryByTestId('invoice-absent')).toBeNull();
+    // Owner 2026-10-05: the real logo is on the invoice, and no source chip sits beside the customer's name.
+    expect(screen.getByTestId('invoice-logo').getAttribute('alt')).toBe('Trioloo');
+    expect(screen.queryByText('Daraz')).toBeNull();
+    expect(screen.queryByText('Direct')).toBeNull();
   });
 
   it('sends the operator back where they came from', async () => {

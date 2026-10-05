@@ -19,9 +19,9 @@ export default function AppShell(): React.JSX.Element {
 
   return (
     <PageActionsProvider>
-    <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: 'var(--color-app-background)' }}>
+    <div className="app-shell-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: 'var(--color-app-background)' }}>
       <Sidebar permissions={user?.permissions ?? []} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="app-shell-column" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/*
           The scrolling content region. `erp-scroll` is the ONE shared scrollbar treatment -
           chrome hidden, scrolling entirely intact.

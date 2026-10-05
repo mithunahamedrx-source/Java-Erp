@@ -70,7 +70,7 @@ public class OrderLifecycleService {
         }
         OrderState state = load(orderId);
 
-        if (state.effective().contains("CANCELLED")) {
+        if (state.effective().contains("CANCELLED") || state.effective().contains("PENDING_CANCELLATION")) {
             throw new IllegalStateException("This order is already cancelled.");
         }
         if (state.effective().stream().noneMatch(PRE_DISPATCH::contains)) {
@@ -100,7 +100,8 @@ public class OrderLifecycleService {
                  WHERE id = ?
                 """, actor, reason, blankToNull(note), actor, orderId);
 
-        return new Outcome(orderId, "CANCELLED", marketplaceNote(state, "cancelled"));
+        String after = load(orderId).effective().contains("PENDING_CANCELLATION") ? "PENDING_CANCELLATION" : "CANCELLED";
+        return new Outcome(orderId, after, marketplaceNote(state, "cancelled"));
     }
 
     @Transactional
@@ -108,7 +109,7 @@ public class OrderLifecycleService {
         UUID actor = require(OrderPermissions.ORDER_RESTORE);
         OrderState state = load(orderId);
 
-        if (!state.effective().contains("CANCELLED")) {
+        if (!state.effective().contains("CANCELLED") && !state.effective().contains("PENDING_CANCELLATION")) {
             throw new IllegalStateException("Only a cancelled order can be restored.");
         }
 

@@ -426,7 +426,9 @@ describe('Orders first slice', () => {
     */
     // Send to Steadfast is BUILT (Phase 2): enabled while the order has no booking.
     expect(within(menu).getByRole('menuitem', { name: /Send to Steadfast/ }).hasAttribute('disabled')).toBe(false);
-    for (const refused of ['Place hold', 'Amend order', 'Release to warehouse']) {
+    // PRM-096 - Edit order is BUILT for a pre-dispatch order.
+    expect(within(menu).getByRole('menuitem', { name: /Edit order/ }).hasAttribute('disabled')).toBe(false);
+    for (const refused of ['Place hold', 'Release to warehouse']) {
       const item = within(menu).getByRole('menuitem', { name: new RegExp(refused) });
       expect(item.hasAttribute('disabled')).toBe(true);
     }
@@ -917,6 +919,10 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
         if (url.includes('/api/auth/me')) {
           return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: ['order.channel-order.view'] });
         }
+        if (url.endsWith('/edit')) {
+          return json({ orderId: order.id, fieldsChanged: 1, note: 'Trioloo now controls this order.' });
+        }
+        if (url.includes('/api/order/channel-orders/' + order.id)) return json(ORDER_DETAIL);
         if (url.includes('/cancel') || url.includes('/restore')) {
           return json({ orderId: order.id, canonicalStatus: 'CANCELLED', marketplaceNote: 'The marketplace is not told.' });
         }
@@ -992,5 +998,141 @@ describe('More Actions menu shows labels only (owner decision 2026-10-05)', () =
     // The reason is not lost: it is on the dimmed item as its title.
     const hold = within(menu).getByRole('menuitem', { name: /Place hold/ });
     expect(hold.getAttribute('title')).toContain('No hold endpoint exists');
+  });
+});
+
+describe('Edit order from More Actions (PRM-096)', () => {
+  function renderEditing(): { readonly calls: { url: string; init?: RequestInit }[] } {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        calls.push({ url, init });
+        const json = (body: unknown): Response =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url.includes('/api/auth/me')) {
+          return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: ['order.channel-order.view'] });
+        }
+        if (url.endsWith('/edit')) return json({ orderId: ORDER_ROW.id, fieldsChanged: 1, note: null });
+        if (url.includes('/api/order/channel-orders/' + ORDER_ROW.id)) return json({ ...ORDER_DETAIL, advanceReceived: '500.00' });
+        if (url.includes('/summary')) return json(SUMMARY);
+        return json({ content: [ORDER_ROW], page: 0, size: 5, totalElements: 1, totalPages: 1 });
+      }),
+    );
+    render(
+      <AuthProvider>
+        <PageActionsProvider>
+          <MemoryRouter initialEntries={['/sales/orders']}>
+            <Routes>
+              <Route path="/sales/orders" element={<OrdersPage />} />
+            </Routes>
+          </MemoryRouter>
+        </PageActionsProvider>
+      </AuthProvider>,
+    );
+    return { calls };
+  }
+
+  async function openDialog(): Promise<HTMLElement> {
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    fireEvent.click(within(await screen.findByTestId('order-actions-menu')).getByRole('menuitem', { name: /Edit order/ }));
+    const dialog = await screen.findByTestId('edit-order-dialog');
+    await within(dialog).findByLabelText('Full name');
+    return dialog;
+  }
+
+  const saveOf = (dialog: HTMLElement): HTMLButtonElement =>
+    within(dialog).getAllByRole('button').find((b) => b.textContent === 'Save changes') as HTMLButtonElement;
+
+  it('is the owner\'s form: one name box, the phone, one address box, product lines with Qty and no SKU', async () => {
+    renderEditing();
+    const dialog = await openDialog();
+
+    // UX-184 - the consequence is on screen before the action is reachable.
+    expect(dialog.textContent).toContain('Trioloo takes control');
+    expect(dialog.textContent).toContain('The marketplace is not told');
+
+    expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Tanvir Enterprise');
+    expect((within(dialog).getByLabelText('Phone') as HTMLInputElement).value).toBe('+8801712448903');
+    // ONE address box: the structured parts and the city and post code read as one address.
+    expect((within(dialog).getByLabelText('Full address') as HTMLInputElement).value)
+      .toBe('House 42, Road 11, Banani, Dhaka, 1213');
+    expect(within(dialog).queryByLabelText('City')).toBeNull();
+    expect(within(dialog).queryByLabelText('Post code')).toBeNull();
+    expect(within(dialog).queryByLabelText('First name')).toBeNull();
+
+    expect(dialog.textContent).toContain('Product lines');
+    expect(within(dialog).getByLabelText('Qty')).not.toBeNull();
+    expect(within(dialog).queryByLabelText('SKU')).toBeNull();
+    expect((within(dialog).getByLabelText('Advance received') as HTMLInputElement).value).toBe('500.00');
+  });
+
+  it('saves with NO note, and the form needs only a change', async () => {
+    const { calls } = renderEditing();
+    const dialog = await openDialog();
+    const save = saveOf(dialog);
+    expect(save.disabled).toBe(true); // nothing changed yet
+
+    fireEvent.change(within(dialog).getByLabelText('Phone'), { target: { value: '01955555555' } });
+    // Owner, 2026-10-05: the note is optional - a change alone enables Save.
+    expect(within(dialog).getByLabelText('Note (optional)')).not.toBeNull();
+    expect(save.disabled).toBe(false);
+
+    fireEvent.click(save);
+    await waitFor(() => {
+      const post = calls.find((c) => c.url.endsWith('/edit'));
+      expect(post?.init?.method).toBe('POST');
+      const body = JSON.parse(String(post?.init?.body)) as { reason: string | null; phone: string; advanceReceived: string | null };
+      expect(body.phone).toBe('01955555555');
+      expect(body.reason).toBeNull();
+      // The advance was not touched, so it is left alone (null), not rewritten.
+      expect(body.advanceReceived).toBeNull();
+    });
+    await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('updated'));
+  });
+
+  it('suggests the new total exactly when a quantity changes, and sends money as the string typed', async () => {
+    const { calls } = renderEditing();
+    const dialog = await openDialog();
+
+    fireEvent.change(within(dialog).getByLabelText('Qty'), { target: { value: '3' } });
+    // 96500.00 x 3, in whole minor units - no floating point.
+    expect((within(dialog).getByLabelText('Order total') as HTMLInputElement).value).toBe('289500.00');
+
+    // The operator may overwrite the suggestion, and edit the advance; a malformed amount is refused.
+    fireEvent.change(within(dialog).getByLabelText('Advance received'), { target: { value: '5,00x' } });
+    expect(saveOf(dialog).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText('Advance received'), { target: { value: '1000.50' } });
+    fireEvent.change(within(dialog).getByLabelText('Qty'), { target: { value: '0' } });
+    expect(saveOf(dialog).disabled).toBe(true); // a quantity is at least 1
+    fireEvent.change(within(dialog).getByLabelText('Qty'), { target: { value: '3' } });
+    fireEvent.change(within(dialog).getByLabelText('Note (optional)'), { target: { value: 'Customer wants three' } });
+
+    fireEvent.click(saveOf(dialog));
+    await waitFor(() => {
+      const body = JSON.parse(String(calls.find((c) => c.url.endsWith('/edit'))?.init?.body)) as {
+        reason: string; total: string; advanceReceived: string; lines: { quantity: number; unitPrice: string }[];
+      };
+      expect(body.reason).toBe('Customer wants three');
+      expect(body.total).toBe('289500.00');
+      expect(body.advanceReceived).toBe('1000.50');
+      expect(body.lines[0]?.quantity).toBe(3);
+      expect(body.lines[0]?.unitPrice).toBe('96500.00');
+    });
+  });
+
+  it('clears the advance by emptying it', async () => {
+    const { calls } = renderEditing();
+    const dialog = await openDialog();
+
+    fireEvent.change(within(dialog).getByLabelText('Advance received'), { target: { value: '' } });
+    fireEvent.click(saveOf(dialog));
+
+    await waitFor(() => {
+      const body = JSON.parse(String(calls.find((c) => c.url.endsWith('/edit'))?.init?.body)) as { advanceReceived: string };
+      expect(body.advanceReceived).toBe('0');
+    });
   });
 });

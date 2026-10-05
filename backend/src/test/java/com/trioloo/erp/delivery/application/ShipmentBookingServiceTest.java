@@ -128,6 +128,22 @@ class ShipmentBookingServiceTest {
     }
 
     @Test
+    @DisplayName("sends the courier the BALANCE as COD: the total less the advance already received")
+    void collectsTheBalanceOnly() {
+        actingWith(DeliveryPermissions.SHIPMENT_BOOK);
+        // seedOrder prices the order at 1500.00; 500.00 was received in advance.
+        jdbc.update("UPDATE channel_order SET advance_received = 500.00, advance_recorded_at = now(), "
+                + "advance_recorded_by = (SELECT id FROM operational_user_profile LIMIT 1) WHERE id = ?", orderId);
+
+        ShipmentBookingService.Booked booked = bookings.book(orderId);
+
+        // BR-127 / BR-035 - otherwise the customer pays the advance a second time at the door.
+        assertThat(POSTED.getFirst()).contains("\"cod_amount\":1000");
+        assertThat(jdbc.queryForObject("SELECT cod_amount FROM shipment WHERE id = ?", BigDecimal.class,
+                booked.shipmentId())).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
     @DisplayName("🔴 refuses a second booking for the same order")
     void refusesASecondBooking() {
         /*

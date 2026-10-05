@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../shell/AppShell';
 import { Button, DetailTabs, EmptyState } from '../ui/primitives';
 import type { SemanticTone } from '../ui/primitives';
-import { bookOrderShipment, fetchChannelOrder, refreshOrderTracking } from './orderApi';
+import { bookOrderShipment, fetchChannelOrder, orderTypeLabel, refreshOrderTracking } from './orderApi';
 import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow } from './orderApi';
 import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
@@ -180,7 +180,7 @@ export default function OrderDetailPage(): React.JSX.Element {
             <Button
               variant="secondary"
               size="page-header"
-              onClick={() => navigate(`/sales/orders/${order.id}/invoice`, { state: { from: 'detail' } })}
+              onClick={() => navigate(`/sales/orders/${order.id}/invoice`, { state: { from: 'detail', autoPrint: true } })}
               testId="order-print-invoice"
             >
               <PrinterIcon />
@@ -370,6 +370,9 @@ function Overview({
             fields={[
               { label: 'Capture channel', value: `${channel} · shop ${order.channelName ?? 'not recorded'}` },
               { label: 'Captured at', value: displayMoment(order.providerCreatedAt) },
+              ...(orderTypeLabel(order.orderTag) ? [{ label: 'Customer type', value: orderTypeLabel(order.orderTag) as string }] : []),
+              // V32 — attribution only; an imported order was sold by nobody in Trioloo (SYS-034).
+              ...(order.soldByName ? [{ label: 'Sold by', value: order.soldByName }] : []),
               /*
                 🔴 `BR-164` — `Confirmed By` IS NEVER DERIVED, AND ITS ABSENCE IS THE FACT.
                 `BR-176` forbids the sync path writing it; no other path writes it either, so the
@@ -647,6 +650,9 @@ function Payment({
             { label: 'Collection mode', value: order.paymentMethod || 'Not recorded', muted: !order.paymentMethod },
             { label: 'Settlement', value: 'Not recorded — no settlement record exists', muted: true },
             { label: 'Order value', value: displayMoney(order.price) },
+            // BR-127 — a recorded advance, shown as the string it was stored as. It is NOT 'received to date'
+            // (no receipt record exists) and it recognises nothing.
+            ...(order.advanceReceived ? [{ label: 'Advance received', value: displayMoney(order.advanceReceived) }] : []),
             { label: 'Received to date', value: 'Unknown', muted: true },
             { label: 'Outstanding', value: 'Unknown', muted: true },
             /* 🔴 `BR-067` — realised margin is not settled until closure. */

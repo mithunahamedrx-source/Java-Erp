@@ -135,6 +135,8 @@ export type ChannelOrderRow = {
   readonly courierConsignmentId: string | null;
   readonly courierTrackingCode: string | null;
   readonly shipmentState: string | null;
+  /** `V30`/`V32` — a recorded attribute of how the order was captured: WALK_IN, MARKETPLACE, WEBSITE or absent. */
+  readonly orderTag?: string | null;
 };
 
 export type ChannelOrderItemRow = {
@@ -147,6 +149,8 @@ export type ChannelOrderItemRow = {
   readonly name: string | null;
   readonly variation: string | null;
   readonly itemPrice: DecimalValue;
+  /** `V34` — units on this line; 1 for every Daraz row. */
+  readonly quantity?: number;
   readonly paidPrice: DecimalValue;
   readonly status: string | null;
   readonly reason: string | null;
@@ -167,6 +171,10 @@ export type ChannelOrderDetail = ChannelOrderRow & {
   readonly confirmedAt: string | null;
   /** `BR-014` — why verification was not required. */
   readonly confirmationReason: string | null;
+  /** `BR-127` — money received before delivery; `null` = none recorded. A STRING, never parsed. */
+  readonly advanceReceived?: string | null;
+  /** `V32` — the user the sale is attributed to; `null` = not recorded. */
+  readonly soldByName?: string | null;
   readonly importedAt: string | null;
   readonly shippingFee: DecimalValue;
   readonly shippingFeeOriginal: DecimalValue;
@@ -228,6 +236,44 @@ export function listChannelOrders(
 
 export function fetchChannelOrderSummary(filters: ChannelOrderFilters): Promise<ChannelOrderSummary> {
   return apiRequest<ChannelOrderSummary>(`/api/order/channel-orders/summary${queryString(filters)}`);
+}
+
+/** The lists the New order form chooses from (shops and users) — gated by `order.order.create`. */
+export type CaptureOptions = {
+  readonly shops: readonly { readonly id: string; readonly code: string; readonly name: string | null; readonly channelType: string }[];
+  readonly users: readonly { readonly id: string; readonly fullName: string }[];
+};
+
+export function fetchCaptureOptions(): Promise<CaptureOptions> {
+  return apiRequest<CaptureOptions>('/api/order/orders/capture-options');
+}
+
+/** `V32` — the owner's three order types, a recorded attribute of how the order was captured. */
+export const ORDER_TYPES: readonly { readonly value: string; readonly label: string }[] = [
+  { value: 'WALK_IN', label: 'Walk-in order' },
+  { value: 'MARKETPLACE', label: 'Marketplace order' },
+  { value: 'WEBSITE', label: 'Website order' },
+];
+
+/** BR-197 — the order-level warranty term, 7 days to 12 years. The code is stored; the label is printed. */
+export const WARRANTY_TERMS: readonly { readonly value: string; readonly label: string }[] = [
+  { value: 'D7', label: '7 days' },
+  { value: 'D15', label: '15 days' },
+  { value: 'M1', label: '1 month' },
+  { value: 'M3', label: '3 months' },
+  { value: 'M6', label: '6 months' },
+  ...Array.from({ length: 12 }, (_, index) => ({
+    value: `Y${index + 1}`,
+    label: index === 0 ? '1 year' : `${index + 1} years`,
+  })),
+];
+
+export function warrantyTermLabel(code: string | null | undefined): string | null {
+  return WARRANTY_TERMS.find((term) => term.value === code)?.label ?? null;
+}
+
+export function orderTypeLabel(tag: string | null | undefined): string | null {
+  return ORDER_TYPES.find((type) => type.value === tag)?.label ?? null;
 }
 
 export function fetchChannelOrder(id: string): Promise<ChannelOrderDetail> {
@@ -292,5 +338,38 @@ export function cancelOrder(orderId: string, reason: string, note: string): Prom
 export function restoreOrder(orderId: string): Promise<OrderLifecycleResult> {
   return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/restore`, {
     method: 'POST',
+  });
+}
+
+export type EditOrderPayload = {
+  /** Optional note (owner, 2026-10-05). */
+  readonly reason: string | null;
+  readonly recipientName: string;
+  readonly phone: string;
+  /** ONE full address, city and post code included. */
+  readonly address: string;
+  /** Money crosses as a STRING and is never parsed in the browser (`TEC-015`). */
+  readonly total: string | null;
+  /** `null` = leave the advance as it is; `"0"` = clear it; otherwise the new amount. */
+  readonly advanceReceived: string | null;
+  readonly lines: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly quantity: number;
+    readonly unitPrice: string | null;
+  }[];
+};
+
+export type EditOrderResult = {
+  readonly orderId: string;
+  readonly fieldsChanged: number;
+  /** What the operator must still do outside Trioloo, or `null`. */
+  readonly note: string | null;
+};
+
+export function editOrder(orderId: string, payload: EditOrderPayload): Promise<EditOrderResult> {
+  return apiRequest<EditOrderResult>(`/api/order/orders/${encodeURIComponent(orderId)}/edit`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }

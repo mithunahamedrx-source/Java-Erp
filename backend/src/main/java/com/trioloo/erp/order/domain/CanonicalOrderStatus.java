@@ -71,6 +71,9 @@ public enum CanonicalOrderStatus {
     /** Terminated before delivery (§6.2). */
     CANCELLED,
 
+    /** ERP-cancelled marketplace order awaiting the marketplace's own cancellation (BR-196, V35). */
+    PENDING_CANCELLATION,
+
     /** All sub-processes terminal; commercially complete (§6.2, {@code BR-010}). */
     CLOSED;
 

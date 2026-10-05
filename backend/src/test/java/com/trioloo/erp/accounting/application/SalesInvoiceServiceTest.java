@@ -82,6 +82,43 @@ class SalesInvoiceServiceTest {
     }
 
     @Test
+    @DisplayName("snapshots the advance received and the balance due; none recorded leaves both absent")
+    void snapshotsTheAdvance() {
+        SalesInvoiceService.Issued plain = invoices.issue(orderId);
+        assertThat(invoices.forRendering(orderId).orElseThrow().advanceReceived()).isNull();
+        assertThat(invoices.forRendering(orderId).orElseThrow().balanceDue()).isNull();
+        assertThat(plain.total()).isEqualByComparingTo("1560.00");
+
+        // A second order, with 600.00 received in advance (BR-127).
+        UUID second = seedSecondOrder();
+        jdbc.update("UPDATE channel_order SET advance_received = 600.00, advance_recorded_at = now(), "
+                + "advance_recorded_by = (SELECT id FROM operational_user_profile LIMIT 1) WHERE id = ?", second);
+        invoices.issue(second);
+
+        SalesInvoiceService.Rendered rendered = invoices.forRendering(second).orElseThrow();
+        assertThat(rendered.advanceReceived()).isEqualByComparingTo("600.00");
+        // INV-39.2 - a document figure, fixed at issue: the total less the advance.
+        assertThat(rendered.balanceDue()).isEqualByComparingTo(rendered.total().subtract(new BigDecimal("600.00")));
+    }
+
+    @Test
+    @DisplayName("prints the line quantity and the extended line total (unit price x quantity)")
+    void printsQuantityAndLineTotal() {
+        jdbc.update("UPDATE channel_order_item SET quantity = 3 WHERE external_order_item_id = 'INV-ITEM-1'");
+
+        invoices.issue(orderId);
+
+        SalesInvoiceService.Rendered rendered = invoices.forRendering(orderId).orElseThrow();
+        var widgetA = rendered.lines().stream().filter(l -> "Widget A".equals(l.name())).findFirst().orElseThrow();
+        assertThat(widgetA.quantity()).isEqualTo(3);
+        assertThat(widgetA.unitPrice()).isEqualByComparingTo("1000.00");
+        // BR-145 - the unit price is the snapshot; the line value is unit price x quantity, exactly.
+        assertThat(widgetA.lineTotal()).isEqualByComparingTo("3000.00");
+        // The subtotal is the sum of those line totals: 3000 + 500.
+        assertThat(rendered.subtotal()).isEqualByComparingTo("3500.00");
+    }
+
+    @Test
     @DisplayName("records the ratified 0% as a RATE, not as an absence")
     void recordsTheRatifiedZeroRate() {
         /*

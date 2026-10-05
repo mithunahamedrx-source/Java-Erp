@@ -68,7 +68,7 @@ public class ShipmentBookingService {
           honoured (a restored order reads CONFIRMED again and may be booked).
         */
         Boolean cancelled = jdbc.queryForObject(
-                "SELECT channel_order_effective_statuses(?) @> '[\"CANCELLED\"]'::jsonb",
+                "SELECT channel_order_effective_statuses(?) ??| array['CANCELLED','PENDING_CANCELLATION']",
                 Boolean.class, channelOrderId);
         if (Boolean.TRUE.equals(cancelled)) {
             throw new ShipmentBookingRefusedException(
@@ -94,6 +94,11 @@ public class ShipmentBookingService {
         if (isBlank(order.recipientAddress())) {
             throw new ShipmentBookingRefusedException(
                     "Order " + channelOrderId + " has no delivery address to send to Steadfast.");
+        }
+        if (order.codAmount() != null && order.codAmount().signum() < 0) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " has an advance larger than its total, so there is no "
+                            + "amount to collect. Correct the order before booking (BR-127).");
         }
         if (order.codAmount() == null) {
             throw new ShipmentBookingRefusedException(
@@ -201,7 +206,7 @@ public class ShipmentBookingService {
 
     private OrderForBooking loadOrder(UUID channelOrderId) {
         return Optional.ofNullable(jdbc.query("""
-                SELECT o.trioloo_invoice_number, o.price,
+                SELECT o.trioloo_invoice_number, o.price, o.advance_received,
                        coalesce(o.shipping_first_name, o.customer_first_name) AS first_name,
                        coalesce(o.shipping_last_name, o.customer_last_name)  AS last_name,
                        o.shipping_phone,
@@ -218,6 +223,7 @@ public class ShipmentBookingService {
             String name = ((rs.getString("first_name") == null ? "" : rs.getString("first_name")) + " "
                     + (rs.getString("last_name") == null ? "" : rs.getString("last_name"))).trim();
             BigDecimal price = rs.getBigDecimal("price");
+            BigDecimal advance = rs.getBigDecimal("advance_received");
             return new OrderForBooking(
                     rs.getString("trioloo_invoice_number"),
                     name.isEmpty() ? "Customer not recorded" : name,
@@ -225,7 +231,12 @@ public class ShipmentBookingService {
                     rs.getString("address"),
                     // 💰 COD is what the courier is asked to collect. TEC-015 / DB-079 — never a
                     // float, and ZERO is a real amount rather than a stand-in for unknown.
-                    price,
+                    /*
+                      BR-127 / BR-035 - THE COURIER COLLECTS THE BALANCE, NOT THE TOTAL. An advance already
+                      received is deducted, or the customer would pay it twice at the door. Computed once
+                      here, exactly (BigDecimal), at the edge (STF-010.d).
+                    */
+                    price == null ? null : advance == null ? price : price.subtract(advance),
                     rs.getString("item_name"));
         }, channelOrderId)).orElseThrow(() -> new ShipmentBookingRefusedException(
                 "Order " + channelOrderId + " does not exist."));

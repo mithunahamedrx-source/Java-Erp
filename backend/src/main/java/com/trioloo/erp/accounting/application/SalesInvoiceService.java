@@ -107,6 +107,9 @@ public class SalesInvoiceService {
                         .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
         BigDecimal total = taxable.add(taxAmount == null ? BigDecimal.ZERO : taxAmount);
+        // BR-127 / INV-39.2 - the advance and the balance are DOCUMENT figures, fixed at issue.
+        BigDecimal advance = order.advanceReceived();
+        BigDecimal balanceDue = advance == null ? null : total.subtract(advance);
 
         Instant now = Instant.now(clock);
         UUID id = UUID.randomUUID();
@@ -116,14 +119,15 @@ public class SalesInvoiceService {
                         id, channel_order_id, invoice_number, issued_at, issued_by,
                         customer_name, customer_phone, customer_address,
                         external_order_reference, consignment_reference,
-                        subtotal, delivery_charge, tax_rate_percent, tax_amount, total, lines_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
+                        subtotal, delivery_charge, tax_rate_percent, tax_amount, total,
+                        advance_received, balance_due, lines_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
                     """,
                     id, channelOrderId, order.invoiceNumber(), Timestamp.from(now), actor,
                     order.customerName(), order.customerPhone(), order.customerAddress(),
                     order.externalOrderId(), order.consignmentId(),
                     subtotal, deliveryCharge, taxRatePercent, taxAmount, total,
-                    json.writeValueAsString(lines));
+                    advance, balanceDue, json.writeValueAsString(lines));
         } catch (DuplicateKeyException e) {
             /*
               🔴 INV-39.1 - one order, one invoice, and a number is never reused. Re-issuing would
@@ -150,14 +154,24 @@ public class SalesInvoiceService {
     public Optional<Rendered> forRendering(UUID channelOrderId) {
         requireAuthority(AccountingPermissions.SALES_INVOICE_VIEW);
         return Optional.ofNullable(jdbc.query("""
-                SELECT invoice_number, issued_at, customer_name, customer_phone, customer_address,
-                       external_order_reference, consignment_reference, subtotal, delivery_charge,
-                       tax_rate_percent, tax_amount, total, lines_json::text AS lines
-                  FROM sales_invoice WHERE channel_order_id = ?
+                SELECT i.invoice_number, i.issued_at, i.customer_name, i.customer_phone, i.customer_address,
+                       i.external_order_reference, i.consignment_reference, i.subtotal, i.delivery_charge,
+                       i.tax_rate_percent, i.tax_amount, i.total,
+                       o.advance_received, o.warranty_term, o.buyer_note, i.lines_json::text AS lines
+                  FROM sales_invoice i JOIN channel_order o ON o.id = i.channel_order_id
+                 WHERE i.channel_order_id = ?
                 """, rs -> {
             if (!rs.next()) {
                 return null;
             }
+            /*
+              Owner instruction 2026-10-05: the printed invoice shows the advance received NOW recorded on the
+              order and the balance still due. The advance is a payment fact the order may correct (BR-193), not
+              commercial content, so it is read live; every other figure stays the issued snapshot (INV-39.2).
+            */
+            BigDecimal liveAdvance = rs.getBigDecimal("advance_received");
+            BigDecimal total = rs.getBigDecimal("total");
+            boolean hasAdvance = liveAdvance != null && liveAdvance.signum() > 0;
             return new Rendered(
                     rs.getString("invoice_number"),
                     rs.getTimestamp("issued_at").toInstant(),
@@ -166,8 +180,10 @@ public class SalesInvoiceService {
                     rs.getString("external_order_reference"), rs.getString("consignment_reference"),
                     rs.getBigDecimal("subtotal"), rs.getBigDecimal("delivery_charge"),
                     rs.getBigDecimal("tax_rate_percent"), rs.getBigDecimal("tax_amount"),
-                    rs.getBigDecimal("total"),
-                    readLines(rs.getString("lines")));
+                    total,
+                    hasAdvance ? liveAdvance : null, hasAdvance ? total.subtract(liveAdvance) : null,
+                    readLines(rs.getString("lines")), rs.getString("warranty_term"),
+                    rs.getString("buyer_note"));
         }, channelOrderId));
     }
 
@@ -193,10 +209,21 @@ public class SalesInvoiceService {
                            String externalOrderReference, String consignmentReference,
                            @MonetaryAmount BigDecimal subtotal,
                            @MonetaryAmount BigDecimal deliveryCharge,
+                           // A RATE, not money - but it crosses as TEXT all the same: the page trims it as a
+                           // string, and a JSON number here crashed the invoice page (blank screen).
+                           @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
                            BigDecimal taxRatePercent,
                            @MonetaryAmount BigDecimal taxAmount,
                            @MonetaryAmount BigDecimal total,
-                           List<Line> lines) {
+                           /** BR-127 — money received before delivery, or {@code null} where none was recorded. */
+                           @MonetaryAmount BigDecimal advanceReceived,
+                           /** INV-39.2 — total less the advance, fixed at issue; {@code null} = same as the total. */
+                           @MonetaryAmount BigDecimal balanceDue,
+                           List<Line> lines,
+                           /** BR-197 — the order's warranty term code (D7 .. Y12), or {@code null}. */
+                           String warrantyTerm,
+                           /** The note typed on the order (read live), or {@code null}; the invoice prints nothing else under Note. */
+                           String note) {
     }
 
     public record Line(String name, String sku, int quantity,
@@ -220,7 +247,7 @@ public class SalesInvoiceService {
     private List<Map<String, Object>> loadLines(UUID channelOrderId) {
         List<Map<String, Object>> lines = new ArrayList<>();
         jdbc.query("""
-                SELECT item_name, sku, item_price, paid_price
+                SELECT item_name, sku, item_price, paid_price, quantity
                   FROM channel_order_item
                  WHERE channel_order_id = ?
                  ORDER BY external_order_item_id
@@ -236,9 +263,11 @@ public class SalesInvoiceService {
             BigDecimal unit = rs.getBigDecimal("paid_price") != null
                     ? rs.getBigDecimal("paid_price")
                     : rs.getBigDecimal("item_price");
-            line.put("quantity", 1);
+            int quantity = rs.getInt("quantity");
+            line.put("quantity", quantity);
             line.put("unitPrice", unit);
-            line.put("lineTotal", unit);
+            // BR-145 - the unit price is the snapshot; the line value is unit price x quantity (exact).
+            line.put("lineTotal", unit == null ? null : unit.multiply(BigDecimal.valueOf(quantity)));
             lines.add(line);
         }, channelOrderId);
         return lines;
@@ -246,7 +275,7 @@ public class SalesInvoiceService {
 
     private OrderSnapshot load(UUID channelOrderId) {
         return Optional.ofNullable(jdbc.query("""
-                SELECT o.trioloo_invoice_number, o.external_order_id, o.shipping_fee,
+                SELECT o.trioloo_invoice_number, o.external_order_id, o.shipping_fee, o.advance_received,
                        coalesce(o.shipping_first_name, o.customer_first_name) AS first_name,
                        coalesce(o.shipping_last_name, o.customer_last_name)  AS last_name,
                        o.shipping_phone,
@@ -270,7 +299,7 @@ public class SalesInvoiceService {
                     rs.getString("shipping_phone"),
                     rs.getString("address"),
                     rs.getBigDecimal("shipping_fee"),
-                    rs.getString("consignment_id"));
+                    rs.getString("consignment_id"), rs.getBigDecimal("advance_received"));
         }, channelOrderId)).orElseThrow(
                 () -> new IllegalArgumentException("Order " + channelOrderId + " does not exist."));
     }
@@ -288,7 +317,7 @@ public class SalesInvoiceService {
 
     private record OrderSnapshot(String invoiceNumber, String externalOrderId, String customerName,
                                  String customerPhone, String customerAddress,
-                                 BigDecimal shippingFee, String consignmentId) {
+                                 BigDecimal shippingFee, String consignmentId, BigDecimal advanceReceived) {
     }
 
     /**
@@ -299,6 +328,7 @@ public class SalesInvoiceService {
     public record Issued(UUID id, String invoiceNumber,
                          @MonetaryAmount BigDecimal subtotal,
                          @MonetaryAmount BigDecimal deliveryCharge,
+                         @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
                          BigDecimal taxRatePercent,
                          @MonetaryAmount BigDecimal taxAmount,
                          @MonetaryAmount BigDecimal total) {

@@ -5,6 +5,8 @@ import { Button } from '../ui/primitives';
 import { ApiError, apiRequest } from '../platform/api';
 import { formatMoneyForDisplay } from '../platform/money';
 import { formatMoment } from '../platform/datetime';
+import logoUrl from '../assets/brand/trioloo-logo-black.png';
+import { warrantyTermLabel } from './orderApi';
 
 /**
  * The Sales Invoice printable — `PRN-023`, `OSC-059`.
@@ -45,6 +47,8 @@ export default function InvoicePage(): React.JSX.Element {
   */
   const origin: InvoiceOrigin =
     (location.state as { from?: InvoiceOrigin } | null)?.from === 'list' ? 'list' : 'detail';
+  // Set by the Print actions: the operator asked to PRINT, so the print dialog opens once the sheet is ready.
+  const autoPrint = (location.state as { autoPrint?: boolean } | null)?.autoPrint === true;
   const backTo = origin === 'list' ? '/sales/orders' : `/sales/orders/${id}`;
   const backLabel = origin === 'list' ? 'Back to orders' : 'Back to order';
   const [invoice, setInvoice] = useState<InvoiceView | null>(null);
@@ -85,6 +89,58 @@ export default function InvoicePage(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+    ✅ OWNER DECISION, 2026-10-05: EVERY ORDER'S INVOICE IS PRINTABLE — AND "PRINT INVOICE" MEANS PRINT.
+    The invoice document (E-039) did not exist for most orders, so "Print invoice" led to a page that
+    said so. The page now ISSUES THE INVOICE ITSELF when none exists, then shows it, and the Print
+    actions open the print dialog once it is ready.
+
+    ⚠ THE SNAPSHOT IS OF THE ORDER AS IT IS WHEN THE INVOICE IS FIRST OPENED (INV-39.2), and an issued
+    invoice is never reissued (INV-39.1). Edit the order BEFORE printing its invoice.
+    🔴 It is attempted ONCE per visit, so a refusal (permission, a failure) is reported and not retried
+    in a loop; the button below remains for a deliberate second attempt.
+  */
+  const [issuing, setIssuing] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [printWhenReady, setPrintWhenReady] = useState(false);
+  const [autoTried, setAutoTried] = useState(false);
+
+  const issue = useCallback(async (print: boolean) => {
+    if (!id) {
+      return;
+    }
+    setIssuing(true);
+    setIssueError(null);
+    try {
+      await apiRequest(`/api/accounting/orders/${id}/invoice`, { method: 'POST' });
+      setPrintWhenReady(print);
+      await load();
+    } catch (cause) {
+      setIssueError(
+        cause instanceof ApiError && cause.isForbidden
+          ? 'You cannot issue invoices. The capability accounting.sales-invoice.issue is held by nobody until an authorised person grants it.'
+          : cause instanceof Error ? cause.message : 'The invoice could not be issued.',
+      );
+    } finally {
+      setIssuing(false);
+    }
+  }, [id, load]);
+
+  useEffect(() => {
+    if (outcome === 'not-issued' && !autoTried) {
+      setAutoTried(true);
+      void issue(autoPrint);
+    }
+  }, [outcome, autoTried, autoPrint, issue]);
+
+  useEffect(() => {
+    if (printWhenReady && outcome === 'issued') {
+      setPrintWhenReady(false);
+      // Let the sheet paint before the print dialog captures it.
+      setTimeout(() => window.print(), 150);
+    }
+  }, [printWhenReady, outcome]);
 
   const header = (title: string, number: string | null): React.JSX.Element => (
     <PageHeader
@@ -164,30 +220,33 @@ export default function InvoicePage(): React.JSX.Element {
     );
   }
 
-  if (outcome === 'not-issued' || !invoice) {
-    /*
-      ⚠ AN UNISSUED INVOICE IS AN ANSWER, NOT A FAULT (`BR-134`). Most orders have none, and the
-      page says so rather than showing an empty document that looks like a rendering failure.
+  if ((outcome === 'not-issued' || !invoice) && !issueError && (issuing || !autoTried)) {
+    return (
+      <>
+        {header('Sales invoice', null)}
+        <p style={messageStyle} data-testid="invoice-preparing">Preparing the invoice…</p>
+      </>
+    );
+  }
 
-      🔴 NO `Issue invoice` CONTROL IS DRAWN, AND ITS ABSENCE IS A REPORTED GAP RATHER THAN AN
-      OVERSIGHT. `POST /api/accounting/orders/{id}/invoice` exists and `PRM-094` permissions it,
-      but NOTHING IN THE CORPUS FIXES WHEN AN INVOICE IS ISSUED OR BY WHOM. `INV-39.1` retires a
-      cancelled number and `INV-39.2` snapshots the content, so issuing at the wrong moment
-      preserves the wrong prices and the wrong address permanently. ⚠ Putting a button here would
-      invent that trigger, which `CLAUDE.md` §5 forbids.
-    */
+  if (outcome === 'not-issued' || !invoice) {
     return (
       <>
         {header('Sales invoice', null)}
         <div style={messageStyle} data-testid="invoice-absent">
-          <strong>No invoice has been issued for this order yet.</strong>
+          <strong>The invoice could not be prepared.</strong>
           <p style={reasonStyle}>
-            The order already carries its Trioloo invoice NUMBER; what does not exist yet is the
-            issued <code>E-039</code> snapshot this page renders (<code>INV-39.2</code>,{' '}
-            <code>PRN-022</code>). No control issues one here: the corpus fixes the numbering, the
-            snapshot and the printable's source, but it does not fix WHEN an invoice is issued or
-            by whom — so that trigger is owed rather than invented.
+            The order already has its Trioloo invoice number. Issuing creates the printable invoice
+            from the order <em>as it is now</em> — customer, address, lines and totals are fixed on
+            the invoice and do not change if the order is edited later. Edit the order first if it
+            needs correcting.
           </p>
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <Button variant="primary" size="page-header" onClick={() => void issue(true)} disabled={issuing} testId="invoice-issue">
+              {issuing ? 'Issuing…' : 'Try again and print'}
+            </Button>
+          </div>
+          {issueError ? <p style={{ ...reasonStyle, color: 'var(--color-destructive)' }} data-testid="invoice-issue-error">{issueError}</p> : null}
         </div>
       </>
     );
@@ -204,38 +263,22 @@ export default function InvoicePage(): React.JSX.Element {
 
       <div className="invoice-no-print">{header(`Sales invoice ${invoice.invoiceNumber}`, invoice.invoiceNumber)}</div>
 
-      <div style={pageStyle}>
+      <div className="invoice-page" style={pageStyle}>
         <article style={sheetStyle} data-testid="invoice-sheet">
           {/* ── Header ─────────────────────────────────────────────── */}
           <div style={headerStyle}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '11px',
-                  border: '1px dashed #c8c8c8',
-                  background: '#f7f7f7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <span style={{
-                    fontSize: '8px',
-                    fontWeight: 600,
-                    letterSpacing: '0.3px',
-                    color: '#9a9a9a',
-                    textAlign: 'center',
-                    lineHeight: 1.2,
-                  }}>
-                    TRIOLOO<br />LOGO
-                  </span>
-                </div>
-                <div style={logoSlotStyle}>TRIOLOO</div>
-              </div>
+              {/* The complete approved logo as ONE image (ApplicationBrand's rule): never redrawn, never
+                  cropped, no text beside it. Height only, so the 643x184 ratio cannot be distorted. */}
+              <img src={logoUrl} alt="Trioloo" style={{ height: '50px', width: 'auto', display: 'block' }} data-testid="invoice-logo" />
               <div style={sellerStyle}>
                 R.B Tower 4th Floor (Lift-3), 56/9, Panthapath, Dhaka-1205, Bangladesh<br />
-                01805-026454 &nbsp;·&nbsp; 01805-026465 &nbsp;·&nbsp; 01894-830932<br />
+                {/* Owner instruction 2026-10-05: ONE number, shown with its icons instead of the words Call / WhatsApp. */}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} data-testid="invoice-contact">
+                  <PhoneIcon /> 01963-956474
+                  <span style={{ margin: '0 6px', color: '#9a9a9a' }}>·</span>
+                  <WhatsAppIcon /> 01963-956474
+                </span><br />
                 trioloobd@gmail.com &nbsp;·&nbsp; contract@trioloo.com.bd
               </div>
             </div>
@@ -301,18 +344,6 @@ export default function InvoicePage(): React.JSX.Element {
               <div style={sectionLabelStyle}>Bill To</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '7px' }}>
                 <span style={customerNameStyle}>{invoice.customerName}</span>
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: 600,
-                  letterSpacing: '0.4px',
-                  color: '#555555',
-                  background: '#f2f2f2',
-                  border: '1px solid #e0e0e0',
-                  padding: '3px 9px',
-                  borderRadius: '999px',
-                }}>
-                  {invoice.externalOrderReference ? 'Daraz' : 'Direct'}
-                </span>
               </div>
               <div style={sellerStyle}>
                 {invoice.customerAddress || 'Address not recorded'}<br />
@@ -336,7 +367,7 @@ export default function InvoicePage(): React.JSX.Element {
           <div style={{ padding: '0 48px' }}>
             <table style={itemsTableStyle}>
               <thead>
-                <tr style={{ background: '#111111' }}>
+                <tr style={{ background: '#3f444d' }}>
                   <th style={{ ...thStyle, textAlign: 'left' }}>Item Description</th>
                   <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>Qty</th>
                   <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>Unit Price</th>
@@ -379,17 +410,30 @@ export default function InvoicePage(): React.JSX.Element {
                 lineHeight: 1.7,
                 textAlign: 'justify',
               }}>
-                <li style={{ paddingLeft: '2px' }}>All televisions and computers carry a minimum 3-year manufacturer's warranty.</li>
+                {warrantyTermLabel(invoice.warrantyTerm) ? (
+                  <li data-testid="invoice-warranty" style={{ paddingLeft: '2px', fontWeight: 600 }}>
+                    Warranty: {warrantyTermLabel(invoice.warrantyTerm)}.
+                  </li>
+                ) : (
+                  <li style={{ paddingLeft: '2px' }}>All televisions and computers carry a minimum 3-year manufacturer's warranty.</li>
+                )}
                 <li style={{ paddingLeft: '2px' }}>Returns are accepted within 7 days with product replacement.</li>
                 <li style={{ paddingLeft: '2px' }}>Warranty void if seal is broken or physical/liquid damage occurs.</li>
               </ul>
-              <div style={sectionLabelStyle}>Note</div>
-              <div style={noteStyle}>
-                Physically damaged and burned items will not be covered under warranty.
-              </div>
+              {/* The note is the one typed on the order; nothing is printed when there is none. */}
+              {invoice.note?.trim() ? (
+                <>
+                  <div style={sectionLabelStyle}>Note</div>
+                  <div data-testid="invoice-note" style={noteStyle}>{invoice.note}</div>
+                </>
+              ) : null}
             </div>
-            <div style={{ width: '340px', fontVariantNumeric: 'tabular-nums' }}>
+            <div data-testid="invoice-totals" style={{ width: '340px', fontVariantNumeric: 'tabular-nums' }}>
               <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
+              {/* Owner instruction 2026-10-05 (BR-127): the advance sits straight after the subtotal. */}
+              {invoice.advanceReceived ? (
+                <TotalRow label="Advance received" value={`- ${money(invoice.advanceReceived)}`} testId="invoice-advance" />
+              ) : null}
               <TotalRow label="Delivery &amp; Handling" value={money(invoice.deliveryCharge)} />
               {/*
                 ✅ 0% IS A RATE AND IS PRINTED AS ONE — the product owner ratified it, and
@@ -421,7 +465,7 @@ export default function InvoicePage(): React.JSX.Element {
                   }}
                   data-testid="invoice-total"
                 >
-                  {money(invoice.total)}
+                  {money(invoice.balanceDue ?? invoice.total)}
                 </span>
               </div>
             </div>
@@ -444,6 +488,23 @@ export default function InvoicePage(): React.JSX.Element {
 }
 
 /* ------------------------------------------------------------------ pieces */
+
+function PhoneIcon(): React.JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Call" role="img">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon(): React.JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1ea952" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="WhatsApp" role="img">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      <path d="M9.5 8.8c.3 2.1 2.6 4.6 4.9 5l1-1.2-1.6-.9-.7.6c-.7-.3-1.5-1-1.8-1.8l.6-.7-.9-1.6z" fill="#1ea952" stroke="none" />
+    </svg>
+  );
+}
 
 function Ref({ label, value, strong }: {
   readonly label: string;
@@ -478,13 +539,14 @@ function BankRow({ label, value, mono }: {
   );
 }
 
-function TotalRow({ label, value, bordered }: {
+function TotalRow({ label, value, bordered, testId }: {
   readonly label: string;
   readonly value: string;
   readonly bordered?: boolean;
+  readonly testId?: string;
 }): React.JSX.Element {
   return (
-    <div style={{
+    <div data-testid={testId} style={{
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -512,8 +574,8 @@ function money(value: string | null): string {
 }
 
 /** `0.000` prints as `0`, `15.000` as `15`, and `7.500` as `7.5`. */
-function trimRate(rate: string): string {
-  return rate.replace(/\.?0+$/, '') || '0';
+function trimRate(rate: string | number): string {
+  return String(rate).replace(/\.?0+$/, '') || '0';
 }
 
 type InvoiceLine = {
@@ -538,7 +600,15 @@ type InvoiceView = {
   readonly taxRatePercent: string | null;
   readonly taxAmount: string | null;
   readonly total: string;
+  /** `BR-127` — money received before delivery; `null` = none recorded. */
+  readonly advanceReceived?: string | null;
+  /** `INV-39.2` — total less the advance, fixed at issue; `null` = the total is the balance. */
+  readonly balanceDue?: string | null;
   readonly lines: readonly InvoiceLine[];
+  /** BR-197 — D7 .. Y12, or null. */
+  readonly warrantyTerm?: string | null;
+  /** The note typed on the order, or null. */
+  readonly note?: string | null;
 };
 
 /* ------------------------------------------------------------------ styles */
@@ -553,10 +623,37 @@ const PRINT_CSS = `
 
 @media print {
   @page { size: A4; margin: 0; }
-  body { background: #ffffff !important; }
-  .invoice-no-print { display: none !important; }
-  /* The shell is not part of the document. */
-  nav, aside, header.app-header, [data-testid="page-header"] { display: none !important; }
+  html, body { height: auto !important; background: #ffffff !important; }
+
+  /* The application shell is a 100vh box that scrolls inside itself. On paper it must be an ordinary
+     block, or it clips the sheet at the first screenful and then leaves a blank second page behind. */
+  .app-shell-root, .app-shell-column {
+    display: block !important; height: auto !important; overflow: visible !important;
+    background: #ffffff !important;
+  }
+  aside, nav, header.app-header, [data-testid="page-header"], .invoice-no-print { display: none !important; }
+  [data-testid="content-region"], [data-testid="main-workspace"], .invoice-page {
+    display: block !important; height: auto !important; overflow: visible !important;
+    padding: 0 !important; margin: 0 !important; width: auto !important;
+    min-width: 0 !important; max-width: none !important;
+  }
+  * { animation: none !important; transform: none !important; }
+
+  /* The sheet flows from the top-left corner. Its height is its CONTENT, so a short invoice is exactly
+     one page and a long one continues onto the next — never a forced second page. */
+  [data-testid="invoice-sheet"] {
+    width: 210mm !important; min-height: 0 !important; margin: 0 !important;
+    box-shadow: none !important; border-radius: 0 !important; overflow: visible !important;
+  }
+  /* The black table header and the black Balance Due block are BACKGROUNDS, which browsers drop from
+     print unless told otherwise; without them the white text on them vanishes. */
+  [data-testid="invoice-sheet"], [data-testid="invoice-sheet"] * {
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  /* A row or the totals block is never cut in half; the table header repeats on a second page. */
+  [data-testid="invoice-sheet"] tr { break-inside: avoid; }
+  [data-testid="invoice-sheet"] thead { display: table-header-group; }
+  [data-testid="invoice-totals"] { break-inside: avoid; }
 }
 `;
 
@@ -604,12 +701,6 @@ const headerStyle: React.CSSProperties = {
   borderBottom: '1px solid #e4e4e4',
 };
 
-const logoSlotStyle: React.CSSProperties = {
-  fontSize: '20px',
-  fontWeight: 700,
-  letterSpacing: '2px',
-  color: '#111111',
-};
 
 const sellerStyle: React.CSSProperties = {
   fontSize: '12.5px',
@@ -707,7 +798,7 @@ const balanceDueStyle: React.CSSProperties = {
   alignItems: 'center',
   padding: '16px',
   marginTop: '14px',
-  background: '#111111',
+  background: '#3f444d',
   color: '#ffffff',
   borderRadius: '6px',
 };

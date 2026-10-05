@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { orderTypeLabel } from './orderApi';
 import type { ChannelOrderRow } from './orderApi';
 import { ActionMenu } from '../ui/Overlay';
 import type { MenuAction } from '../ui/Overlay';
@@ -53,6 +54,7 @@ export default function OrderCard({
   onRefreshTracking,
   onCancelOrder,
   onRestoreOrder,
+  onEditOrder,
 }: {
   readonly order: ChannelOrderRow;
   readonly selected: boolean;
@@ -62,6 +64,7 @@ export default function OrderCard({
   readonly onRefreshTracking: (order: ChannelOrderRow) => void;
   readonly onCancelOrder: (order: ChannelOrderRow) => void;
   readonly onRestoreOrder: (order: ChannelOrderRow) => void;
+  readonly onEditOrder: (order: ChannelOrderRow) => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
 
@@ -114,6 +117,10 @@ export default function OrderCard({
           </span>
           <span style={metaStyle}>{displayMoment(order.providerCreatedAt, true)}</span>
           <span style={metaStyle}>{order.channelName ?? 'Shop not recorded'}</span>
+          {/* V30 — a recorded attribute of how the order was captured; a label, not a state. */}
+          {orderTypeLabel(order.orderTag) ? (
+            <span style={chipStyle('neutral')} data-testid="order-type-tag">{orderTypeLabel(order.orderTag)}</span>
+          ) : null}
           <span style={externalIdStyle}>{order.externalOrderId}</span>
           <span
             style={externalChipStyle}
@@ -253,7 +260,7 @@ export default function OrderCard({
             testId="order-actions-menu"
             compact
             triggerTestId="order-more-actions"
-            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder)}
+            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder, onEditOrder)}
           />
         </div>
       </div>
@@ -266,7 +273,7 @@ export default function OrderCard({
           identifier of the document it would produce. 🔴 The number is not lost — it is on band 1
           as a fact of the order, which is where an identifier belongs.
         */}
-        <Link to={`/sales/orders/${order.id}/invoice`} state={{ from: 'list' }} style={invoiceStyle} data-testid="order-invoice-action">
+        <Link to={`/sales/orders/${order.id}/invoice`} state={{ from: 'list', autoPrint: true }} style={invoiceStyle} data-testid="order-invoice-action">
           <DownloadIcon />
           INVOICE
         </Link>
@@ -310,6 +317,7 @@ function moreActions(
   onRefreshTracking: (order: ChannelOrderRow) => void,
   onCancelOrder: (order: ChannelOrderRow) => void,
   onRestoreOrder: (order: ChannelOrderRow) => void,
+  onEditOrder: (order: ChannelOrderRow) => void,
 ): readonly MenuAction[] {
   const preDispatch = PRE_DISPATCH.has(canonical ?? '');
   const booked = Boolean(order.courierConsignmentId);
@@ -322,7 +330,7 @@ function moreActions(
     {
       label: 'Print invoice',
       description: `Opens the invoice snapshot for ${order.triolooInvoiceNumber ?? 'this order'}`,
-      onSelect: () => navigate(`/sales/orders/${order.id}/invoice`, { state: { from: 'list' } }),
+      onSelect: () => navigate(`/sales/orders/${order.id}/invoice`, { state: { from: 'list', autoPrint: true } }),
     },
     {
       label: 'View activity',
@@ -346,13 +354,12 @@ function moreActions(
   }
 
   if (preDispatch) {
+    // Owner decision 2026-10-05 (PRM-096): every order can be edited until it is dispatched.
     items.push({
-      label: 'Amend order',
-      description: 'Permitted before dispatch only',
+      label: 'Edit order',
+      description: 'Permitted before dispatch only · needs a reason',
       separatorBefore: true,
-      disabled: true,
-      reason: 'No amendment endpoint exists. OM §7.9 permits it pre-dispatch; nothing implements it yet.',
-      onSelect: () => undefined,
+      onSelect: () => onEditOrder(order),
     });
     items.push({
       label: 'Release to warehouse',
@@ -411,7 +418,7 @@ function moreActions(
     takes control of the order permanently and the marketplace is not told — is stated in the
     confirmation BEFORE the act (UX-184), not here.
   */
-  if (canonical === 'CANCELLED') {
+  if (canonical === 'CANCELLED' || canonical === 'PENDING_CANCELLATION') {
     items.push({
       label: 'Restore order',
       description: 'Returns to Pending verification',

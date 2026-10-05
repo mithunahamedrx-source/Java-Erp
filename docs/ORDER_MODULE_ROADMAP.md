@@ -1,7 +1,7 @@
 # Order Module — implementation roadmap
 
 **Owner:** Trioloo Engineering · **Status:** 📌 **WORKING RECORD — NOT CANONICAL ARCHITECTURE**
-**Version:** 1.3.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-05 · **Rule prefix:** none, by design
+**Version:** 1.6.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-05 · **Rule prefix:** none, by design
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It sequences work already decided elsewhere and records
 > where each phase stands. **It issues no rule, defines no business behaviour and closes no gap.**
@@ -160,6 +160,9 @@ state an imported order arrives in, so both enter one verification queue.
 | Item | Blocker |
 |---|---|
 | ~~**Cancel order** (pre-dispatch)~~ | ✅ **BUILT 2026-10-05** — `PRM-095`, `OM BR-186`, `OSC-063`, migration `V27`. One order at a time; refused while a courier shipment is live (`STF-016`) |
+| **Walk-in quick order** | ✅ **BUILT 2026-10-05** — `BR-191`, `OSC-066`, `V30`. A tag only; the completion path of a walk-in order is OWED |
+| **Invoice issued on demand** | ✅ **BUILT 2026-10-05** — `BR-192`; answers `GAP-035`'s *when* |
+| **Edit order** | ✅ **BUILT 2026-10-05** — `PRM-096`, `OM BR-190`, `OSC-065`, migration `V29`. Until dispatch; reason required; add/remove line and quantity not included |
 | **Restore order** | ✅ **BUILT 2026-10-05** — `OM BR-187`, `BR-172` |
 | **Hold / release hold / release reserved quantity** | No capability ratified; `BR-149`–`BR-152` define behaviour but no code exists |
 | **`Dispatched` for Steadfast parcels** | Only `in_review`, `delivered`, `cancelled` translate (`STF-011`); `pending` is refused. **Owner decision:** map `pending`, or ratify a hand-over act and its capability |
@@ -189,6 +192,9 @@ state an imported order arrives in, so both enter one verification queue.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.6.0** | **2026-10-05** | **Advance received, customer type and sold by built** (`BR-193`, `BR-194`, `OSC-067`, `V31`, `V32`). Open: editing an advance; walk-in completion. |
+| **1.5.0** | **2026-10-05** | **Walk-in quick order and issue-invoice-on-demand built** (`BR-191`, `BR-192`, `OSC-066`, `V30`). Open: how a walk-in order completes. |
+| **1.4.0** | **2026-10-05** | **Edit order built** (`PRM-096`, `OM §33`, `OSC-065`, `V29`). |
 | **1.3.0** | **2026-10-05** | **Owner correction `BR-189`/`OSC-064`:** Pending verification → (Send to Steadfast) → Ready to ship; `V28`. |
 | **1.2.0** | **2026-10-05** | **Cancel and restore built** (`PRM-095`, `OM §31`, `V27`). Hold remains blocked on a capability code. |
 | **1.1.0** | **2026-10-03** | **Phase 2 recorded DONE; Phase 7 added** — owner removed the verification step and the Released / In fulfilment / Courier booked tabs; core flow built (auto-confirmation, effective status, scheduled tracking). Cancel, hold and automatic Dispatched are listed as blocked with their reasons. |

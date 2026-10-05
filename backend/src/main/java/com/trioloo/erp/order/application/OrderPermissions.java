@@ -77,6 +77,15 @@ public final class OrderPermissions {
      */
     public static final String ORDER_RESTORE = "order.order.restore";
 
+    /**
+     * {@code PRM-096} — EDIT AN ORDER before dispatch: recipient, phone, address, line descriptions
+     * and prices, and the total, with a reason ({@code OM §7.9}). Ratified on the product owner's
+     * instruction, 2026-10-05.
+     *
+     * <p>🔴 It grants no cancellation, no restoration, no courier booking and no marketplace write.
+     */
+    public static final String ORDER_EDIT = "order.order.edit";
+
     private OrderPermissions() {
     }
 }

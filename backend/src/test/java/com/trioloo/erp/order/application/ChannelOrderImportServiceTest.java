@@ -331,6 +331,32 @@ class ChannelOrderImportServiceTest {
     }
 
     @Test
+    @DisplayName("a pull never overwrites the price, contact, address or lines of an ERP-managed order (BR-170)")
+    void pullDoesNotOverwriteAnEditedOrder() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-630", "OI-630"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+        // What an edit leaves behind: Trioloo's own values and the ERP_MANAGED authority state.
+        jdbc.update("UPDATE channel_order SET ownership = 'ERP_MANAGED', price = 777.00, "
+                + "shipping_phone = '01999999999', shipping_address1 = 'Edited address' "
+                + "WHERE external_order_id = 'O-630'");
+        jdbc.update("UPDATE channel_order_item SET item_name = 'Edited product', item_price = 777.00 "
+                + "WHERE external_order_item_id = 'OI-630'");
+
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-630", "OI-630"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+
+        var row = jdbc.queryForMap("SELECT price, shipping_phone, shipping_address1 FROM channel_order "
+                + "WHERE external_order_id = 'O-630'");
+        assertThat((java.math.BigDecimal) row.get("price")).isEqualByComparingTo("777.00");
+        assertThat(row.get("shipping_phone")).isEqualTo("01999999999");
+        assertThat(row.get("shipping_address1")).isEqualTo("Edited address");
+        var item = jdbc.queryForMap("SELECT item_name, item_price FROM channel_order_item "
+                + "WHERE external_order_item_id = 'OI-630'");
+        assertThat(item.get("item_name")).isEqualTo("Edited product");
+        assertThat((java.math.BigDecimal) item.get("item_price")).isEqualByComparingTo("777.00");
+    }
+
+    @Test
     @DisplayName("ready to ship filter includes courier booked orders")
     void readyToShipFilterIncludesCourierBookedOrders() {
         PAGES.add(new ChannelOrderProvider.Page(2, 2, List.of(
