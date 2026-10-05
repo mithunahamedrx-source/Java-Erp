@@ -83,6 +83,9 @@ public final class OrderPermissions {
      */
     public static final String ORDER_RECEIVE_RETURN = "order.order.receive-return";
 
+    /** {@code BR-204} — place a pre-dispatch order on hold and release it. Independent of every other order capability. */
+    public static final String ORDER_HOLD = "order.order.hold";
+
     /**
      * {@code PRM-096} — EDIT AN ORDER before dispatch: recipient, phone, address, line descriptions
      * and prices, and the total, with a reason ({@code OM §7.9}). Ratified on the product owner's

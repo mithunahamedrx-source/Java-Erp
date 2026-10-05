@@ -28,6 +28,7 @@ import ShopDetailPage from './system/ShopDetailPage';
 import OrdersPage from './order/OrdersPage';
 import OrderDetailPage from './order/OrderDetailPage';
 import InvoicePage from './order/InvoicePage';
+import InvoiceBatchPage from './order/InvoiceBatchPage';
 import NewOrderPage from './order/NewOrderPage';
 
 /**
@@ -134,6 +135,8 @@ export default function App(): React.JSX.Element {
         {/* The printable. A document, not a workspace - see InvoicePage for why its
             typography and geometry differ from the application shell. */}
         <Route path="/sales/orders/:id/invoice" element={<InvoicePage />} />
+        {/* Several invoices in one print job (bulk Print invoices). */}
+        <Route path="/sales/orders/invoices" element={<InvoiceBatchPage />} />
 
         {allDestinations()
           .filter(

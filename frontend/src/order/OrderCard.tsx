@@ -56,6 +56,8 @@ export default function OrderCard({
   onRestoreOrder,
   onEditOrder,
   onReturnReceived,
+  onHold,
+  onReleaseHold,
 }: {
   readonly order: ChannelOrderRow;
   readonly selected: boolean;
@@ -67,6 +69,8 @@ export default function OrderCard({
   readonly onRestoreOrder: (order: ChannelOrderRow) => void;
   readonly onEditOrder: (order: ChannelOrderRow) => void;
   readonly onReturnReceived: (order: ChannelOrderRow) => void;
+  readonly onHold: (order: ChannelOrderRow) => void;
+  readonly onReleaseHold: (order: ChannelOrderRow) => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
 
@@ -273,7 +277,7 @@ export default function OrderCard({
             testId="order-actions-menu"
             compact
             triggerTestId="order-more-actions"
-            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder, onEditOrder, onReturnReceived)}
+            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder, onEditOrder, onReturnReceived, onHold, onReleaseHold)}
           />
         </div>
       </div>
@@ -338,6 +342,8 @@ function moreActions(
   onRestoreOrder: (order: ChannelOrderRow) => void,
   onEditOrder: (order: ChannelOrderRow) => void,
   onReturnReceived: (order: ChannelOrderRow) => void,
+  onHold: (order: ChannelOrderRow) => void,
+  onReleaseHold: (order: ChannelOrderRow) => void,
 ): readonly MenuAction[] {
   const preDispatch = PRE_DISPATCH.has(canonical ?? '');
   const booked = Boolean(order.courierConsignmentId);
@@ -405,13 +411,22 @@ function moreActions(
     emphasis: !booked,
     onSelect: () => onBookShipment(order),
   });
-  items.push({
-    label: 'Place hold',
-    description: 'Names you as the actor; holds never expire on their own',
-    disabled: true,
-    reason: 'No hold endpoint exists. BR-151 prohibits hold ageing, expiry and auto-release.',
-    onSelect: () => undefined,
-  });
+  // BR-204 / BR-151 - a hold names the person, never expires and is only ever released by a person.
+  if (canonical === 'ON_HOLD') {
+    items.push({
+      label: 'Release hold',
+      description: 'The order resumes where it was',
+      onSelect: () => onReleaseHold(order),
+    });
+  } else if (preDispatch) {
+    items.push({
+      label: 'Place hold',
+      description: 'Names you as the actor; holds never expire on their own',
+      disabled: booked,
+      reason: booked ? 'A Steadfast consignment is booked, so the order cannot be held. Cancel it instead if it must stop.' : undefined,
+      onSelect: () => onHold(order),
+    });
+  }
 
   /*
     🔴 `BR-011` — `Cancel` IS ABSENT AFTER DISPATCH, NOT DISABLED. A dimmed item still advertises
@@ -464,6 +479,7 @@ const PRE_DISPATCH: ReadonlySet<string> = new Set([
   'IN_FULFILLMENT',
   'READY_TO_SHIP',
   'COURIER_BOOKED',
+  'ON_HOLD',
 ]);
 
 /* ------------------------------------------------------------------ pieces */

@@ -434,7 +434,9 @@ describe('Orders first slice', () => {
     expect(within(menu).getByRole('menuitem', { name: /Send to Steadfast/ }).hasAttribute('disabled')).toBe(false);
     // PRM-096 - Edit order is BUILT for a pre-dispatch order.
     expect(within(menu).getByRole('menuitem', { name: /Edit order/ }).hasAttribute('disabled')).toBe(false);
-    for (const refused of ['Place hold', 'Release to warehouse']) {
+    // BR-204 - Place hold is BUILT for a pre-dispatch order with no booked parcel.
+    expect(within(menu).getByRole('menuitem', { name: /Place hold/ }).hasAttribute('disabled')).toBe(false);
+    for (const refused of ['Release to warehouse']) {
       const item = within(menu).getByRole('menuitem', { name: new RegExp(refused) });
       expect(item.hasAttribute('disabled')).toBe(true);
     }
@@ -514,8 +516,9 @@ describe('Orders first slice', () => {
     });
     expect((await screen.findByTestId('orders-notice')).textContent).toContain('1 booked, 0 skipped, 0 failed');
 
-    for (const refused of ['Place hold', 'Cancel orders']) {
-      expect((within(region).getByRole('button', { name: refused }) as HTMLButtonElement).disabled).toBe(true);
+    // BR-204 and the bulk cancel are BUILT (owner, 2026-10-05): each order is judged on its own by the server.
+    for (const built of ['Place hold', 'Cancel orders', 'Print invoices']) {
+      expect((within(region).getByRole('button', { name: built }) as HTMLButtonElement).disabled).toBe(false);
     }
   });
 
@@ -981,6 +984,29 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
     await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('cancelled'));
   });
 
+  it('cancels the selected orders one by one with one reason, and reports each result (BR-204 bulk)', async () => {
+    const { calls } = renderWith(ORDER_ROW);
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-select'));
+    const region = await screen.findByTestId('orders-bulk-region');
+    fireEvent.click(within(region).getByRole('button', { name: 'Cancel orders' }));
+
+    const dialog = await screen.findByTestId('bulk-cancel-dialog');
+    const confirmOf = (): HTMLButtonElement =>
+      within(dialog).getAllByRole('button').find((b) => b.textContent === 'Cancel orders') as HTMLButtonElement;
+    expect(confirmOf().disabled).toBe(true); // BR-016: no reason, no cancellation
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'CHANGED_MIND' } });
+    expect(confirmOf().disabled).toBe(false);
+    fireEvent.click(confirmOf());
+
+    await waitFor(() => {
+      const post = calls.find((call) => call.url.endsWith('/cancel'));
+      expect(post?.init?.method).toBe('POST');
+      expect(String(post?.init?.body)).toContain('CHANGED_MIND');
+    });
+    await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('1 order cancelled'));
+  });
+
   it('offers Return Received only on a failed delivery, takes who received it and a note, and posts (BR-199)', async () => {
     const { calls } = renderWith({ ...ORDER_ROW, canonicalStatuses: ['FAILED_DELIVERY'] });
     await screen.findByTestId('order-card');
@@ -1034,8 +1060,8 @@ describe('More Actions menu shows labels only (owner decision 2026-10-05)', () =
       expect(menu.textContent).not.toContain(gone);
     }
     // The reason is not lost: it is on the dimmed item as its title.
-    const hold = within(menu).getByRole('menuitem', { name: /Place hold/ });
-    expect(hold.getAttribute('title')).toContain('No hold endpoint exists');
+    const dimmed = within(menu).getByRole('menuitem', { name: /Release to warehouse/ });
+    expect((dimmed.getAttribute('title') ?? '').length).toBeGreaterThan(0);
   });
 });
 

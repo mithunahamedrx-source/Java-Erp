@@ -48,6 +48,19 @@ public class OrderLifecycleController {
         return lifecycle.restore(orderId);
     }
 
+    @PostMapping("/{orderId}/hold")
+    public OrderLifecycleService.Outcome hold(@PathVariable UUID orderId, @RequestBody HoldRequest request) {
+        return lifecycle.placeHold(orderId, request == null ? null : request.note());
+    }
+
+    @PostMapping("/{orderId}/release-hold")
+    public OrderLifecycleService.Outcome releaseHold(@PathVariable UUID orderId) {
+        return lifecycle.releaseHold(orderId);
+    }
+
+    public record HoldRequest(String note) {
+    }
+
     @PostMapping("/{orderId}/return-received")
     public OrderLifecycleService.Outcome returnReceived(@PathVariable UUID orderId,
                                                         @RequestBody ReturnReceivedRequest request) {

@@ -354,6 +354,20 @@ export function restoreOrder(orderId: string): Promise<OrderLifecycleResult> {
   });
 }
 
+/** `BR-204` — suspend a pre-dispatch order (never expires; only a person releases it). */
+export function holdOrder(orderId: string, note: string): Promise<OrderLifecycleResult> {
+  return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/hold`, {
+    method: 'POST',
+    body: JSON.stringify({ note: note.trim() || null }),
+  });
+}
+
+export function releaseHold(orderId: string): Promise<OrderLifecycleResult> {
+  return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/release-hold`, {
+    method: 'POST',
+  });
+}
+
 /** `BR-199` — the failed-delivery parcel is back: who received it, and a note. */
 export function receiveReturn(orderId: string, receivedBy: string | null, note: string): Promise<OrderLifecycleResult> {
   return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/return-received`, {

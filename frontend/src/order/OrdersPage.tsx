@@ -7,7 +7,9 @@ import OrderCard from './OrderCard';
 import EditOrderDialog from './EditOrderDialog';
 import ReturnReceivedDialog from './ReturnReceivedDialog';
 import { ApiError } from '../platform/api';
-import { CANCEL_REASONS, bookOrderShipment, cancelOrder, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking, restoreOrder } from './orderApi';
+import { CANCEL_REASONS, bookOrderShipment, cancelOrder, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking, releaseHold, restoreOrder } from './orderApi';
+import BulkOrderActionDialog from './BulkOrderActionDialog';
+import type { BulkKind } from './BulkOrderActionDialog';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
 import { ORDER_STATUS_TABS, displayMoney, displayStatus } from './orderView';
 import { buildOrderCsv, orderCsvFilename } from './orderCsv';
@@ -274,6 +276,18 @@ export default function OrdersPage(): React.JSX.Element {
   const [cancelNote, setCancelNote] = useState('');
   const [editTarget, setEditTarget] = useState<ChannelOrderRow | null>(null);
   const [returnTarget, setReturnTarget] = useState<ChannelOrderRow | null>(null);
+  // Cancel orders / Place hold, for one order or for the whole selection (each judged on its own, PRM-025).
+  const [bulkDialog, setBulkDialog] = useState<{ readonly kind: BulkKind; readonly orders: readonly ChannelOrderRow[] } | null>(null);
+
+  const releaseOrderHold = useCallback(async (order: ChannelOrderRow) => {
+    try {
+      await releaseHold(order.id);
+      setNotice(`${order.triolooInvoiceNumber ?? order.externalOrderId} hold released.`);
+      await load();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'The hold could not be released.');
+    }
+  }, [load]);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
@@ -615,12 +629,20 @@ export default function OrdersPage(): React.JSX.Element {
       {bulkOpen ? (
         <BulkRegion
           selectedCount={selected.size}
-          onlySelectedId={onlySelectedId}
           exporting={exporting}
           bulkBooking={bulkBooking}
           onExport={() => void exportCsv()}
           onBookSelected={() => void bookSelectedShipments()}
-          onPrint={() => onlySelectedId && navigate(`/sales/orders/${onlySelectedId}/invoice`, { state: { from: 'list', autoPrint: true } })}
+          onPrint={() => {
+            const ids = [...selected.keys()];
+            if (ids.length === 1) {
+              navigate(`/sales/orders/${ids[0]}/invoice`, { state: { from: 'list', autoPrint: true } });
+            } else if (ids.length > 1) {
+              navigate('/sales/orders/invoices', { state: { ids } });
+            }
+          }}
+          onHold={() => setBulkDialog({ kind: 'hold', orders: [...selected.values()] })}
+          onCancelOrders={() => setBulkDialog({ kind: 'cancel', orders: [...selected.values()] })}
           onClear={() => {
             setSelected(new Map());
             setNotice('');
@@ -696,6 +718,8 @@ export default function OrdersPage(): React.JSX.Element {
                 onRestoreOrder={(target) => openLifecycle('restore', target)}
                 onEditOrder={setEditTarget}
                 onReturnReceived={setReturnTarget}
+                onHold={(target) => setBulkDialog({ kind: 'hold', orders: [target] })}
+                onReleaseHold={(target) => void releaseOrderHold(target)}
               />
             ))}
           </div>
@@ -765,6 +789,19 @@ export default function OrdersPage(): React.JSX.Element {
             const reference = editTarget.triolooInvoiceNumber ?? editTarget.externalOrderId;
             setNotice(`${reference} updated (${result.fieldsChanged} field${result.fieldsChanged === 1 ? '' : 's'} changed).${result.note ? ` ${result.note}` : ''}`);
             setEditTarget(null);
+            void load();
+          }}
+        />
+      ) : null}
+      {bulkDialog ? (
+        <BulkOrderActionDialog
+          kind={bulkDialog.kind}
+          orders={bulkDialog.orders}
+          onClose={() => setBulkDialog(null)}
+          onDone={(summary) => {
+            setNotice(summary);
+            setBulkDialog(null);
+            setSelected(new Map());
             void load();
           }}
         />
@@ -898,20 +935,22 @@ function OrdersSurface({ children }: { readonly children: React.ReactNode }): Re
  */
 function BulkRegion({
   selectedCount,
-  onlySelectedId,
   exporting,
   bulkBooking,
   onExport,
   onPrint,
+  onHold,
+  onCancelOrders,
   onBookSelected,
   onClear,
 }: {
   readonly selectedCount: number;
-  readonly onlySelectedId: string | undefined;
   readonly exporting: boolean;
   readonly bulkBooking: boolean;
   readonly onExport: () => void;
   readonly onPrint: () => void;
+  readonly onHold: () => void;
+  readonly onCancelOrders: () => void;
   readonly onBookSelected: () => void;
   readonly onClear: () => void;
 }): React.JSX.Element {
@@ -928,9 +967,9 @@ function BulkRegion({
           <BulkButton label="Export selected" disabled={none || exporting} onClick={onExport} />
           <BulkButton
             label="Print invoices"
-            disabled={!onlySelectedId}
+            disabled={none}
             onClick={onPrint}
-            title="Opens the invoice for one selected order. PRM-025 requires each record authorised individually and GAP-034 records no permitted bulk-action inventory."
+            title="Prints the invoice of every selected order, one A4 sheet each, issuing any that does not exist yet."
           />
           <BulkButton
             label={bulkBooking ? 'Sending...' : 'Send to Steadfast'}
@@ -940,14 +979,16 @@ function BulkRegion({
           />
           <BulkButton
             label="Place hold"
-            disabled
-            title="No hold endpoint exists, and GAP-034 records no permitted bulk-action inventory."
+            disabled={none}
+            onClick={onHold}
+            title="Puts each selected order on hold. A hold never expires; a booked order cannot be held. Each order is judged on its own."
           />
           <BulkButton
             label="Cancel orders"
-            disabled
+            disabled={none}
             destructive
-            title="No cancellation endpoint exists. PRM-025 requires per-record authority before a set may be acted on."
+            onClick={onCancelOrders}
+            title="Cancels each selected order with one reason. Each order is judged on its own; orders already with the courier are refused."
           />
           <BulkButton label="Clear selection" disabled={none} onClick={onClear} />
         </div>

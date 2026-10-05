@@ -49,7 +49,7 @@ public class OrderLifecycleService {
             "PHONE_INCORRECT", "PRODUCT_UNAVAILABLE", "CHANGE_NOT_FULFILLABLE", "DUPLICATE_ORDER");
 
     /** {@code BR-011} — the states from which cancellation is still available. */
-    private static final Set<String> PRE_DISPATCH = Set.of(
+    private static final Set<String> PRE_DISPATCH = Set.of("ON_HOLD", 
             "PENDING_VERIFICATION", "CONFIRMED", "RELEASED", "IN_FULFILLMENT", "READY_TO_SHIP",
             "COURIER_BOOKED");
 
@@ -90,6 +90,7 @@ public class OrderLifecycleService {
         jdbc.update("""
                 UPDATE channel_order
                    SET cancelled_at = now(), cancelled_by = ?, cancel_reason = ?, cancel_note = ?,
+                       hold_at = NULL, hold_by = NULL, hold_note = NULL,
                        ownership = 'ERP_MANAGED',
                        authority_cause = CASE WHEN ownership = 'API_MANAGED'
                                               THEN 'CANCELLED_BY_TRIOLOO' ELSE authority_cause END,
@@ -172,6 +173,57 @@ public class OrderLifecycleService {
                  WHERE id = ?
                 """, receiver, actor, blankToNull(note), orderId);
         return new Outcome(orderId, "RETURNED", null);
+    }
+
+    /**
+     * {@code BR-204} / {@code BR-151} - suspend a pre-dispatch order. It has no expiry, no ageing and no automatic
+     * release; only {@link #releaseHold} ends it. A parcel already booked cannot be held (the courier is not asked to
+     * pause), so the operator releases or cancels that consignment instead.
+     */
+    @Transactional
+    public Outcome placeHold(UUID orderId, String note) {
+        UUID actor = require(OrderPermissions.ORDER_HOLD);
+        OrderState state = load(orderId);
+        if (state.effective().contains("ON_HOLD")) {
+            throw new IllegalStateException("This order is already on hold.");
+        }
+        if (state.effective().contains("CANCELLED") || state.effective().contains("PENDING_CANCELLATION")) {
+            throw new IllegalStateException("A cancelled order cannot be put on hold.");
+        }
+        if (state.effective().stream().noneMatch(PRE_DISPATCH::contains)) {
+            throw new IllegalStateException("Only an order that has not been dispatched can be put on hold.");
+        }
+        if (state.liveShipment()) {
+            throw new IllegalStateException(
+                    "This order has a Steadfast consignment booked, so it cannot be held. Cancel the order if it must stop.");
+        }
+        jdbc.update("""
+                UPDATE channel_order SET hold_at = now(), hold_by = ?, hold_note = ?, version = version + 1
+                 WHERE id = ?
+                """, actor, blankToNull(note), orderId);
+        jdbc.update("""
+                INSERT INTO channel_order_amendment (channel_order_id, field, before_value, after_value, reason, amended_by)
+                VALUES (?, 'hold', NULL, 'ON_HOLD', ?, ?)
+                """, orderId, blankToNull(note), actor);
+        return new Outcome(orderId, "ON_HOLD", null);
+    }
+
+    @Transactional
+    public Outcome releaseHold(UUID orderId) {
+        UUID actor = require(OrderPermissions.ORDER_HOLD);
+        OrderState state = load(orderId);
+        if (!state.effective().contains("ON_HOLD")) {
+            throw new IllegalStateException("This order is not on hold.");
+        }
+        jdbc.update("""
+                UPDATE channel_order SET hold_at = NULL, hold_by = NULL, hold_note = NULL, version = version + 1
+                 WHERE id = ?
+                """, orderId);
+        jdbc.update("""
+                INSERT INTO channel_order_amendment (channel_order_id, field, before_value, after_value, reason, amended_by)
+                VALUES (?, 'hold', 'ON_HOLD', NULL, NULL, ?)
+                """, orderId, actor);
+        return new Outcome(orderId, load(orderId).effective().stream().findFirst().orElse("PENDING_VERIFICATION"), null);
     }
 
     private static String marketplaceNote(OrderState state, String verb) {

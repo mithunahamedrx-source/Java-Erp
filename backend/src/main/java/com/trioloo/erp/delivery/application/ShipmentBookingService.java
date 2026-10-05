@@ -74,6 +74,12 @@ public class ShipmentBookingService {
         Boolean cancelled = jdbc.queryForObject(
                 "SELECT channel_order_effective_statuses(?) ??| array['CANCELLED','PENDING_CANCELLATION']",
                 Boolean.class, channelOrderId);
+        Boolean held = jdbc.queryForObject(
+                "SELECT channel_order_effective_statuses(?) ?? 'ON_HOLD'", Boolean.class, channelOrderId);
+        if (Boolean.TRUE.equals(held)) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " is on hold, so it cannot be sent to Steadfast. Release the hold first.");
+        }
         if (Boolean.TRUE.equals(cancelled)) {
             throw new ShipmentBookingRefusedException(
                     "Order " + channelOrderId + " is cancelled, so it cannot be sent to Steadfast. "

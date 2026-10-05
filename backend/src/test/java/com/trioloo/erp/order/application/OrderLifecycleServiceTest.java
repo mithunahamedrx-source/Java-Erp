@@ -229,6 +229,46 @@ class OrderLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("Place hold / Release hold: attributed, never expires, refused with a booked parcel, cancel still works (BR-204)")
+    void holdsAndReleases() {
+        actingWith(OrderPermissions.ORDER_HOLD, OrderPermissions.ORDER_CANCEL);
+        UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+
+        assertThat(lifecycle.placeHold(id, "  waiting for the customer ").canonicalStatus()).isEqualTo("ON_HOLD");
+        assertThat(row(id).get("effective")).isEqualTo("[\"ON_HOLD\"]");
+        Map<String, Object> held = jdbc.queryForMap("SELECT hold_by, hold_note FROM channel_order WHERE id = ?", id);
+        assertThat(held.get("hold_by")).isEqualTo(actorId);
+        assertThat(held.get("hold_note")).isEqualTo("waiting for the customer");
+        // The history survives the release: one entry for the hold, one for the release.
+        assertThatThrownBy(() -> lifecycle.placeHold(id, null)).isInstanceOf(IllegalStateException.class).hasMessageContaining("already");
+
+        // A held order is not sent to the courier.
+        actingWith(com.trioloo.erp.delivery.application.DeliveryPermissions.SHIPMENT_BOOK);
+        assertThatThrownBy(() -> bookings.book(id)).hasMessageContaining("on hold");
+
+        actingWith(OrderPermissions.ORDER_HOLD, OrderPermissions.ORDER_CANCEL);
+        lifecycle.releaseHold(id);
+        assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_VERIFICATION\"]");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_order_amendment WHERE channel_order_id = ? AND field = 'hold'",
+                Integer.class, id)).isEqualTo(2);
+        assertThatThrownBy(() -> lifecycle.releaseHold(id)).isInstanceOf(IllegalStateException.class);
+
+        // A booked parcel cannot be held; a held order can still be cancelled, and that ends the hold.
+        UUID booked = marketplaceOrder("[\"READY_TO_SHIP\"]");
+        shipment(booked, "BOOKED");
+        assertThatThrownBy(() -> lifecycle.placeHold(booked, null)).hasMessageContaining("booked");
+        UUID other = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        lifecycle.placeHold(other, null);
+        lifecycle.cancel(other, "CHANGED_MIND", null);
+        assertThat(jdbc.queryForObject("SELECT hold_at IS NULL FROM channel_order WHERE id = ?", Boolean.class, other)).isTrue();
+
+        // The capability is its own.
+        actingWith(OrderPermissions.ORDER_CANCEL);
+        UUID third = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        assertThatThrownBy(() -> lifecycle.placeHold(third, null)).isInstanceOf(AccessDeniedByPermissionException.class);
+    }
+
+    @Test
     @DisplayName("keeps the two permissions independent and refuses without them")
     void permissionsAreIndependent() {
         UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
@@ -299,6 +339,11 @@ class OrderLifecycleServiceTest {
 
     private void clean() {
         String shops = "(SELECT id FROM channel_instance WHERE code LIKE 'LIFECYCLE-SHOP-%')";
+        // The amendment log refuses DELETE by design (holds are logged there), so its trigger is lifted for cleanup only.
+        jdbc.execute("ALTER TABLE channel_order_amendment DISABLE TRIGGER channel_order_amendment_no_change");
+        jdbc.update("DELETE FROM channel_order_amendment WHERE channel_order_id IN "
+                + "(SELECT id FROM channel_order WHERE channel_instance_id IN " + shops + ")");
+        jdbc.execute("ALTER TABLE channel_order_amendment ENABLE TRIGGER channel_order_amendment_no_change");
         jdbc.update("DELETE FROM shipment WHERE channel_order_id IN "
                 + "(SELECT id FROM channel_order WHERE channel_instance_id IN " + shops + ")");
         jdbc.update("DELETE FROM channel_order_item WHERE channel_order_id IN "

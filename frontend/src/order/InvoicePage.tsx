@@ -264,215 +264,227 @@ export default function InvoicePage(): React.JSX.Element {
       <div className="invoice-no-print">{header(`Sales invoice ${invoice.invoiceNumber}`, invoice.invoiceNumber)}</div>
 
       <div className="invoice-page" style={pageStyle}>
-        <article style={sheetStyle} data-testid="invoice-sheet">
-          {/* ── Header ─────────────────────────────────────────────── */}
-          <div style={headerStyle}>
-            <div>
-              {/* The complete approved logo as ONE image (ApplicationBrand's rule): never redrawn, never
-                  cropped, no text beside it. Height only, so the 643x184 ratio cannot be distorted. */}
-              <img src={logoUrl} alt="Trioloo" style={{ height: '50px', width: 'auto', display: 'block' }} data-testid="invoice-logo" />
-              <div style={sellerStyle}>
-                R.B Tower 4th Floor (Lift-3), 56/9, Panthapath, Dhaka-1205, Bangladesh<br />
-                {/* Owner instruction 2026-10-05: ONE number, shown with its icons instead of the words Call / WhatsApp. */}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} data-testid="invoice-contact">
-                  <PhoneIcon /> 01963-956474
-                  <span style={{ margin: '0 6px', color: '#9a9a9a' }}>·</span>
-                  <WhatsAppIcon /> 01963-956474
-                </span><br />
-                trioloobd@gmail.com &nbsp;·&nbsp; contract@trioloo.com.bd
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '18px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {/* Status chips from design reference */}
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '6px 13px',
-                    borderRadius: '999px',
-                    background: '#fdecec',
-                  }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#c12d2b' }}></span>
-                    <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.4px', color: '#c12d2b' }}>Due</span>
-                  </div>
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '6px 13px',
-                    borderRadius: '999px',
-                    background: invoice.consignmentReference ? '#e8f0fe' : '#fef3e2',
-                  }}>
-                    <span style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      background: invoice.consignmentReference ? '#2f6df0' : '#e08a16',
-                    }}></span>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      letterSpacing: '0.4px',
-                      color: invoice.consignmentReference ? '#1f55c4' : '#b56a09',
-                    }}>
-                      {invoice.consignmentReference ? 'Shipped' : 'Processing'}
-                    </span>
-                  </div>
-                </div>
-                <div style={invoiceWordStyle}>Invoice</div>
-              </div>
-              <div style={refBlockStyle}>
-                {/*
-                  ✅ THE TRIOLOO NUMBER IS THE IDENTITY AND SITS FIRST; the courier booking and the
-                  marketplace order number are REFERENCES after it — the product owner's ordering.
-                  🔴 EACH NAMES ITS ISSUING PARTY (`DB-013`): two parties may legitimately issue the
-                  same string, and the design's unlabelled `Parcel ID.` is exactly that ambiguity.
-                */}
-                <Ref label="No." value={invoice.invoiceNumber} strong />
-                <Ref label="Parcel ID." value={invoice.consignmentReference} />
-                <Ref label="Order Ref." value={invoice.externalOrderReference} />
-                <Ref label="Date" value={formatMoment(invoice.issuedAt) ?? '—'} />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Bill to + bank ─────────────────────────────────────── */}
-          <div style={billRowStyle}>
-            <div style={{ flex: 1 }}>
-              <div style={sectionLabelStyle}>Bill To</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '7px' }}>
-                <span style={customerNameStyle}>{invoice.customerName}</span>
-              </div>
-              <div style={sellerStyle}>
-                {invoice.customerAddress || 'Address not recorded'}<br />
-                {invoice.customerPhone || 'Contact not recorded'}
-              </div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={sectionLabelStyle}>Bank Details</div>
-              <table style={{ borderCollapse: 'collapse', fontSize: '13px', lineHeight: 1.6 }}>
-                <tbody>
-                  <BankRow label="Bank" value="Al-Arafah Islami Bank PLC" />
-                  <BankRow label="Branch" value="Panthapath, Dhaka" />
-                  <BankRow label="A/C Name" value="TRIOLOO" />
-                  <BankRow label="A/C No." value="0841020007385" mono />
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* ── Items ──────────────────────────────────────────────── */}
-          <div style={{ padding: '0 48px' }}>
-            <table style={itemsTableStyle}>
-              <thead>
-                <tr style={{ background: '#3f444d' }}>
-                  <th style={{ ...thStyle, textAlign: 'left' }}>Item Description</th>
-                  <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>Qty</th>
-                  <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>Unit Price</th>
-                  <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lines.map((line, index) => (
-                  <tr key={`${line.sku ?? line.name ?? 'line'}-${index}`} style={itemRowStyle}>
-                    <td style={{ padding: '16px' }}>
-                      <div style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>
-                        {line.name || 'Item not recorded'}
-                      </div>
-                      {line.sku ? <div style={skuStyle}>SKU: {line.sku}</div> : null}
-                    </td>
-                    <td style={{ textAlign: 'center', padding: '16px 12px', fontSize: '14px', color: '#4a4a4a' }}>
-                      {line.quantity}
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '16px', fontSize: '14px', color: '#4a4a4a' }}>
-                      {money(line.unitPrice)}
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '16px', fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
-                      {money(line.lineTotal)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── Totals + Warranty/Note ──────────────────────────────── */}
-          <div style={totalsRowStyle}>
-            <div style={{ flex: 1, paddingTop: '2px' }}>
-              {/* Nothing here is standing text: the warranty block exists only when the order carries a term. */}
-              {warrantyTermLabel(invoice.warrantyTerm) ? (
-                <>
-                  <div style={sectionLabelStyle}>Warranty</div>
-                  <div data-testid="invoice-warranty" style={{ ...noteStyle, marginBottom: '20px', fontWeight: 600 }}>
-                    Warranty: {warrantyTermLabel(invoice.warrantyTerm)}.
-                  </div>
-                </>
-              ) : null}
-              {/* The note is the one typed on the order; nothing is printed when there is none. */}
-              {invoice.note?.trim() ? (
-                <>
-                  <div style={sectionLabelStyle}>Note</div>
-                  <div data-testid="invoice-note" style={noteStyle}>{invoice.note}</div>
-                </>
-              ) : null}
-            </div>
-            <div data-testid="invoice-totals" style={{ width: '340px', fontVariantNumeric: 'tabular-nums' }}>
-              <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
-              {/* Owner instruction 2026-10-05 (BR-127): the advance sits straight after the subtotal. */}
-              {invoice.advanceReceived ? (
-                <TotalRow label="Advance received" value={`- ${money(invoice.advanceReceived)}`} testId="invoice-advance" />
-              ) : null}
-              <TotalRow label="Delivery &amp; Handling" value={money(invoice.deliveryCharge)} />
-              {/*
-                ✅ 0% IS A RATE AND IS PRINTED AS ONE — the product owner ratified it, and
-                `BD-307` permits VAT to be DISPLAYED while the ERP maintains no VAT accounts.
-                🔴 A NULL rate would mean nobody had decided, and the line says so rather than
-                printing a `0%` nobody chose (`SYS-034`).
-              */}
-              <TotalRow
-                label={invoice.taxRatePercent === null
-                  ? 'VAT / Tax'
-                  : `VAT / Tax (${trimRate(invoice.taxRatePercent)}%)`}
-                value={invoice.taxRatePercent === null ? 'Not applied' : money(invoice.taxAmount)}
-                bordered
-              />
-              <div style={balanceDueStyle}>
-                <span style={{
-                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  fontWeight: 500,
-                }}>
-                  Balance Due
-                </span>
-                <span
-                  style={{
-                    fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                    fontSize: '22px',
-                    fontWeight: 700,
-                  }}
-                  data-testid="invoice-total"
-                >
-                  {money(invoice.balanceDue ?? invoice.total)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div style={footerStyle}>
-            <div style={{
-              fontFamily: "'Space Grotesk', system-ui, sans-serif",
-              fontSize: '15px',
-              fontWeight: 600,
-            }}>
-              Thank you for your purchase.
-            </div>
-            <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
-          </div>
-        </article>
+        <InvoiceSheet invoice={invoice} />
       </div>
+    </>
+  );
+}
+
+/**
+ * One A4 sheet, rendered from an issued invoice snapshot and nothing else (`PRN-022`). Shared by the single-invoice
+ * page and the batch print page, so the two can never draw it differently.
+ */
+export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): React.JSX.Element {
+  return (
+    <>
+  <article style={sheetStyle} data-testid="invoice-sheet">
+    {/* ── Header ─────────────────────────────────────────────── */}
+    <div style={headerStyle}>
+      <div>
+        {/* The complete approved logo as ONE image (ApplicationBrand's rule): never redrawn, never
+            cropped, no text beside it. Height only, so the 643x184 ratio cannot be distorted. */}
+        <img src={logoUrl} alt="Trioloo" style={{ height: '50px', width: 'auto', display: 'block' }} data-testid="invoice-logo" />
+        <div style={sellerStyle}>
+          R.B Tower 4th Floor (Lift-3), 56/9, Panthapath, Dhaka-1205, Bangladesh<br />
+          {/* Owner instruction 2026-10-05: ONE number, shown with its icons instead of the words Call / WhatsApp. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} data-testid="invoice-contact">
+            <PhoneIcon /> 01963-956474
+            <span style={{ margin: '0 6px', color: '#9a9a9a' }}>·</span>
+            <WhatsAppIcon /> 01963-956474
+          </span><br />
+          trioloobd@gmail.com &nbsp;·&nbsp; contract@trioloo.com.bd
+        </div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '18px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {/* Status chips from design reference */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '6px 13px',
+              borderRadius: '999px',
+              background: '#fdecec',
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#c12d2b' }}></span>
+              <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.4px', color: '#c12d2b' }}>Due</span>
+            </div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '6px 13px',
+              borderRadius: '999px',
+              background: invoice.consignmentReference ? '#e8f0fe' : '#fef3e2',
+            }}>
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: invoice.consignmentReference ? '#2f6df0' : '#e08a16',
+              }}></span>
+              <span style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '0.4px',
+                color: invoice.consignmentReference ? '#1f55c4' : '#b56a09',
+              }}>
+                {invoice.consignmentReference ? 'Shipped' : 'Processing'}
+              </span>
+            </div>
+          </div>
+          <div style={invoiceWordStyle}>Invoice</div>
+        </div>
+        <div style={refBlockStyle}>
+          {/*
+            ✅ THE TRIOLOO NUMBER IS THE IDENTITY AND SITS FIRST; the courier booking and the
+            marketplace order number are REFERENCES after it — the product owner's ordering.
+            🔴 EACH NAMES ITS ISSUING PARTY (`DB-013`): two parties may legitimately issue the
+            same string, and the design's unlabelled `Parcel ID.` is exactly that ambiguity.
+          */}
+          <Ref label="No." value={invoice.invoiceNumber} strong />
+          <Ref label="Parcel ID." value={invoice.consignmentReference} />
+          <Ref label="Order Ref." value={invoice.externalOrderReference} />
+          <Ref label="Date" value={formatMoment(invoice.issuedAt) ?? '—'} />
+        </div>
+      </div>
+    </div>
+
+    {/* ── Bill to + bank ─────────────────────────────────────── */}
+    <div style={billRowStyle}>
+      <div style={{ flex: 1 }}>
+        <div style={sectionLabelStyle}>Bill To</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '7px' }}>
+          <span style={customerNameStyle}>{invoice.customerName}</span>
+        </div>
+        <div style={sellerStyle}>
+          {invoice.customerAddress || 'Address not recorded'}<br />
+          {invoice.customerPhone || 'Contact not recorded'}
+        </div>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={sectionLabelStyle}>Bank Details</div>
+        <table style={{ borderCollapse: 'collapse', fontSize: '13px', lineHeight: 1.6 }}>
+          <tbody>
+            <BankRow label="Bank" value="Al-Arafah Islami Bank PLC" />
+            <BankRow label="Branch" value="Panthapath, Dhaka" />
+            <BankRow label="A/C Name" value="TRIOLOO" />
+            <BankRow label="A/C No." value="0841020007385" mono />
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ── Items ──────────────────────────────────────────────── */}
+    <div style={{ padding: '0 48px' }}>
+      <table style={itemsTableStyle}>
+        <thead>
+          <tr style={{ background: '#3f444d' }}>
+            <th style={{ ...thStyle, textAlign: 'left' }}>Item Description</th>
+            <th style={{ ...thStyle, textAlign: 'center', width: '60px' }}>Qty</th>
+            <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>Unit Price</th>
+            <th style={{ ...thStyle, textAlign: 'right', width: '120px' }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoice.lines.map((line, index) => (
+            <tr key={`${line.sku ?? line.name ?? 'line'}-${index}`} style={itemRowStyle}>
+              <td style={{ padding: '16px' }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>
+                  {line.name || 'Item not recorded'}
+                </div>
+                {line.sku ? <div style={skuStyle}>SKU: {line.sku}</div> : null}
+              </td>
+              <td style={{ textAlign: 'center', padding: '16px 12px', fontSize: '14px', color: '#4a4a4a' }}>
+                {line.quantity}
+              </td>
+              <td style={{ textAlign: 'right', padding: '16px', fontSize: '14px', color: '#4a4a4a' }}>
+                {money(line.unitPrice)}
+              </td>
+              <td style={{ textAlign: 'right', padding: '16px', fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                {money(line.lineTotal)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {/* ── Totals + Warranty/Note ──────────────────────────────── */}
+    <div style={totalsRowStyle}>
+      <div style={{ flex: 1, paddingTop: '2px' }}>
+        {/* Nothing here is standing text: the warranty block exists only when the order carries a term. */}
+        {warrantyTermLabel(invoice.warrantyTerm) ? (
+          <>
+            <div style={sectionLabelStyle}>Warranty</div>
+            <div data-testid="invoice-warranty" style={{ ...noteStyle, marginBottom: '20px', fontWeight: 600 }}>
+              Warranty: {warrantyTermLabel(invoice.warrantyTerm)}.
+            </div>
+          </>
+        ) : null}
+        {/* The note is the one typed on the order; nothing is printed when there is none. */}
+        {invoice.note?.trim() ? (
+          <>
+            <div style={sectionLabelStyle}>Note</div>
+            <div data-testid="invoice-note" style={noteStyle}>{invoice.note}</div>
+          </>
+        ) : null}
+      </div>
+      <div data-testid="invoice-totals" style={{ width: '340px', fontVariantNumeric: 'tabular-nums' }}>
+        <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
+        {/* Owner instruction 2026-10-05 (BR-127): the advance sits straight after the subtotal. */}
+        {invoice.advanceReceived ? (
+          <TotalRow label="Advance received" value={`- ${money(invoice.advanceReceived)}`} testId="invoice-advance" />
+        ) : null}
+        <TotalRow label="Delivery &amp; Handling" value={money(invoice.deliveryCharge)} />
+        {/*
+          ✅ 0% IS A RATE AND IS PRINTED AS ONE — the product owner ratified it, and
+          `BD-307` permits VAT to be DISPLAYED while the ERP maintains no VAT accounts.
+          🔴 A NULL rate would mean nobody had decided, and the line says so rather than
+          printing a `0%` nobody chose (`SYS-034`).
+        */}
+        <TotalRow
+          label={invoice.taxRatePercent === null
+            ? 'VAT / Tax'
+            : `VAT / Tax (${trimRate(invoice.taxRatePercent)}%)`}
+          value={invoice.taxRatePercent === null ? 'Not applied' : money(invoice.taxAmount)}
+          bordered
+        />
+        <div style={balanceDueStyle}>
+          <span style={{
+            fontFamily: "'Space Grotesk', system-ui, sans-serif",
+            fontSize: '14px',
+            letterSpacing: '0.5px',
+            fontWeight: 500,
+          }}>
+            Balance Due
+          </span>
+          <span
+            style={{
+              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+              fontSize: '22px',
+              fontWeight: 700,
+            }}
+            data-testid="invoice-total"
+          >
+            {money(invoice.balanceDue ?? invoice.total)}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div style={footerStyle}>
+      <div style={{
+        fontFamily: "'Space Grotesk', system-ui, sans-serif",
+        fontSize: '15px',
+        fontWeight: 600,
+      }}>
+        Thank you for your purchase.
+      </div>
+      <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
+    </div>
+  </article>
     </>
   );
 }
@@ -576,7 +588,7 @@ type InvoiceLine = {
   readonly lineTotal: string | null;
 };
 
-type InvoiceView = {
+export type InvoiceView = {
   readonly invoiceNumber: string;
   readonly issuedAt: string;
   readonly customerName: string;
@@ -608,7 +620,7 @@ type InvoiceView = {
  * `@page` sets A4 with no browser margin so the sheet's own 48px padding is the margin — otherwise
  * the document prints inside two margins and loses its geometry.
  */
-const PRINT_CSS = `
+export const PRINT_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @media print {

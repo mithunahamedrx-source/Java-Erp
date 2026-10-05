@@ -48,7 +48,7 @@ import java.util.UUID;
 public class OrderAmendmentService {
 
     /** {@code BR-011} — the states from which a change is still available. */
-    private static final Set<String> PRE_DISPATCH = Set.of(
+    private static final Set<String> PRE_DISPATCH = Set.of("ON_HOLD", 
             "PENDING_VERIFICATION", "CONFIRMED", "RELEASED", "IN_FULFILLMENT", "READY_TO_SHIP",
             "COURIER_BOOKED");
 
