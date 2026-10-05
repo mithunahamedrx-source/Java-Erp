@@ -218,18 +218,22 @@ export const CONFIGURATION_STATE_ROLE = {
  * ever move it on its own.
  */
 export const ORDER_LIFECYCLE_ROLE = {
-  // "Awaiting the verification decision" — in-flight work that has just arrived (§7.8, §7.4).
-  PENDING_VERIFICATION: 'info',
-  CONFIRMED: 'neutral',
-  RELEASED: 'neutral',
-  IN_FULFILLMENT: 'neutral',
-  READY_TO_SHIP: 'neutral',
-  // Ratified into `SM-1` 2026-08-24 (`GAP-139`). Neutral for the same reason its four
-  // neighbours are: ordinary forward progress that owes nobody a decision.
-  COURIER_BOOKED: 'neutral',
-  DISPATCHED: 'neutral',
+  /*
+    ✅ PRODUCT-OWNER DECISION, 2026-10-05: the status colour must TELL THE STORY, with the icon.
+    This supersedes the paragraph above that kept the mid-lifecycle states neutral: amber = waiting for a
+    person or needing attention, blue = moving through the pipeline, green = delivered, grey = ended. Red stays
+    withheld: RULE 3.3.c reserves it for destructive ACTION semantics, so a failed delivery is amber with a warning icon.
+  */
+  // "Awaiting the verification decision" — waiting for a person (§7.8, §7.4).
+  PENDING_VERIFICATION: 'warning',
+  CONFIRMED: 'info',
+  RELEASED: 'info',
+  IN_FULFILLMENT: 'info',
+  READY_TO_SHIP: 'info',
+  COURIER_BOOKED: 'info',
+  DISPATCHED: 'info',
   DELIVERED: 'success',
-  // "Attempted and failed — not terminal". Recoverable: §10.4 re-attempts, so warning not danger.
+  // "Attempted and failed — not terminal": needs attention, recoverable (§10.4). Amber with a warning icon.
   FAILED_DELIVERY: 'warning',
   // "Goods came back to Trioloo" — owes QC disposition and a refund decision.
   RETURNED: 'warning',

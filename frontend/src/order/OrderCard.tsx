@@ -114,10 +114,11 @@ export default function OrderCard({
             {customerName(order)}
           </Link>
           {/* ⚠ An absent contact says so. It never renders as an empty gap (`BR-134`). */}
-          <span className="tabular-nums" style={metaStyle}>
+          <span className="tabular-nums" style={{ ...metaStyle, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginRight: 'var(--space-5)' }}>
+            <PhoneIcon />
             {order.shippingPhone || 'Contact not recorded'}
           </span>
-          <span style={metaStyle}>{displayMoment(order.providerCreatedAt, true)}</span>
+          <span style={{ ...metaStyle, marginRight: 'var(--space-5)' }}>{displayMoment(order.providerCreatedAt, true)}</span>
           <span style={metaStyle}>{order.channelName ?? 'Shop not recorded'}</span>
           {/* V30 — a recorded attribute of how the order was captured; a label, not a state. */}
           {orderTypeLabel(order.orderTag) ? (
@@ -132,7 +133,8 @@ export default function OrderCard({
           </span>
         </div>
 
-        <span style={chipStyle(role)} title={stageNote(canonical) ?? undefined}>
+        <span style={{ ...chipStyle(role), ...chipWithIconStyle }} title={stageNote(canonical) ?? undefined} data-testid="order-status-chip">
+          <StatusIcon state={canonical} />
           {canonical ? canonicalStatusLabel(canonical) : 'Status not translated'}
         </span>
         {/*
@@ -140,8 +142,11 @@ export default function OrderCard({
           carries the `SM-5` PAYMENT POSITION, derived only where `SM-5` itself makes the
           derivation automatic. See `paymentPosition` for why nothing past `DUE` is ever claimed.
         */}
-        <span style={chipStyle(paymentRole)} title={payment.title}>{payment.label}</span>
-        <span style={{ ...metaStyle, flexShrink: 0 }}>{order.paymentMethod || 'Payment not recorded'}</span>
+        <span style={{ ...chipStyle(paymentRole), ...chipWithIconStyle }} title={payment.title}>
+          <CoinIcon />
+          {payment.label}
+        </span>
+        <span style={{ ...metaStyle, flexShrink: 0, fontSize: '10.5px' }}>{order.paymentMethod || 'Payment not recorded'}</span>
         <Divider height={20} />
         {/*
           🔴 THE TRIOLOO INVOICE NUMBER — top right, after the payment-method divider, bold
@@ -187,7 +192,8 @@ export default function OrderCard({
             consignment says so rather than rendering a blank: `BR-134` — absent is not empty, and
             `FRAME 06` requires the shipment state or an explicit "not created".
           */}
-          <div style={subLineStyle} data-testid="order-courier-line">
+          <div style={{ ...subLineStyle, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }} data-testid="order-courier-line">
+            <TruckIcon active={Boolean(order.courierConsignmentId)} />
             {order.courierConsignmentId ? (
               <>
                 Steadfast booking{' '}
@@ -220,8 +226,13 @@ export default function OrderCard({
               Charges are NOT held for an imported order, and `INV-32.4` requires an unknown cost to
               render UNKNOWN rather than zero. The prototype's figures are sample data, not facts.
             */}
+            <div style={heroStyle} data-testid="order-sale-hero">
+              <div style={heroLabelStyle}>Sale</div>
+              <div className="tabular-nums" style={heroValueStyle}>
+                <HeroMoney text={displayMoney(order.price)} />
+              </div>
+            </div>
             <div style={demotedGroupStyle}>
-              <Demoted label="Sale" value={displayMoney(order.price)} />
               <Demoted label="Cost" value="Unknown" />
               <Demoted label="Charges" value="Unknown" />
             </div>
@@ -275,9 +286,15 @@ export default function OrderCard({
           identifier of the document it would produce. 🔴 The number is not lost — it is on band 1
           as a fact of the order, which is where an identifier belongs.
         */}
-        <Link to={`/sales/orders/${order.id}/invoice`} state={{ from: 'list', autoPrint: true }} style={invoiceStyle} data-testid="order-invoice-action">
+        <Link
+          to={`/sales/orders/${order.id}/invoice`}
+          state={{ from: 'list', autoPrint: true }}
+          style={invoiceStyle}
+          data-testid="order-invoice-action"
+          aria-label="Print invoice"
+          title="Print invoice"
+        >
           <DownloadIcon />
-          INVOICE
         </Link>
         <span style={addressStyle}>
           <PinIcon />
@@ -503,13 +520,98 @@ function PersonIcon(): React.JSX.Element {
   );
 }
 
+/** One small glyph per canonical state; the stroke takes the chip's own ink, so icon and colour say the same thing. */
+function StatusIcon({ state }: { readonly state: string | null }): React.JSX.Element | null {
+  const common = {
+    width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+    strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true, style: { flexShrink: 0 },
+  };
+  switch (state) {
+    case 'PENDING_VERIFICATION':
+      return (<svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
+    case 'CONFIRMED':
+    case 'RELEASED':
+    case 'IN_FULFILLMENT':
+    case 'READY_TO_SHIP':
+    case 'COURIER_BOOKED':
+      return (<svg {...common}><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /></svg>);
+    case 'DISPATCHED':
+      return (<svg {...common}><path d="M3 7h11v9H3z" /><path d="M14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.6" /><circle cx="17" cy="18" r="1.6" /></svg>);
+    case 'DELIVERED':
+    case 'CLOSED':
+      return (<svg {...common}><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>);
+    case 'FAILED_DELIVERY':
+      return (<svg {...common}><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18v.01" /></svg>);
+    case 'RETURNED':
+      return (<svg {...common}><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>);
+    case 'ON_HOLD':
+      return (<svg {...common}><path d="M9 5v14M15 5v14" /></svg>);
+    case 'PENDING_CANCELLATION':
+      return (<svg {...common}><path d="M6 3h12M6 21h12" /><path d="M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" /></svg>);
+    case 'CANCELLED':
+      return (<svg {...common}><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></svg>);
+    default:
+      return null;
+  }
+}
+
+/** The currency sign is set smaller than the figure, so the number is the hero and the sign is its quiet label. */
+function HeroMoney({ text }: { readonly text: string }): React.JSX.Element {
+  const match = /^(\D*?)\s*(\d.*)$/.exec(text);
+  if (!match) {
+    return <>{text}</>;
+  }
+  return (
+    <>
+      <span style={{ fontSize: '0.75em', fontWeight: 600, marginRight: '0.15em', verticalAlign: '0.05em' }}>{match[1]}</span>
+      {match[2]}
+    </>
+  );
+}
+
+/** A bare, black, minimal mobile phone: a rounded outline and a speaker dot. */
+function PhoneIcon(): React.JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-primary)" strokeWidth="1.7"
+         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="3" />
+      <path d="M10.5 18.5h3" />
+    </svg>
+  );
+}
+
+function CoinIcon(): React.JSX.Element {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 9.5c-.6-.8-1.6-1.2-2.6-1.2-1.4 0-2.4.8-2.4 1.9 0 2.6 5 1.2 5 3.8 0 1.1-1.1 1.9-2.5 1.9-1.1 0-2.2-.5-2.8-1.4M12 6.5v1.8M12 15.7v1.8" />
+    </svg>
+  );
+}
+
+/** Green-blue (the courier's own ink) once a parcel is booked; muted while there is no booking. */
+function TruckIcon({ active }: { readonly active: boolean }): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke={active ? 'var(--color-status-dispatched-fg)' : 'var(--color-text-demoted)'}
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M3 7h11v9H3z" />
+      <path d="M14 10h4l3 3v3h-7z" />
+      <circle cx="7" cy="18" r="1.6" />
+      <circle cx="17" cy="18" r="1.6" />
+    </svg>
+  );
+}
+
+/** A minimal rounded document with a folded corner and two lines: the printable invoice. */
 function DownloadIcon(): React.JSX.Element {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <path d="M12 4v10" />
-      <path d="M8 11l4 4 4-4" />
-      <path d="M5 19h14" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
     </svg>
   );
 }
@@ -623,6 +725,38 @@ const monoStyle: React.CSSProperties = {
   fontSize: '11.5px',
 };
 
+/* The header chips are quiet: small type, small icon. The invoice number is the hero of this corner. */
+const chipWithIconStyle: React.CSSProperties = {
+  alignItems: 'center',
+  gap: '4px',
+  fontSize: '10px',
+  fontWeight: 600,
+  padding: '1px 7px',
+};
+
+/* Sale is the hero of the price section: the largest, heaviest figure on the card. */
+const heroStyle: React.CSSProperties = {
+  paddingRight: 'var(--space-6)',
+  marginRight: 'var(--space-2)',
+  borderRight: '1px solid var(--color-border-card)',
+  flexShrink: 0,
+};
+
+const heroLabelStyle: React.CSSProperties = {
+  fontSize: '11.5px',
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  color: 'var(--color-text-muted)',
+};
+
+const heroValueStyle: React.CSSProperties = {
+  fontSize: '24px',
+  fontWeight: 800,
+  lineHeight: 1.15,
+  color: 'var(--color-text-primary)',
+};
+
 function chipStyle(tone: string): React.CSSProperties {
   return {
     display: 'inline-flex',
@@ -668,8 +802,9 @@ const externalChipStyle: React.CSSProperties = {
 const invoiceNumberStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
   fontFamily: 'var(--font-family-mono)',
-  fontSize: '13px',
-  fontWeight: 700,
+  fontSize: '16px',
+  fontWeight: 800,
+  letterSpacing: '0.02em',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
   flexShrink: 0,
@@ -752,13 +887,13 @@ const demotedGroupStyle: React.CSSProperties = {
 };
 
 const demotedLabelStyle: React.CSSProperties = {
-  fontSize: '10px',
+  fontSize: '9px',
   fontWeight: 500,
   color: 'var(--color-text-demoted)',
 };
 
 const demotedValueStyle: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: '10px',
   fontWeight: 600,
   color: 'var(--color-text-muted)',
 };
@@ -777,13 +912,13 @@ const primaryGroupStyle: React.CSSProperties = {
   is recorded here rather than smuggled in as a literal.
 */
 const primaryLabelStyle: React.CSSProperties = {
-  fontSize: '11.5px',
+  fontSize: '9.5px',
   fontWeight: 500,
   color: 'var(--color-text-muted)',
 };
 
 const primaryValueStyle: React.CSSProperties = {
-  fontSize: '15px',
+  fontSize: '11.5px',
   fontWeight: 700,
   color: 'var(--color-text-primary)',
 };
@@ -837,13 +972,14 @@ const stripStyle: React.CSSProperties = {
   token's NAME says status and its use here is an action.
 */
 const invoiceStyle: React.CSSProperties = {
-  fontSize: '10.5px',
-  fontWeight: 700,
-  letterSpacing: '0.04em',
   color: 'var(--color-status-dispatched-fg)',
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 'var(--space-2)',
+  justifyContent: 'center',
+  width: '26px',
+  height: '26px',
+  borderRadius: '999px',
+  background: 'var(--color-status-dispatched-bg)',
   flexShrink: 0,
   textDecoration: 'none',
 };

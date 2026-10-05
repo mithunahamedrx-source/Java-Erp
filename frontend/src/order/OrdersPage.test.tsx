@@ -358,6 +358,12 @@ describe('Orders first slice', () => {
     }
     // And the actions are OUTSIDE it.
     expect(economics.contains(screen.getByRole('link', { name: 'View' }))).toBe(false);
+
+    // The Sale figure is the hero: its currency sign is a small sign beside the number, which keeps its size.
+    const hero = screen.getByTestId('order-sale-hero');
+    const sign = hero.querySelector('span') as HTMLElement;
+    expect(sign.textContent).toBe('৳');
+    expect(sign.style.fontSize).toBe('0.75em');
   });
 
   it('names the issuing party on every external identifier', async () => {
@@ -440,7 +446,8 @@ describe('Orders first slice', () => {
 
     // ⚠ `OSC-056.g` — the invoice element in the bottom strip is an ACTION, not a caption, and
     // the MARKETPLACE's invoice number is not printed beside it.
-    expect(card.textContent).toContain('INVOICE');
+    // The invoice action is an icon only (owner, 2026-10-05): named for assistive tech, no printed word.
+    expect(within(card).getByTestId('order-invoice-action').getAttribute('aria-label')).toBe('Print invoice');
     expect(card.textContent).not.toContain('INV-2026-0041');
   });
 
@@ -453,7 +460,7 @@ describe('Orders first slice', () => {
     // ✅ `OSC-057.b` — the Trioloo-issued number, prefixed and upper-cased for display.
     expect(invoice.textContent).toBe('INV: TR0001');
     expect(invoice.style.textTransform).toBe('uppercase');
-    expect(invoice.style.fontWeight).toBe('700');
+    expect(invoice.style.fontWeight).toBe('800');
 
     // 🔴 The `order_number` column holds a COPY of Daraz's own id on every production row, so
     // showing it would print the marketplace's number twice and dress the copy as a Trioloo
