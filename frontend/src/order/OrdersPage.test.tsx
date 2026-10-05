@@ -1014,6 +1014,12 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
     await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('1 order cancelled'));
   });
 
+  it('shows the Steadfast parcel id, tagged Parcel ID, once the order is booked', async () => {
+    renderWith({ ...ORDER_ROW, courierConsignmentId: '287650820', courierTrackingCode: 'SFR261005STD576A42BD' });
+    const line = await screen.findByTestId('order-courier-line');
+    expect(line.textContent).toBe('Parcel ID 287650820');
+  });
+
   it('offers Return Received only on a failed delivery, takes who received it and a note, and posts (BR-199)', async () => {
     const { calls } = renderWith({ ...ORDER_ROW, canonicalStatuses: ['FAILED_DELIVERY'] });
     await screen.findByTestId('order-card');

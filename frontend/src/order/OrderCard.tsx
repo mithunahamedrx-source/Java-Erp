@@ -189,12 +189,11 @@ export default function OrderCard({
           */}
           <div style={{ ...subLineStyle, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }} data-testid="order-courier-line">
             <TruckIcon active={Boolean(order.courierConsignmentId)} />
-            {order.courierTrackingCode ? (
+            {order.courierConsignmentId ? (
               <>
-                Steadfast <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>{order.courierTrackingCode}</span>
+                {/* Owner, 2026-10-05: with a Steadfast booking the card shows the PARCEL ID - the booking id. */}
+                Parcel ID <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>{order.courierConsignmentId}</span>
               </>
-            ) : order.courierConsignmentId ? (
-              <>Steadfast tracking not issued yet</>
             ) : order.trackingCode && order.channelType?.toUpperCase() === 'DARAZ' ? (
               <>
                 Daraz <span style={monoStyle}>{order.trackingCode}</span>

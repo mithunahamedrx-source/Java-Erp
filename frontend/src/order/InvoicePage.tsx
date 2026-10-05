@@ -481,6 +481,12 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
         fontWeight: 600,
       }}>
         Thank you for your purchase.
+        {/* Owner, 2026-10-05: once the order is booked with Steadfast, its Parcel ID is printed large on the next line. */}
+        {invoice.consignmentReference ? (
+          <div data-testid="invoice-footer-parcel" style={{ marginTop: '22px', fontSize: '20px', fontWeight: 800, letterSpacing: '0.02em' }}>
+            Steadfast Parcel ID {invoice.consignmentReference}
+          </div>
+        ) : null}
       </div>
       <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
     </div>

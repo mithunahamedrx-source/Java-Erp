@@ -155,7 +155,17 @@ public class SalesInvoiceService {
         requireAuthority(AccountingPermissions.SALES_INVOICE_VIEW);
         return Optional.ofNullable(jdbc.query("""
                 SELECT i.invoice_number, i.issued_at, i.customer_name, i.customer_phone, i.customer_address,
-                       i.external_order_reference, i.consignment_reference, i.subtotal, i.delivery_charge,
+                       i.external_order_reference,
+                       /*
+                         Owner, 2026-10-05: the Parcel ID is the Steadfast booking, which usually happens AFTER the invoice
+                         was issued - so, like the advance, it is read from the order's CURRENT shipment and falls back to the
+                         value stored at issue. Every other figure stays the issued snapshot (INV-39.2).
+                       */
+                       coalesce((SELECT s.consignment_id FROM shipment s
+                                  WHERE s.channel_order_id = i.channel_order_id AND s.consignment_id IS NOT NULL
+                                    AND s.state <> 'CANCELLED'
+                                  ORDER BY s.created_at DESC LIMIT 1), i.consignment_reference) AS consignment_reference,
+                       i.subtotal, i.delivery_charge,
                        i.tax_rate_percent, i.tax_amount, i.total,
                        o.advance_received, o.warranty_term, o.buyer_note, i.lines_json::text AS lines
                   FROM sales_invoice i JOIN channel_order o ON o.id = i.channel_order_id

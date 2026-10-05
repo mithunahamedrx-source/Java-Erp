@@ -208,6 +208,42 @@ describe('Sales invoice printable', () => {
     expect(screen.queryByTestId('invoice-note')).toBeNull();
   });
 
+  it('prints the Steadfast Parcel ID in the reference block and, large, under the thank-you line once booked', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0303', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: '287650820', subtotal: '100.00', deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '100.00', lines: [],
+        },
+        200,
+      ),
+    );
+    const sheet = await screen.findByTestId('invoice-sheet');
+    expect(sheet.textContent).toContain('287650820');
+    const footer = screen.getByTestId('invoice-footer-parcel');
+    expect(footer.textContent).toBe('Steadfast Parcel ID 287650820');
+    // It sits under the thank-you line, not beside it.
+    expect(footer.parentElement?.textContent).toContain('Thank you for your purchase.');
+  });
+
+  it('prints no parcel line in the footer when the order is not booked', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0304', issuedAt: '2026-10-05T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '100.00', deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '100.00', lines: [],
+        },
+        200,
+      ),
+    );
+    await screen.findByTestId('invoice-sheet');
+    expect(screen.queryByTestId('invoice-footer-parcel')).toBeNull();
+  });
+
   it('shows no Advance row when none was recorded', async () => {
     renderWith(() =>
       json(

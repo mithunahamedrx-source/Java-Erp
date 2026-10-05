@@ -119,6 +119,21 @@ class SalesInvoiceServiceTest {
     }
 
     @Test
+    @DisplayName("the Parcel ID follows the Steadfast booking even when it was made after the invoice was issued")
+    void parcelIdIsReadFromTheCurrentShipment() {
+        invoices.issue(orderId);
+        assertThat(invoices.forRendering(orderId).orElseThrow().consignmentReference()).isNull();
+
+        jdbc.update("""
+                INSERT INTO shipment (id, channel_order_id, trioloo_invoice_number, state, consignment_id,
+                                      recipient_name, recipient_phone, recipient_address, cod_amount)
+                VALUES (gen_random_uuid(), ?, 'TR-INV-PARCEL', 'BOOKED', '287650820', 'T', '01700000000', 'Dhaka', 100.00)
+                """, orderId);
+
+        assertThat(invoices.forRendering(orderId).orElseThrow().consignmentReference()).isEqualTo("287650820");
+    }
+
+    @Test
     @DisplayName("records the ratified 0% as a RATE, not as an absence")
     void recordsTheRatifiedZeroRate() {
         /*
