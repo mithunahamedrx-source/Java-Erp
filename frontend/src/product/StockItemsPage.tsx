@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StockItemCard, StockItemSummaryStrip } from './StockItemCard';
-import { exportUrl, fetchSummary, listStockItems } from './stockItemApi';
+import type { StockItemCardActions } from './StockItemCard';
+import StockItemEditDialog from './StockItemEditDialog';
+import { exportUrl, fetchSummary, listStockItems, updateStockItem } from './stockItemApi';
 import type { StockItem, StockItemFilters, StockItemSummary } from './stockItemApi';
 import { ApiError } from '../platform/api';
 import { useAuth } from '../auth/AuthContext';
@@ -41,12 +43,16 @@ export default function StockItemsPage(): React.JSX.Element {
   const [items, setItems] = useState<readonly StockItem[]>([]);
   const [summary, setSummary] = useState<StockItemSummary | null>(null);
   const [page, setPage] = useState(0);
-  const [size] = useState(50);
+  // Owner instruction, 2026-10-05: ten cards to a page.
+  const [size] = useState(10);
+  const [sort, setSort] = useState('stock:DESC');
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
+  const [editing, setEditing] = useState<StockItem | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,7 +60,7 @@ export default function StockItemsPage(): React.JSX.Element {
     setForbidden(false);
     try {
       const [pageResult, summaryResult] = await Promise.all([
-        listStockItems(filters, page, size, 'inventorySku', 'ASC'),
+        listStockItems(filters, page, size, sort.split(':')[0] as string, sort.endsWith(':ASC') ? 'ASC' : 'DESC'),
         fetchSummary(filters),
       ]);
       setItems(pageResult.content);
@@ -74,11 +80,60 @@ export default function StockItemsPage(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, size]);
+  }, [filters, page, size, sort]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * A quick action sends the item's CURRENT fields with the one change, so nothing else on the record is
+   * touched (an update writes every descriptive field it is given). The server still decides: a refusal
+   * (for example archiving an item an active Build Template uses, `PRD-065`) is shown in place.
+   */
+  const quickUpdate = async (item: StockItem, patch: Record<string, unknown>, done: string): Promise<void> => {
+    try {
+      await updateStockItem(item.id, {
+        technicalName: item.technicalName,
+        unitOfMeasure: item.unitOfMeasure,
+        brand: item.brand,
+        inventoryCategory: item.inventoryCategory,
+        barcode: item.barcode,
+        serializationPolicy: item.serializationPolicy,
+        componentClass: item.componentClass,
+        recordStatus: item.recordStatus,
+        version: item.version,
+        ...patch,
+      });
+      setNotice({ tone: 'ok', text: `${item.inventorySku}: ${done}` });
+      await load();
+    } catch (cause) {
+      const payload = cause instanceof ApiError ? (cause.payload as { message?: string } | null) : null;
+      setNotice({ tone: 'error', text: `${item.inventorySku}: ${payload?.message ?? (cause instanceof Error ? cause.message : 'refused')}` });
+    }
+  };
+
+  const cardActions = useMemo<StockItemCardActions>(() => ({
+    mayManage,
+    onEdit: (item) => setEditing(item),
+    onSetStatus: (item, status) => void quickUpdate(item, { recordStatus: status },
+      status === 'ACTIVE' ? 'now active.' : status === 'SUSPENDED' ? 'now inactive.' : 'archived.'),
+    onSetDiscontinued: (item, discontinued) => void quickUpdate(item, { discontinued },
+      discontinued ? 'marked as discontinued.' : 'discontinued mark removed.'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [mayManage, load]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((current) => {
+        const next = searchDraft.trim();
+        if ((current.search ?? '') === next) return current;
+        setPage(0);
+        return { ...current, search: next };
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchDraft]);
 
   const applyFilter = (patch: Partial<StockItemFilters>): void => {
     setPage(0);
@@ -150,7 +205,8 @@ export default function StockItemsPage(): React.JSX.Element {
           aria-label="Search Stock Items"
           style={{
             height: 'var(--control-height-form)',
-            width: '280px',
+            flex: '1 1 160px',
+            minWidth: '140px',
             borderRadius: 'var(--radius-control)',
             border: '1px solid var(--color-border-control)',
             padding: '0 12px',
@@ -168,20 +224,74 @@ export default function StockItemsPage(): React.JSX.Element {
           onChange={(v) => applyFilter({ serializationPolicy: v as StockItemFilters['serializationPolicy'] })}
           options={['', 'NOT_SERIALIZED', 'SERIALIZED']} />
 
-        <label
-          data-testid="filter-out-of-stock"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: '13px' }}
-        >
-          <input
-            type="checkbox"
-            checked={filters.outOfStockOnly ?? false}
-            onChange={(event) => applyFilter({ outOfStockOnly: event.target.checked })}
-            style={{ width: '16px', height: '16px', accentColor: 'var(--color-ink)' }}
-          />
+        <label data-testid="filter-out-of-stock" style={checkLabel}>
+          <input type="checkbox" checked={filters.outOfStockOnly ?? false}
+            onChange={(event) => applyFilter({ outOfStockOnly: event.target.checked, inStockOnly: false })}
+            style={{ width: '16px', height: '16px', accentColor: 'var(--color-ink)' }} />
           Out of stock only
         </label>
+        <label data-testid="filter-in-stock" style={checkLabel}>
+          <input type="checkbox" checked={filters.inStockOnly ?? false}
+            onChange={(event) => applyFilter({ inStockOnly: event.target.checked, outOfStockOnly: false })}
+            style={{ width: '16px', height: '16px', accentColor: 'var(--color-ink)' }} />
+          In stock only
+        </label>
+
+        <Select label="Discontinued" testId="filter-discontinued" value={filters.discontinued ?? ''}
+          onChange={(v) => applyFilter({ discontinued: v as StockItemFilters['discontinued'] })}
+          options={['', 'only', 'hide']}
+          labels={{ only: 'Discontinued only', hide: 'Hide discontinued' }} />
+
+        <input
+          data-testid="filter-category"
+          defaultValue={filters.category ?? ''}
+          onChange={(event) => applyFilter({ category: event.target.value })}
+          placeholder="Category"
+          aria-label="Category"
+          style={smallInput}
+        />
+        <input
+          data-testid="filter-brand"
+          defaultValue={filters.brand ?? ''}
+          onChange={(event) => applyFilter({ brand: event.target.value })}
+          placeholder="Brand"
+          aria-label="Brand"
+          style={smallInput}
+        />
+
+        <Select label="Sort" testId="sort-by" value={sort} onChange={setSort}
+          options={['stock:DESC', 'stock:ASC', 'technicalName:ASC', 'inventorySku:ASC', 'cost:DESC', 'updatedAt:DESC']}
+          labels={{
+            'stock:DESC': 'Sort: stock, most first', 'stock:ASC': 'Sort: stock, least first',
+            'technicalName:ASC': 'Sort: name A–Z', 'inventorySku:ASC': 'Sort: SKU',
+            'cost:DESC': 'Sort: cost, high first', 'updatedAt:DESC': 'Sort: recently changed',
+          }} />
+
+        {filtersActive && (
+          <button type="button" data-testid="clear-filters"
+            onClick={() => { setSearchDraft(''); setPage(0); setFilters({}); }}
+            style={{ ...buttonStyle('secondary', 'row-action'), padding: '0 12px' }}>
+            Clear
+          </button>
+        )}
 
       </div>
+
+      {notice ? (
+        <div role={notice.tone === 'error' ? 'alert' : 'status'} data-testid="stock-notice"
+          style={{
+            marginBottom: 'var(--space-4)', padding: '10px 14px', borderRadius: 'var(--radius-control)', fontSize: '13px',
+            fontWeight: 600, background: notice.tone === 'error' ? 'var(--color-status-cancelled-bg)' : 'var(--color-status-confirmed-bg)',
+            color: notice.tone === 'error' ? 'var(--color-status-cancelled-fg)' : 'var(--color-status-confirmed-fg)',
+          }}>
+          {notice.text}
+        </div>
+      ) : null}
+
+      {editing ? (
+        <StockItemEditDialog item={editing} onClose={() => setEditing(null)}
+          onSaved={() => { setNotice({ tone: 'ok', text: `${editing.inventorySku}: saved.` }); setEditing(null); void load(); }} />
+      ) : null}
 
       {/* Results - CARDS. 🔴 Never a table. */}
       {loading ? (
@@ -220,7 +330,7 @@ export default function StockItemsPage(): React.JSX.Element {
             style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
           >
             {items.map((item) => (
-              <StockItemCard key={item.id} item={item} />
+              <StockItemCard key={item.id} item={item} actions={cardActions} />
             ))}
           </div>
         </OperationalRegion>
@@ -233,7 +343,7 @@ export default function StockItemsPage(): React.JSX.Element {
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-7)' }}
         >
           <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-            {page * size + 1}–{Math.min((page + 1) * size, totalElements)} of {totalElements}
+            {page * size + 1}–{Math.min((page + 1) * size, totalElements)} of {totalElements} · Page {page + 1} of {Math.max(totalPages, 1)}
           </span>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button type="button" data-testid="page-prev" disabled={page === 0}
@@ -260,6 +370,20 @@ const headerPrimary: React.CSSProperties = {
   textDecoration: 'none',
 };
 
+const checkLabel: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: '13px', whiteSpace: 'nowrap' };
+
+const smallInput: React.CSSProperties = {
+  height: 'var(--control-height-row-action)',
+  width: '92px',
+  flexShrink: 1,
+  borderRadius: 'var(--radius-control)',
+  border: '1px solid var(--color-border-control)',
+  padding: '0 10px',
+  fontSize: '13px',
+  fontFamily: 'inherit',
+  background: 'var(--color-surface)',
+};
+
 const pageButton: React.CSSProperties = {
   width: '32px',
   height: '32px',
@@ -277,12 +401,14 @@ function Select({
   value,
   onChange,
   options,
+  labels = {},
 }: {
   readonly label: string;
   readonly testId: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly options: readonly string[];
+  readonly labels?: Readonly<Record<string, string>>;
 }): React.JSX.Element {
   return (
     <select
@@ -302,7 +428,7 @@ function Select({
     >
       {options.map((option) => (
         <option key={option} value={option}>
-          {option === '' ? `${label}: all` : option}
+          {option === '' ? `${label}: all` : (labels[option] ?? option)}
         </option>
       ))}
     </select>

@@ -69,6 +69,9 @@ export type StockItemFilters = {
   serializationPolicy?: SerializationPolicy | '';
   componentClass?: string;
   outOfStockOnly?: boolean;
+  inStockOnly?: boolean;
+  /** `PRD-207` — '' both, 'only' just the discontinued, 'hide' everything else. */
+  discontinued?: '' | 'only' | 'hide';
 };
 
 export type ImportOutcome = {
@@ -102,6 +105,9 @@ function query(filters: StockItemFilters): string {
   if (filters.serializationPolicy) params.set('serializationPolicy', filters.serializationPolicy);
   if (filters.componentClass) params.set('componentClass', filters.componentClass);
   if (filters.outOfStockOnly) params.set('outOfStockOnly', 'true');
+  if (filters.inStockOnly) params.set('inStockOnly', 'true');
+  if (filters.discontinued === 'only') params.set('discontinued', 'true');
+  if (filters.discontinued === 'hide') params.set('discontinued', 'false');
   return params.toString();
 }
 
@@ -162,4 +168,20 @@ export async function confirmImport(planId: string): Promise<ImportResult> {
     method: 'POST',
     body: JSON.stringify({ planId }),
   });
+}
+
+/**
+ * Money for DISPLAY: two decimals (`৳2500.00`), taken from the server's decimal STRING without ever becoming a
+ * JavaScript Number (`TEC-015`). Extra decimals are dropped only when they are all zeros; a figure that really
+ * has more precision is shown in full rather than rounded (`DB-079`). Formatting precision is not calculation
+ * precision.
+ */
+export function displayMoney(value: string | null | undefined): string {
+  if (value == null) return '';
+  const match = /^(-?\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) return value;
+  const whole = match[1] as string;
+  const fraction = match[2] ?? '';
+  const trimmed = fraction.replace(/0+$/, '');
+  return `${whole}.${trimmed.length <= 2 ? trimmed.padEnd(2, '0') : trimmed}`;
 }

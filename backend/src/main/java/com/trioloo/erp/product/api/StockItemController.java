@@ -64,8 +64,8 @@ public class StockItemController {
     public Map<String, Object> list(StockItemQuery query,
                                     @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "50") int size,
-                                    @RequestParam(defaultValue = "inventorySku") String sort,
-                                    @RequestParam(defaultValue = "ASC") String direction) {
+                                    @RequestParam(defaultValue = "stock") String sort,
+                                    @RequestParam(defaultValue = "DESC") String direction) {
         Sort.Direction dir = "DESC".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
         Page<StockItemView> result = queries.list(query.toFilter(),
                 PageRequest.of(Math.max(page, 0), clampSize(size), Sort.by(dir, safeSort(sort))));
@@ -182,7 +182,7 @@ public class StockItemController {
     }
 
     private static String safeSort(String field) {
-        return List.of("inventorySku", "technicalName", "brand", "inventoryCategory",
+        return List.of("stock", "cost", "inventorySku", "technicalName", "brand", "inventoryCategory",
                 "recordStatus", "updatedAt").contains(field) ? field : "inventorySku";
     }
 
@@ -191,11 +191,12 @@ public class StockItemController {
     /** Query parameters for list, summary and export — one shape, so their scopes agree. */
     public record StockItemQuery(String search, RecordStatus status, String category, String brand,
                                  SerializationPolicy serializationPolicy, String componentClass,
-                                 Boolean outOfStockOnly) {
+                                 Boolean outOfStockOnly, Boolean inStockOnly, Boolean discontinued) {
 
         StockItemFilter toFilter() {
             return new StockItemFilter(search, status, category, brand, serializationPolicy,
-                    componentClass, Boolean.TRUE.equals(outOfStockOnly));
+                    componentClass, Boolean.TRUE.equals(outOfStockOnly), Boolean.TRUE.equals(inStockOnly),
+                    discontinued);
         }
     }
 

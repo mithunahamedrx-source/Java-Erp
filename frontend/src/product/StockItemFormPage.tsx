@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Card, EmptyState, buttonStyle } from '../ui/primitives';
-import { createStockItem, fetchStockItem, updateStockItem } from './stockItemApi';
+import { createStockItem, displayMoney, fetchStockItem, updateStockItem } from './stockItemApi';
 import type { StockItem } from './stockItemApi';
 import { ApiError } from '../platform/api';
 
@@ -56,7 +56,7 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
           serializationPolicy: loaded.serializationPolicy,
           componentClass: loaded.componentClass ?? '',
           recordStatus: loaded.recordStatus,
-          referenceCost: loaded.referenceCost ?? '',
+          referenceCost: displayMoney(loaded.referenceCost),
           discontinued: loaded.discontinued,
         });
       })
@@ -188,7 +188,7 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
               <ReadOnlyFact label="Available quantity" testId="fact-available" value={`${item.availableQuantity} ${item.unitOfMeasure}`}
                 note={item.outOfStock ? 'Out of stock — available quantity is zero or below (IVN-055).' : undefined} />
               {item.stockValue != null && (
-                <ReadOnlyFact label="Stock value" testId="fact-stock-value" value={item.stockValue}
+                <ReadOnlyFact label="Stock value" testId="fact-stock-value" value={displayMoney(item.stockValue)}
                   note={item.costBasis === 'REFERENCE'
                     ? 'Stock × your reference cost, until purchases set a weighted average cost. Not a selling price.'
                     : 'Inventory valuation at weighted average cost (ICO-001). Not a selling price.'} />

@@ -11,6 +11,8 @@ import com.trioloo.erp.product.domain.SerializationPolicy;
  * ({@code NOT-013} evaluates Low Stock as a condition, and no threshold field is canonical),
  * damaged, tags and tax ({@code GAP-003}).
  *
+ * @param inStockOnly    the opposite predicate - available quantity above zero.
+ * @param discontinued   {@code PRD-207}: null = both, TRUE = only discontinued, FALSE = hide discontinued.
  * @param outOfStockOnly the {@code IVN-055} predicate applied as a filter — the SAME
  *                       definition the summary and the card use, never a second one.
  */
@@ -20,7 +22,16 @@ public record StockItemFilter(String search,
                               String brand,
                               SerializationPolicy serializationPolicy,
                               String componentClass,
-                              boolean outOfStockOnly) {
+                              boolean outOfStockOnly,
+                              boolean inStockOnly,
+                              Boolean discontinued) {
+
+    /** The original seven-field shape: no in-stock or discontinued narrowing. */
+    public StockItemFilter(String search, RecordStatus status, String category, String brand,
+                           SerializationPolicy serializationPolicy, String componentClass,
+                           boolean outOfStockOnly) {
+        this(search, status, category, brand, serializationPolicy, componentClass, outOfStockOnly, false, null);
+    }
 
     public static StockItemFilter none() {
         return new StockItemFilter(null, null, null, null, null, null, false);

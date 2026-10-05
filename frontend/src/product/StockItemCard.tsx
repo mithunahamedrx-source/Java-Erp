@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom';
-import { buttonStyle } from '../ui/primitives';
+import { Link, useNavigate } from 'react-router-dom';
+import { ActionMenu } from '../ui/Overlay';
+import type { MenuAction } from '../ui/Overlay';
+import { displayMoney } from './stockItemApi';
 import type { StockItem, StockItemSummary } from './stockItemApi';
 
 /**
@@ -28,7 +30,7 @@ export function StockItemSummaryStrip({
   ];
 
   if (valuationVisible) {
-    cards.push({ key: 'total-stock-value', label: 'Total Stock Value', value: summary!.totalStockValue! });
+    cards.push({ key: 'total-stock-value', label: 'Total Stock Value', value: displayMoney(summary!.totalStockValue!) });
   }
 
   return (
@@ -127,7 +129,48 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
  * <p>🔴 Stock Value is presented as INVENTORY VALUATION, beside the quantities it derives
  * from — never in a price or revenue position. It is omitted when withheld, never zeroed.
  */
-export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX.Element {
+export type StockItemCardActions = {
+  readonly mayManage: boolean;
+  readonly onEdit: (item: StockItem) => void;
+  readonly onSetStatus: (item: StockItem, status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED') => void;
+  readonly onSetDiscontinued: (item: StockItem, discontinued: boolean) => void;
+};
+
+const NO_ACTIONS: StockItemCardActions = {
+  mayManage: false,
+  onEdit: () => undefined,
+  onSetStatus: () => undefined,
+  onSetDiscontinued: () => undefined,
+};
+
+/**
+ * The card's `⋯` menu. View opens the product page only; everything that changes the record is offered only to
+ * a person who may manage Stock Items (`PRD-154`) - OMITTED, not dimmed, for anyone else (`PRM-003`).
+ */
+function menuFor(item: StockItem, actions: StockItemCardActions, navigate: ReturnType<typeof useNavigate>): readonly MenuAction[] {
+  const items: MenuAction[] = [
+    { label: 'View', testId: 'stock-menu-view', onSelect: () => navigate(`/inventory/products/stock/${item.id}`) },
+  ];
+  if (!actions.mayManage) {
+    return items;
+  }
+  items.push({ label: 'Edit', testId: 'stock-menu-edit', onSelect: () => actions.onEdit(item) });
+  if (item.recordStatus === 'ACTIVE') {
+    items.push({ label: 'Make inactive', testId: 'stock-menu-deactivate', separatorBefore: true, onSelect: () => actions.onSetStatus(item, 'SUSPENDED') });
+  } else if (item.recordStatus !== 'ARCHIVED') {
+    items.push({ label: 'Make active', testId: 'stock-menu-activate', separatorBefore: true, onSelect: () => actions.onSetStatus(item, 'ACTIVE') });
+  }
+  items.push(item.discontinued
+    ? { label: 'Remove discontinued mark', testId: 'stock-menu-undiscontinue', onSelect: () => actions.onSetDiscontinued(item, false) }
+    : { label: 'Mark as discontinued', testId: 'stock-menu-discontinue', onSelect: () => actions.onSetDiscontinued(item, true) });
+  if (item.recordStatus !== 'ARCHIVED') {
+    items.push({ label: 'Archive', testId: 'stock-menu-archive', destructive: true, separatorBefore: true, onSelect: () => actions.onSetStatus(item, 'ARCHIVED') });
+  }
+  return items;
+}
+
+export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: StockItem; readonly actions?: StockItemCardActions }): React.JSX.Element {
+  const navigate = useNavigate();
   const status = STATUS_STYLE[item.recordStatus] ?? NEUTRAL_STATUS;
 
   return (
@@ -278,7 +321,7 @@ export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX
               data-testid="stock-item-cost"
               style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-primary)' }}
             >
-              {item.costBasis === 'WEIGHTED_AVERAGE' ? item.weightedAverageCost : item.referenceCost}
+              {displayMoney(item.costBasis === 'WEIGHTED_AVERAGE' ? item.weightedAverageCost : item.referenceCost)}
             </div>
           </>
         ) : null}
@@ -294,7 +337,7 @@ export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX
               data-testid="stock-item-value"
               style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text-primary)' }}
             >
-              {item.stockValue}
+              {displayMoney(item.stockValue)}
             </div>
           </>
         ) : null}
@@ -319,13 +362,15 @@ export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX
             Out of stock
           </span>
         )}
-        <Link
-          to={`/inventory/products/stock/${item.id}`}
-          data-testid="stock-item-view"
-          style={{ ...buttonStyle('secondary', 'row-action'), padding: '0 14px', textDecoration: 'none' }}
-        >
-          View
-        </Link>
+        <ActionMenu
+          label="Stock item actions"
+          trigger="glyph"
+          compact
+          menuWidth="210px"
+          testId="stock-item-menu"
+          triggerTestId="stock-item-actions"
+          actions={menuFor(item, actions, navigate)}
+        />
       </div>
     </div>
   );

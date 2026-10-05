@@ -68,18 +68,10 @@ public class StockItemQueryService {
     public Page<StockItemView> list(StockItemFilter filter, Pageable pageable) {
         requireViewer();
 
-        // The Out-of-Stock filter is a predicate over a DERIVED value, so it cannot be a SQL
-        // WHERE clause on product_variant. The matching set is resolved first, then paged -
-        // which also keeps the page and the summary describing the same population.
-        if (filter.outOfStockOnly()) {
-            List<StockItemView> matching = allMatching(filter);
-            return page(matching, pageable);
-        }
-
-        Page<ProductVariantEntity> found = variants.search(filter.search(), filter.status(),
-                filter.category(), filter.brand(), filter.serializationPolicy(),
-                filter.componentClass(), pageable);
-        return new PageImpl<>(compose(found.getContent()), pageable, found.getTotalElements());
+        // Stock, cost and the stock-state filters are predicates and orderings over DERIVED values, so
+        // they cannot be SQL on product_variant. The matching set is resolved first, then ordered, then
+        // paged - which also keeps the page and the summary describing the same population.
+        return page(allMatching(filter), pageable);
     }
 
     /**
@@ -94,10 +86,11 @@ public class StockItemQueryService {
         List<StockItemView> composed = compose(variants.searchAll(filter.search(), filter.status(),
                 filter.category(), filter.brand(), filter.serializationPolicy(),
                 filter.componentClass()));
-        if (!filter.outOfStockOnly()) {
-            return composed;
-        }
-        return composed.stream().filter(StockItemView::outOfStock).toList();
+        return composed.stream()
+                .filter(v -> !filter.outOfStockOnly() || v.outOfStock())
+                .filter(v -> !filter.inStockOnly() || !v.outOfStock())
+                .filter(v -> filter.discontinued() == null || v.discontinued() == filter.discontinued())
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -183,9 +176,38 @@ public class StockItemQueryService {
         return views;
     }
 
+    /**
+     * Orders the resolved set. {@code stock} puts items that HAVE stock first (most available first), then
+     * the out-of-stock ones, SKU breaking ties; DESC is therefore the natural "stocked items first" order.
+     */
+    private static Comparator<StockItemView> comparatorFor(String property, boolean descending) {
+        Comparator<StockItemView> bySku = Comparator.comparing(StockItemView::inventorySku, String.CASE_INSENSITIVE_ORDER);
+        Comparator<StockItemView> primary = switch (property) {
+            case "stock" -> Comparator.comparing(StockItemView::availableQuantity)
+                    .thenComparing(StockItemView::physicalStock);
+            case "technicalName" -> Comparator.comparing(StockItemView::technicalName, String.CASE_INSENSITIVE_ORDER);
+            case "brand" -> Comparator.comparing(v -> v.brand() == null ? "" : v.brand(), String.CASE_INSENSITIVE_ORDER);
+            case "inventoryCategory" -> Comparator.comparing(
+                    v -> v.inventoryCategory() == null ? "" : v.inventoryCategory(), String.CASE_INSENSITIVE_ORDER);
+            case "recordStatus" -> Comparator.comparing(v -> v.recordStatus().name());
+            case "updatedAt" -> Comparator.comparing(StockItemView::updatedAt);
+            case "cost" -> Comparator.comparing(
+                    v -> v.stockValue() == null && v.referenceCost() == null && v.weightedAverageCost() == null
+                            ? BigDecimal.ZERO
+                            : (v.weightedAverageCost() != null ? v.weightedAverageCost()
+                                : (v.referenceCost() != null ? v.referenceCost() : BigDecimal.ZERO)));
+            default -> bySku;
+        };
+        Comparator<StockItemView> ordered = descending ? primary.reversed() : primary;
+        return ordered.thenComparing(bySku);
+    }
+
     private Page<StockItemView> page(List<StockItemView> all, Pageable pageable) {
         List<StockItemView> sorted = new ArrayList<>(all);
-        sorted.sort(Comparator.comparing(StockItemView::inventorySku, String.CASE_INSENSITIVE_ORDER));
+        org.springframework.data.domain.Sort.Order order = pageable.getSort().stream().findFirst().orElse(null);
+        sorted.sort(order == null
+                ? comparatorFor("inventorySku", false)
+                : comparatorFor(order.getProperty(), order.isDescending()));
         int from = (int) Math.min(pageable.getOffset(), sorted.size());
         int to = Math.min(from + pageable.getPageSize(), sorted.size());
         return new PageImpl<>(sorted.subList(from, to), pageable, sorted.size());

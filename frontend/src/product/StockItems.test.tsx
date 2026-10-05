@@ -8,6 +8,7 @@ import ChannelListingsPage from './ChannelListingsPage';
 import StockItemsPage from './StockItemsPage';
 import StockItemImportPage from './StockItemImportPage';
 import { StockItemCard } from './StockItemCard';
+import { displayMoney } from './stockItemApi';
 import type { StockItem, StockItemSummary } from './stockItemApi';
 
 /**
@@ -292,7 +293,7 @@ describe('StockItemCard anatomy', () => {
     renderCard({ ...ITEM, costBasis: 'REFERENCE', weightedAverageCost: null, stockValue: '0' });
     expect(screen.getByTestId('stock-item-cost').textContent).toBe('140.00');
     expect(screen.getByTestId('stock-item-card-TEST-SKU-1').textContent).toContain('Ref. cost');
-    expect(screen.getByTestId('stock-item-value').textContent).toBe('0');
+    expect(screen.getByTestId('stock-item-value').textContent).toBe('0.00');
   });
 
   it('PRD-207 — a discontinued item carries a Discontinued mark; others do not', () => {
@@ -313,7 +314,34 @@ describe('StockItemCard anatomy', () => {
     const name = screen.getByTestId('stock-item-name');
     expect(name.style.whiteSpace).toBe('nowrap');
     expect(name.style.textOverflow).toBe('ellipsis');
-    expect(screen.getByTestId('stock-item-view')).toBeTruthy();
+    expect(screen.getByTestId('stock-item-actions')).toBeTruthy();
+  });
+
+  it('the ⋯ menu offers only View to a viewer, and View/Edit/status/discontinue/Archive to a manager', () => {
+    renderCard(ITEM);
+    fireEvent.click(screen.getByTestId('stock-item-actions'));
+    expect(screen.getByTestId('stock-menu-view')).toBeTruthy();
+    expect(screen.queryByTestId('stock-menu-edit')).toBeNull();
+    cleanup();
+
+    const calls: string[] = [];
+    render(
+      <MemoryRouter>
+        <StockItemCard item={ITEM} actions={{
+          mayManage: true,
+          onEdit: () => calls.push('edit'),
+          onSetStatus: (_i, s) => calls.push(s),
+          onSetDiscontinued: (_i, d) => calls.push(d ? 'disc' : 'undisc'),
+        }} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('stock-item-actions'));
+    for (const id of ['stock-menu-view', 'stock-menu-edit', 'stock-menu-deactivate', 'stock-menu-discontinue', 'stock-menu-archive']) {
+      expect(screen.getByTestId(id)).toBeTruthy();
+    }
+    expect(screen.queryByTestId('stock-menu-activate')).toBeNull();
+    fireEvent.click(screen.getByTestId('stock-menu-discontinue'));
+    expect(calls).toEqual(['disc']);
   });
 
   it('keeps the thumbnail a fixed supporting region, never image-led', () => {
@@ -671,13 +699,12 @@ describe('viewport regression — structural proof (UX-060, UX-071, UX-073)', ()
   /** 🔴 The record action stays part of the row and is never dropped or hidden. */
   it('keeps the record action inside the row and non-shrinking', async () => {
     renderWorkspace('/inventory/products/stock');
-    await waitFor(() => expect(screen.getByTestId('stock-item-view')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('stock-item-actions')).toBeTruthy());
 
     const card = screen.getByTestId('stock-item-card-TEST-SKU-1');
-    const action = screen.getByTestId('stock-item-view');
+    const action = screen.getByTestId('stock-item-actions');
     expect(card.contains(action)).toBe(true);
     expect(action.parentElement!.style.flexShrink).toBe('0');
-    expect(action.style.whiteSpace).toBe('nowrap');
   });
 
   /** 🔴 UX-073 / UX-074 — hidden chrome makes the affordance mandatory, not optional. */
@@ -754,5 +781,21 @@ describe('Products workspace entry (UX-035.f.i)', () => {
     renderWorkspace('/inventory/products/stock');
     await waitFor(() => expect(screen.getByTestId('stock-summary-strip')).toBeTruthy());
     expect(screen.getByTestId('stock-summary-strip').children.length).toBe(entry);
+  });
+});
+
+describe('displayMoney — two decimals, never a Number, never silently rounded', () => {
+  it('shows a stored four-place zero tail as two decimals', () => {
+    expect(displayMoney('2500.0000')).toBe('2500.00');
+    expect(displayMoney('0.0000')).toBe('0.00');
+    expect(displayMoney('0')).toBe('0.00');
+    expect(displayMoney('700.5')).toBe('700.50');
+  });
+  it('keeps real extra precision rather than rounding it away', () => {
+    expect(displayMoney('12.3450')).toBe('12.345');
+  });
+  it('shows nothing for an absent value', () => {
+    expect(displayMoney(null)).toBe('');
+    expect(displayMoney(undefined)).toBe('');
   });
 });

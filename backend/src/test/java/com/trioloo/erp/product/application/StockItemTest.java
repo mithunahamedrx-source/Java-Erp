@@ -430,6 +430,29 @@ class StockItemTest {
         assertThat(csv.export(StockItemFilter.none())).contains("1250.5000");
     }
 
+    @Test
+    @DisplayName("Stocked items come first (most stock first), then out-of-stock; in-stock and discontinued filters narrow the set")
+    void stockFirstOrderingAndFilters() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE);
+        UUID few = createItem("ORD-B", "Few");
+        createItem("ORD-A", "None");
+        UUID many = createItem("ORD-C", "Many");
+        recordMovement(few, "GOODS_RECEIPT_ACCEPTED", new BigDecimal("2"), new BigDecimal("10"));
+        recordMovement(many, "GOODS_RECEIPT_ACCEPTED", new BigDecimal("9"), new BigDecimal("10"));
+        commands.update(many, costInput(null, null, true), null);
+
+        var byStock = queries.list(StockItemFilter.none(),
+                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "stock")));
+        assertThat(byStock.getContent()).extracting(StockItemView::inventorySku).containsExactly("ORD-C", "ORD-B", "ORD-A");
+
+        assertThat(queries.allMatching(new StockItemFilter(null, null, null, null, null, null, false, true, null)))
+                .extracting(StockItemView::inventorySku).containsExactlyInAnyOrder("ORD-C", "ORD-B");
+        assertThat(queries.allMatching(new StockItemFilter(null, null, null, null, null, null, false, false, true)))
+                .extracting(StockItemView::inventorySku).containsExactly("ORD-C");
+        assertThat(queries.allMatching(new StockItemFilter(null, null, null, null, null, null, false, false, false)))
+                .extracting(StockItemView::inventorySku).containsExactlyInAnyOrder("ORD-A", "ORD-B");
+    }
+
     // ================================================================= CSV
 
     @Test
