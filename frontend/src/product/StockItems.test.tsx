@@ -33,6 +33,9 @@ const ITEM: StockItem = {
   outOfStock: false,
   weightedAverageCost: '150.00',
   stockValue: '750.00',
+  referenceCost: '140.00',
+  costBasis: 'WEIGHTED_AVERAGE',
+  discontinued: false,
   updatedAt: '2026-08-11T00:00:00Z',
   version: 0,
 };
@@ -280,6 +283,24 @@ describe('StockItemCard anatomy', () => {
     renderCard({ ...ITEM, stockValue: null, weightedAverageCost: null });
     expect(screen.queryByTestId('stock-item-value')).toBeNull();
     expect(screen.getByTestId('stock-item-card-TEST-SKU-1').textContent).not.toContain('Stock Value');
+  });
+
+  it('PRD-206 — shows the average cost when one exists, else the owner reference cost', () => {
+    renderCard(ITEM);
+    expect(screen.getByTestId('stock-item-cost').textContent).toBe('150.00');
+    cleanup();
+    renderCard({ ...ITEM, costBasis: 'REFERENCE', weightedAverageCost: null, stockValue: '0' });
+    expect(screen.getByTestId('stock-item-cost').textContent).toBe('140.00');
+    expect(screen.getByTestId('stock-item-card-TEST-SKU-1').textContent).toContain('Ref. cost');
+    expect(screen.getByTestId('stock-item-value').textContent).toBe('0');
+  });
+
+  it('PRD-207 — a discontinued item carries a Discontinued mark; others do not', () => {
+    renderCard({ ...ITEM, discontinued: true });
+    expect(screen.getByTestId('discontinued-badge')).toBeTruthy();
+    cleanup();
+    renderCard(ITEM);
+    expect(screen.queryByTestId('discontinued-badge')).toBeNull();
   });
 
   it('marks an out-of-stock item using the server predicate', () => {

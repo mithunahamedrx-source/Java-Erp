@@ -16,6 +16,9 @@ import java.util.UUID;
 /**
  * {@code E-020} Product Variant — the Inventory Product / Stock Item ({@code PRD-015}).
  *
+ * <p>{@code PRD-206}: the one cost-like field is {@code referenceCost}, a figure the owner types. It is not a
+ * valuation and never replaces weighted average cost.
+ *
  * <p>🔴 THERE IS NO STOCK FIELD ON THIS ENTITY, AND THERE NEVER MAY BE. No quantity, no
  * balance, no availability, no valuation, no out-of-stock flag ({@code DB-001},
  * {@code IVN-002}, {@code IVN-055.b}). Those are derived by Inventory and Inventory Costing
@@ -63,6 +66,17 @@ public class ProductVariantEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "record_status", nullable = false, length = 16)
     private RecordStatus recordStatus = RecordStatus.DRAFT;
+
+    /** {@code PRD-206} — owner-entered reference cost; NOT weighted average cost, superseded by it. */
+    @Column(name = "reference_cost", precision = 19, scale = 4)
+    private java.math.BigDecimal referenceCost;
+
+    /** {@code PRD-207} — a person's mark; the record and its references stay valid. */
+    @Column(name = "discontinued_at")
+    private Instant discontinuedAt;
+
+    @Column(name = "discontinued_by")
+    private UUID discontinuedBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -121,6 +135,22 @@ public class ProductVariantEntity {
     public void setComponentClass(String v) { this.componentClass = v; }
     public RecordStatus getRecordStatus() { return recordStatus; }
     public void setRecordStatus(RecordStatus v) { this.recordStatus = v; }
+    public java.math.BigDecimal getReferenceCost() { return referenceCost; }
+    public void setReferenceCost(java.math.BigDecimal v) { this.referenceCost = v; }
+    public Instant getDiscontinuedAt() { return discontinuedAt; }
+    public UUID getDiscontinuedBy() { return discontinuedBy; }
+
+    /** Marks or clears discontinuation, capturing who and when at the moment it happens. */
+    public void markDiscontinued(boolean discontinued, UUID actorId, Instant now) {
+        if (discontinued && this.discontinuedAt == null) {
+            this.discontinuedAt = now;
+            this.discontinuedBy = actorId;
+        } else if (!discontinued) {
+            this.discontinuedAt = null;
+            this.discontinuedBy = null;
+        }
+    }
+
     public Instant getCreatedAt() { return createdAt; }
     public UUID getCreatedBy() { return createdBy; }
     public Instant getUpdatedAt() { return updatedAt; }

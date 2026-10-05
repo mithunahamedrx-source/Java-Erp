@@ -102,7 +102,7 @@ const NEUTRAL_STATUS = { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-
  * `RULE 7.5` names.
  *
  * <p>Derived by adding the row's fixed parts, not chosen: card padding `32` + thumbnail `38` +
- * five `12px` gaps `60` + identity floor `180` + status `~80` + metric group `171`
+ * six `12px` gaps `72` (cost region `96` added by `PRD-206`) + identity floor `180` + status `~80` + metric group `171`
  * (`74 + 10 + 74` plus `12` padding and its `1px` rule) + valuation `132` + action group `~172`
  * at its widest, when the out-of-stock indicator is present.
  */
@@ -209,6 +209,19 @@ export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX
 
       {/* CLASSIFICATION — conditional, and only where a canonical fact exists. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+        {item.discontinued && (
+          <span
+            data-testid="discontinued-badge"
+            style={{
+              fontSize: '10.5px',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: 'var(--color-status-cancelled-fg)',
+            }}
+          >
+            DISCONTINUED
+          </span>
+        )}
         {item.serializationPolicy === 'SERIALIZED' && (
           <span
             data-testid="serialized-badge"
@@ -251,6 +264,24 @@ export function StockItemCard({ item }: { readonly item: StockItem }): React.JSX
       >
         <Metric label="Physical" value={item.physicalStock} unit={item.unitOfMeasure} />
         <Metric label="Available" value={item.availableQuantity} unit={item.unitOfMeasure} emphasise />
+      </div>
+
+      {/* COST — `PRD-206`. The weighted average when one exists, else the owner-entered reference cost. */}
+      <div style={{ width: '96px', textAlign: 'right', flexShrink: 0 }}>
+        {(item.costBasis === 'WEIGHTED_AVERAGE' ? item.weightedAverageCost : item.referenceCost) != null ? (
+          <>
+            <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)' }}>
+              {item.costBasis === 'WEIGHTED_AVERAGE' ? 'Avg cost' : 'Ref. cost'}
+            </div>
+            <div
+              className="tabular-nums"
+              data-testid="stock-item-cost"
+              style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-primary)' }}
+            >
+              {item.costBasis === 'WEIGHTED_AVERAGE' ? item.weightedAverageCost : item.referenceCost}
+            </div>
+          </>
+        ) : null}
       </div>
 
       {/* VALUATION — present only where authorised. 🔴 Absent, never ৳0. */}

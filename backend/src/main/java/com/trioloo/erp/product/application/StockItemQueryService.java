@@ -163,17 +163,22 @@ public class StockItemQueryService {
         for (ProductVariantEntity e : entities) {
             StockPosition position = byVariant.getOrDefault(e.getId(), StockPosition.empty(e.getId()));
             BigDecimal unitCost = valuationVisible ? costs.get(e.getId()) : null;
+            BigDecimal reference = valuationVisible ? e.getReferenceCost() : null;
 
-            // Item Stock Value uses the SAME semantics as Total Stock Value: physical quantity
-            // valued at the canonical weighted average cost. No second calculation exists.
-            // Where no acquisition cost is known the value is null, not zero (SYS-034).
-            BigDecimal stockValue = unitCost == null ? null : position.physical().multiply(unitCost);
+            // PRD-206 - the weighted average cost always wins; the owner-entered reference cost is used only
+            // while Inventory Costing holds none. Item Stock Value = physical quantity x that one figure, and
+            // Total Stock Value sums these, so no second calculation exists. Where neither is known the value
+            // is null, not zero (SYS-034).
+            BigDecimal valuedAt = unitCost != null ? unitCost : reference;
+            String basis = unitCost != null ? "WEIGHTED_AVERAGE" : (reference != null ? "REFERENCE" : null);
+            BigDecimal stockValue = valuedAt == null ? null : position.physical().multiply(valuedAt);
 
             views.add(new StockItemView(e.getId(), e.getInventorySku(), e.getTechnicalName(),
                     e.getBrand(), e.getInventoryCategory(), e.getUnitOfMeasure(), e.getBarcode(),
                     e.getSerializationPolicy(), e.getComponentClass(), e.getRecordStatus(),
                     position.physical(), position.available(), position.outOfStock(),
-                    unitCost, stockValue, e.getUpdatedAt(), e.getVersion()));
+                    unitCost, stockValue, reference, basis, e.getDiscontinuedAt() != null,
+                    e.getUpdatedAt(), e.getVersion()));
         }
         return views;
     }

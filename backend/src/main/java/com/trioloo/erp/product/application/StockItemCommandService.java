@@ -59,6 +59,7 @@ public class StockItemCommandService {
     /** Shared with CSV import so one code path enforces the same rules for both entry points. */
     UUID createInternal(StockItemInput input, UUID actorId, Instant now) {
         validate(input, true);
+        guardReferenceCost(input);
 
         // PRD-013 - a retired SKU is never reissued, so uniqueness is checked against every
         // record regardless of lifecycle state, archived ones included.
@@ -71,6 +72,7 @@ public class StockItemCommandService {
                 input.inventorySku().trim(), input.technicalName().trim(),
                 input.unitOfMeasure().trim(), actorId, now);
         apply(entity, input);
+        applyCostAndMark(entity, input, actorId, now);
         entity.setRecordStatus(input.recordStatus() == null ? RecordStatus.DRAFT : input.recordStatus());
         return variants.save(entity).getId();
     }
@@ -83,6 +85,7 @@ public class StockItemCommandService {
 
     void updateInternal(UUID id, StockItemInput input, Long expectedVersion, UUID actorId, Instant now) {
         validate(input, false);
+        guardReferenceCost(input);
         ProductVariantEntity entity = variants.findById(id)
                 .orElseThrow(() -> new StockItemNotFoundException(id));
 
@@ -101,6 +104,7 @@ public class StockItemCommandService {
         }
 
         apply(entity, input);
+        applyCostAndMark(entity, input, actorId, now);
         if (input.recordStatus() != null) {
             guardArchival(entity, input.recordStatus());
             entity.setRecordStatus(input.recordStatus());
@@ -129,6 +133,40 @@ public class StockItemCommandService {
                     "'" + entity.getInventorySku() + "' cannot be archived: it is a component on "
                             + activeUses + " ACTIVE Build Template version(s) (PRD-065). Supersede "
                             + "those versions first.");
+        }
+    }
+
+    /**
+     * {@code PRD-206} — setting a reference cost is a cost-sensitive act: it needs
+     * {@code inventory-costing.valuation.view} as well as {@code manage}. A person who may not see cost may not
+     * write it either. Checked here so CSV import and the REST surface share one rule.
+     */
+    private void guardReferenceCost(StockItemInput input) {
+        if (input.referenceCost() == null) {
+            return;
+        }
+        Actor actor = currentActor.require();
+        if (!actor.hasPermission(ProductPermissions.VALUATION_VIEW)) {
+            throw new AccessDeniedByPermissionException(ProductPermissions.VALUATION_VIEW);
+        }
+        if (input.referenceCost().signum() < 0) {
+            throw new StockItemValidationException("reference_cost", "Reference cost cannot be negative.");
+        }
+        if (input.referenceCost().stripTrailingZeros().scale() > 4) {
+            throw new StockItemValidationException("reference_cost",
+                    "Reference cost holds at most 4 decimal places; it is never rounded for you (DB-079).");
+        }
+        if (input.referenceCost().precision() - input.referenceCost().scale() > 15) {
+            throw new StockItemValidationException("reference_cost", "Reference cost is too large.");
+        }
+    }
+
+    private void applyCostAndMark(ProductVariantEntity entity, StockItemInput input, UUID actorId, Instant now) {
+        if (input.referenceCost() != null) {
+            entity.setReferenceCost(input.referenceCost());
+        }
+        if (input.discontinued() != null) {
+            entity.markDiscontinued(input.discontinued(), actorId, now);
         }
     }
 
@@ -176,8 +214,9 @@ public class StockItemCommandService {
     /**
      * The mutable Stock Item fields, and only those.
      *
-     * <p>🔴 There is no quantity, valuation, cost, supplier, price or reorder field here, and
-     * there never may be. Those are either owned elsewhere or not canonical at all.
+     * <p>🔴 There is no quantity, valuation, supplier, price or reorder field here. The one cost-like
+     * field is {@code referenceCost} ({@code PRD-206}): a figure the owner types, null meaning UNCHANGED.
+     * {@code discontinued} ({@code PRD-207}) likewise: null means unchanged.
      */
     public record StockItemInput(String inventorySku,
                                  String technicalName,
@@ -187,6 +226,16 @@ public class StockItemCommandService {
                                  String barcode,
                                  SerializationPolicy serializationPolicy,
                                  String componentClass,
-                                 RecordStatus recordStatus) {
+                                 RecordStatus recordStatus,
+                                 java.math.BigDecimal referenceCost,
+                                 Boolean discontinued) {
+
+        /** The original nine-field shape - neither cost nor discontinued mark is touched. */
+        public StockItemInput(String inventorySku, String technicalName, String brand, String inventoryCategory,
+                              String unitOfMeasure, String barcode, SerializationPolicy serializationPolicy,
+                              String componentClass, RecordStatus recordStatus) {
+            this(inventorySku, technicalName, brand, inventoryCategory, unitOfMeasure, barcode,
+                    serializationPolicy, componentClass, recordStatus, null, null);
+        }
     }
 }

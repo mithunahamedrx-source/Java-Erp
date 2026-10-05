@@ -200,18 +200,20 @@ public class StockItemController {
     }
 
     /**
-     * 🔴 Deliberately carries no quantity, valuation, cost, price or supplier field. A client
-     * cannot ask this API to write stock, because the request has nowhere to put it.
+     * 🔴 Deliberately carries no quantity, valuation, price or supplier field. A client cannot ask this
+     * API to write stock, because the request has nowhere to put it. The one cost-like field is the
+     * owner-entered {@code referenceCost} ({@code PRD-206}).
      */
     public record StockItemRequest(String inventorySku, String technicalName, String brand,
                                    String inventoryCategory, String unitOfMeasure, String barcode,
                                    SerializationPolicy serializationPolicy, String componentClass,
-                                   RecordStatus recordStatus, Long version) {
+                                   RecordStatus recordStatus, Long version,
+                                   java.math.BigDecimal referenceCost, Boolean discontinued) {
 
         StockItemCommandService.StockItemInput toInput() {
             return new StockItemCommandService.StockItemInput(inventorySku, technicalName, brand,
                     inventoryCategory, unitOfMeasure, barcode, serializationPolicy, componentClass,
-                    recordStatus);
+                    recordStatus, referenceCost, discontinued);
         }
     }
 }

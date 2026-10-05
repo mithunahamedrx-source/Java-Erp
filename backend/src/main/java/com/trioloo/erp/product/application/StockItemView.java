@@ -16,6 +16,10 @@ import java.util.UUID;
  * still owns {@code E-020}, Inventory still owns the position, Costing still owns the
  * valuation ({@code DOC-005}).
  *
+ * <p>{@code PRD-206}: {@code costBasis} says which figure {@code stockValue} was valued at -
+ * {@code WEIGHTED_AVERAGE} (Inventory Costing) when one exists, else {@code REFERENCE} (the owner-entered
+ * {@code referenceCost}), else null. The weighted average always wins.
+ *
  * <p>🔴 {@code stockValue} is {@code null} when the actor lacks
  * {@code inventory-costing.valuation.view}. Null means WITHHELD and is serialised as an absent
  * field — never as {@code 0}, because permission denied is not a measured zero
@@ -36,6 +40,9 @@ public record StockItemView(UUID id,
                             boolean outOfStock,
                             @MonetaryAmount BigDecimal weightedAverageCost,
                             @MonetaryAmount BigDecimal stockValue,
+                            @MonetaryAmount BigDecimal referenceCost,
+                            String costBasis,
+                            boolean discontinued,
                             Instant updatedAt,
                             long version) {
 }

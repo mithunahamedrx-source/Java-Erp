@@ -33,6 +33,9 @@ import java.util.UUID;
  * {@code inventory-costing.valuation.view} ({@code PRD-153.a}). A blank column advertises that
  * a restricted figure exists and is indistinguishable from a genuinely absent value.
  *
+ * <p>{@code PRD-206}: {@code reference_cost} is the one cost column that IS importable - an owner-entered
+ * reference figure, not a valuation. It appears only for an actor with valuation authority.
+ *
  * <p>🔴 {@code physical_stock}, {@code available_quantity} and {@code weighted_average_cost} are
  * exported for information and are NEVER importable ({@code PRD-149.a}, {@code API-058.e}).
  * Import writes no stock, no movement and no cost.
@@ -50,7 +53,7 @@ public class StockItemCsvService {
             "inventory_product_id", "inventory_sku", "technical_name", "brand",
             "inventory_category", "unit_of_measure", "barcode", "serialization_policy",
             "component_class", "record_status", "physical_stock", "available_quantity",
-            "weighted_average_cost");
+            "weighted_average_cost", "reference_cost");
 
     /** 🔴 Read-only under {@code PRD-149}: present in an export, never accepted on import. */
     public static final Set<String> READ_ONLY_HEADERS =
@@ -112,6 +115,7 @@ public class StockItemCsvService {
             cells.add(decimal(row.availableQuantity()));
             if (includeCost) {
                 cells.add(decimal(row.weightedAverageCost()));
+                cells.add(decimal(row.referenceCost()));
             }
             csv.append(String.join(",", cells)).append("\r\n");
         }
@@ -256,7 +260,8 @@ public class StockItemCsvService {
                         sku, value(row, "technical_name"), value(row, "brand"),
                         value(row, "inventory_category"), value(row, "unit_of_measure"),
                         value(row, "barcode"), enumValue(SerializationPolicy.class, row, "serialization_policy"),
-                        value(row, "component_class"), enumValue(RecordStatus.class, row, "record_status"));
+                        value(row, "component_class"), enumValue(RecordStatus.class, row, "record_status"),
+                        decimalValue(row, "reference_cost"), null);
 
                 if (existing.isPresent()) {
                     planned.add(new PlannedRow(rowNumber, existing.get().getId(), input, RowAction.UPDATE));
@@ -333,6 +338,18 @@ public class StockItemCsvService {
     private static String value(Map<String, String> row, String header) {
         String v = row.get(header);
         return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    private static BigDecimal decimalValue(Map<String, String> row, String header) {
+        String raw = value(row, header);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(raw.replace(",", ""));
+        } catch (NumberFormatException e) {
+            throw new StockItemValidationException(header, "'" + raw + "' is not a valid amount.");
+        }
     }
 
     private static UUID parseUuid(String raw) {

@@ -34,6 +34,12 @@ export type StockItem = {
   readonly outOfStock: boolean;
   readonly weightedAverageCost?: string | null;
   readonly stockValue?: string | null;
+  /** `PRD-206` — owner-entered reference cost. Absent = withheld for want of valuation authority. */
+  readonly referenceCost?: string | null;
+  /** Which figure `stockValue` was valued at; the weighted average always wins over the reference. */
+  readonly costBasis?: 'WEIGHTED_AVERAGE' | 'REFERENCE' | null;
+  /** `PRD-207` — a person's mark; the record and its history stay valid. */
+  readonly discontinued: boolean;
   readonly updatedAt: string;
   readonly version: number;
 };

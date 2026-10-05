@@ -353,6 +353,83 @@ class StockItemTest {
         assertThat(queries.summary(StockItemFilter.none()).outOfStockItems()).isEqualTo(1);
     }
 
+    // ================================================================= PRD-206 reference cost / PRD-207 discontinued
+
+    private StockItemCommandService.StockItemInput costInput(String sku, BigDecimal cost, Boolean discontinued) {
+        return new StockItemCommandService.StockItemInput(sku, "Item " + sku, null, null, "pcs", null, null, null,
+                RecordStatus.ACTIVE, cost, discontinued);
+    }
+
+    @Test
+    @DisplayName("PRD-206 — a reference cost values the stock (0 while stock is 0), and weighted average cost wins once one exists")
+    void referenceCostValuesStockUntilWeightedAverageExists() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE, ProductPermissions.VALUATION_VIEW);
+        UUID id = commands.create(costInput("REF-1", new BigDecimal("700.50"), null));
+
+        StockItemView before = queries.detail(id);
+        assertThat(before.referenceCost()).isEqualByComparingTo("700.50");
+        assertThat(before.costBasis()).isEqualTo("REFERENCE");
+        assertThat(before.stockValue()).isEqualByComparingTo("0");
+
+        recordMovement(id, "GOODS_RECEIPT_ACCEPTED", new BigDecimal("4"), new BigDecimal("500"));
+        StockItemView after = queries.detail(id);
+        assertThat(after.costBasis()).isEqualTo("WEIGHTED_AVERAGE");
+        assertThat(after.stockValue()).isEqualByComparingTo("2000");
+        assertThat(after.referenceCost()).isEqualByComparingTo("700.50");
+    }
+
+    @Test
+    @DisplayName("🔴 PRD-206 — without valuation authority the reference cost is neither shown nor writable")
+    void referenceCostNeedsValuationAuthority() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE);
+        assertThatThrownBy(() -> commands.create(costInput("REF-2", new BigDecimal("10"), null)))
+                .isInstanceOf(AccessDeniedByPermissionException.class);
+        UUID id = commands.create(costInput("REF-3", null, null));
+        assertThat(queries.detail(id).referenceCost()).isNull();
+    }
+
+    @Test
+    @DisplayName("PRD-206 — a negative or over-precise reference cost is refused, not rounded")
+    void referenceCostIsValidated() {
+        actingWith(ProductPermissions.STOCK_ITEM_MANAGE, ProductPermissions.VALUATION_VIEW);
+        assertThatThrownBy(() -> commands.create(costInput("REF-4", new BigDecimal("-1"), null)))
+                .isInstanceOf(StockItemValidationException.class);
+        assertThatThrownBy(() -> commands.create(costInput("REF-5", new BigDecimal("1.23456"), null)))
+                .isInstanceOf(StockItemValidationException.class).hasMessageContaining("4 decimal places");
+    }
+
+    @Test
+    @DisplayName("PRD-207 — a Stock Item is marked and un-marked discontinued by a person, and an edit that omits it leaves it alone")
+    void discontinuedIsAMark() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE);
+        UUID id = commands.create(costInput("DIS-1", null, null));
+        assertThat(queries.detail(id).discontinued()).isFalse();
+
+        commands.update(id, costInput(null, null, true), null);
+        assertThat(queries.detail(id).discontinued()).isTrue();
+        assertThat(jdbc.queryForObject("SELECT discontinued_by FROM product_variant WHERE id = ?", UUID.class, id))
+                .isEqualTo(actorId);
+
+        commands.update(id, costInput(null, null, null), null);
+        assertThat(queries.detail(id).discontinued()).isTrue();
+
+        commands.update(id, costInput(null, null, false), null);
+        assertThat(queries.detail(id).discontinued()).isFalse();
+    }
+
+    @Test
+    @DisplayName("PRD-206 — reference_cost is importable by CSV and round-trips in the export")
+    void referenceCostCsv() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE, ProductPermissions.VALUATION_VIEW);
+        var plan = csv.validate("inventory_sku,technical_name,unit_of_measure,reference_cost\r\nCSV-C1,Costed,pcs,\"1,250.5\"\r\n");
+        assertThat(plan.errorCount()).isZero();
+        csv.confirm(plan.planId());
+
+        UUID id = queries.list(StockItemFilter.none(), PageRequest.of(0, 5)).getContent().getFirst().id();
+        assertThat(queries.detail(id).referenceCost()).isEqualByComparingTo("1250.5");
+        assertThat(csv.export(StockItemFilter.none())).contains("1250.5000");
+    }
+
     // ================================================================= CSV
 
     @Test

@@ -12,8 +12,8 @@ import { ApiError } from '../platform/api';
  * <p>Archetype D control language (`§3.18`) — permanent labels above the control, the enabled
  * `oklch(0.65 0.006 290)` boundary, the mandatory error marker AND message (`RULE 3.18.f`).
  *
- * <p>🔴 The form carries ONLY canonical `E-020` fields. There is no quantity, valuation, cost,
- * price, supplier or reorder input — a client cannot ask this surface to write stock, because
+ * <p>🔴 The form carries ONLY canonical `E-020` fields plus the owner-entered reference cost (`PRD-206`)
+ * and the discontinued mark (`PRD-207`). There is no quantity, valuation, price, supplier or reorder input — a client cannot ask this surface to write stock, because
  * it has nowhere to put it.
  *
  * <p>🔴 On edit the Inventory SKU is IMMUTABLE (`PRD-011`, `PRD-013`) and is rendered as a
@@ -28,12 +28,12 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
   type FormState = {
     inventorySku: string; technicalName: string; brand: string; inventoryCategory: string;
     unitOfMeasure: string; barcode: string; serializationPolicy: string; componentClass: string;
-    recordStatus: string;
+    recordStatus: string; referenceCost: string; discontinued: boolean;
   };
   const [form, setForm] = useState<FormState>({
     inventorySku: '', technicalName: '', brand: '', inventoryCategory: '',
     unitOfMeasure: '', barcode: '', serializationPolicy: 'NOT_SERIALIZED',
-    componentClass: '', recordStatus: 'DRAFT',
+    componentClass: '', recordStatus: 'DRAFT', referenceCost: '', discontinued: false,
   });
   const [loading, setLoading] = useState(mode !== 'create');
   const [saving, setSaving] = useState(false);
@@ -56,6 +56,8 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
           serializationPolicy: loaded.serializationPolicy,
           componentClass: loaded.componentClass ?? '',
           recordStatus: loaded.recordStatus,
+          referenceCost: loaded.referenceCost ?? '',
+          discontinued: loaded.discontinued,
         });
       })
       .catch((cause: unknown) => {
@@ -77,7 +79,13 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
         serializationPolicy: form.serializationPolicy,
         componentClass: form.componentClass || null,
         recordStatus: form.recordStatus,
+        discontinued: form.discontinued,
       };
+      // PRD-206 - carried as a STRING, never a JavaScript Number (TEC-015). Left out when blank so a person
+      // without valuation authority is not refused for a field they never touched.
+      if (form.referenceCost.trim() !== '') {
+        body.referenceCost = form.referenceCost.trim();
+      }
       if (mode === 'create') {
         body.inventorySku = form.inventorySku;
         await createStockItem(body);
@@ -152,6 +160,26 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
             onChange={(v) => setForm({ ...form, barcode: v })} readOnly={readOnly} />
           <Field label="Component class" testId="field-componentClass" value={form.componentClass}
             onChange={(v) => setForm({ ...form, componentClass: v })} readOnly={readOnly} />
+          <div>
+            <Field label="Reference cost (৳)" testId="field-referenceCost" value={form.referenceCost}
+              onChange={(v) => setForm({ ...form, referenceCost: v })} readOnly={readOnly}
+              error={fieldError} name="reference_cost" />
+            <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }}>
+              {item?.costBasis === 'WEIGHTED_AVERAGE'
+                ? 'Purchases have set a weighted average cost, which is now used for stock value. This figure is kept for reference only.'
+                : 'Your own cost figure, used for stock value until purchases set a weighted average cost.'}
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: '13px', fontWeight: 600, marginTop: '26px' }}>
+              <input type="checkbox" data-testid="field-discontinued" checked={form.discontinued} disabled={readOnly}
+                onChange={(event) => setForm({ ...form, discontinued: event.target.checked })} />
+              Discontinued item
+            </label>
+            <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: 'var(--space-2)' }}>
+              A mark only — the item, its history and its orders stay as they are.
+            </div>
+          </div>
 
           {item && (
             <>
@@ -161,7 +189,9 @@ export default function StockItemFormPage({ mode }: { readonly mode: 'create' | 
                 note={item.outOfStock ? 'Out of stock — available quantity is zero or below (IVN-055).' : undefined} />
               {item.stockValue != null && (
                 <ReadOnlyFact label="Stock value" testId="fact-stock-value" value={item.stockValue}
-                  note="Inventory valuation at weighted average cost (ICO-001). Not a selling price." />
+                  note={item.costBasis === 'REFERENCE'
+                    ? 'Stock × your reference cost, until purchases set a weighted average cost. Not a selling price.'
+                    : 'Inventory valuation at weighted average cost (ICO-001). Not a selling price.'} />
               )}
             </>
           )}
