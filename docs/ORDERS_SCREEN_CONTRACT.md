@@ -899,6 +899,7 @@ and which rules govern. The fifth column is the coverage the frame owes when it 
 > **d.** ✅ **THE RESULT IS REPORTED IN THE PAGE NOTICE**, including what the operator must still do in the seller panel. A refusal (permission, window, live shipment) is shown **inside the dialog** so the operator keeps their place.
 > **e.** 🔴 **ONE ORDER AT A TIME.** There is no bulk cancel or restore: `PRM-025` and `GAP-034` stand, and the bulk bar's `Cancel orders` stays dimmed. `Place hold` remains unbuilt.
 > **f.** ⚠ **THE MENU DOES NOT KNOW THE USER'S PERMISSIONS.** The server refuses independently (`OSC-044`) and says so in the dialog; hiding is presentation. An Owner holds both codes automatically (`AGV-039`).
+> **h.** ✅ **THE MENU SHOWS LABELS ONLY (owner decision, 2026-10-05).** No explanatory line sits under any item. A dimmed item's reason is kept as its hover title and as visually hidden text for assistive technology (`OSC-058.c`: a reason is never tooltip-only); the consequence of cancel and restore is stated in their confirmation dialogs instead (`UX-184`).
 > **g.** ✅ **`Send to Steadfast` IS IN BOTH PLACES** — each card's More Actions and the bulk bar's `Send to Steadfast` (behind the page-header `More` toggle, one booking per selected order with per-order results). 🔴 **A cancelled order is refused by the booking service.**
 
 ---

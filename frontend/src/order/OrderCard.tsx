@@ -251,6 +251,7 @@ export default function OrderCard({
             label="More Actions"
             menuWidth="264px"
             testId="order-actions-menu"
+            compact
             triggerTestId="order-more-actions"
             actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder)}
           />

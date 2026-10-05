@@ -273,6 +273,7 @@ export function ActionMenu({
   testId = 'action-menu',
   triggerTestId = 'action-menu-trigger',
   triggerAriaLabel,
+  compact = false,
 }: {
   readonly label: string;
   readonly actions: readonly MenuAction[];
@@ -284,6 +285,12 @@ export function ActionMenu({
   readonly testId?: string;
   readonly triggerTestId?: string;
   readonly triggerAriaLabel?: string;
+  /**
+   * Owner decision 2026-10-05: no explanatory text under the items - labels only. The reason a
+   * dimmed item is dimmed is NOT lost: it moves to the item's `title` and to visually hidden text a
+   * screen reader still announces (OSC-058.c - a reason is never tooltip-only).
+   */
+  readonly compact?: boolean;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [flipUp, setFlipUp] = useState(false);
@@ -457,6 +464,7 @@ export function ActionMenu({
                 data-testid={action.testId}
                 disabled={action.disabled}
                 aria-disabled={action.disabled}
+                title={compact && action.disabled ? action.reason : undefined}
                 onClick={() => {
                   if (action.disabled) {
                     return;
@@ -466,9 +474,9 @@ export function ActionMenu({
                 }}
                 style={{
                   display: 'flex',
-                  flexDirection: action.description ? 'column' : 'row',
-                  alignItems: action.description ? 'flex-start' : 'center',
-                  gap: action.description ? '2px' : 0,
+                  flexDirection: action.description && !compact ? 'column' : 'row',
+                  alignItems: action.description && !compact ? 'flex-start' : 'center',
+                  gap: action.description && !compact ? '2px' : 0,
                   width: '100%',
                   padding: '8px 10px',
                   borderRadius: 'var(--radius-control-small)',
@@ -491,7 +499,7 @@ export function ActionMenu({
                 }}
               >
                 {action.label}
-                {action.description && (
+                {action.description && !compact && (
                   <span
                     style={{
                       fontSize: '11px',
@@ -505,7 +513,12 @@ export function ActionMenu({
                   </span>
                 )}
               </button>
-              {action.disabled && action.reason && (
+              {action.disabled && action.reason && compact && (
+                <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                  {action.reason}
+                </span>
+              )}
+              {action.disabled && action.reason && !compact && (
                 <div style={{ padding: '0 10px 8px', fontSize: '10.5px', color: 'var(--color-placeholder)', lineHeight: 1.4 }}>
                   {action.reason}
                 </div>

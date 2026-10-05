@@ -979,3 +979,19 @@ describe('Cancel and restore from More Actions (PRM-095)', () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/restore') && c.init?.method === 'POST')).toBe(true));
   });
 });
+
+describe('More Actions menu shows labels only (owner decision 2026-10-05)', () => {
+  it('prints no explanatory text under the items, yet keeps a dimmed item\'s reason for assistive tech', async () => {
+    renderAt('/sales/orders');
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    const menu = await screen.findByTestId('order-actions-menu');
+
+    for (const gone of ['The full record and its eight lifecycles', 'Books one Steadfast consignment', 'No hold endpoint exists']) {
+      expect(menu.textContent).not.toContain(gone);
+    }
+    // The reason is not lost: it is on the dimmed item as its title.
+    const hold = within(menu).getByRole('menuitem', { name: /Place hold/ });
+    expect(hold.getAttribute('title')).toContain('No hold endpoint exists');
+  });
+});
