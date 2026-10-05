@@ -414,7 +414,7 @@ function moreActions(
   if (canonical === 'CANCELLED') {
     items.push({
       label: 'Restore order',
-      description: 'Re-enters the lifecycle as confirmed',
+      description: 'Returns to Pending verification',
       separatorBefore: true,
       onSelect: () => onRestoreOrder(order),
     });

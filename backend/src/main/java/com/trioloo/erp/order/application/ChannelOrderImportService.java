@@ -35,7 +35,6 @@ public class ChannelOrderImportService {
     private final CurrentActor currentActor;
     private final ObjectMapper json = new ObjectMapper();
     private final Clock clock;
-    private final OrderAutoConfirmation autoConfirmation;
 
     /** {@code BR-181.c} — admitting {@code DRAFT} shops, off by default. See the gate below. */
     private final boolean admitDraftShops;
@@ -46,7 +45,6 @@ public class ChannelOrderImportService {
                                      List<ChannelOrderProvider> providers,
                                      CurrentActor currentActor,
                                      Clock clock,
-                                     OrderAutoConfirmation autoConfirmation,
                                      @org.springframework.beans.factory.annotation.Value(
                                              "${trioloo.order.pull.admit-draft-shops:false}")
                                      boolean admitDraftShops) {
@@ -56,7 +54,6 @@ public class ChannelOrderImportService {
         this.providers = providers == null ? List.of() : List.copyOf(providers);
         this.currentActor = currentActor;
         this.clock = clock == null ? Clock.systemUTC() : clock;
-        this.autoConfirmation = autoConfirmation;
         this.admitDraftShops = admitDraftShops;
     }
 
@@ -359,9 +356,6 @@ public class ChannelOrderImportService {
                 address4(order.shippingAddress()), address5(order.shippingAddress()), city(order.shippingAddress()),
                 postCode(order.shippingAddress()), country(order.shippingAddress()))).orElseThrow();
         issueInvoiceNumber(id);
-        // BR-014 / BR-184 - no human verification queue: an order awaiting verification is
-        // confirmed by policy and the decision is recorded. Idempotent across re-polls.
-        autoConfirmation.confirmIfAwaitingVerification(id);
 
         return new Upsert(id, jdbc.queryForObject("""
                 SELECT version = 0 FROM channel_order WHERE id = ?

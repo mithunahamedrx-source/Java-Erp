@@ -171,7 +171,7 @@ export default function NewOrderPage(): React.JSX.Element {
             <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>New order</span>
           </>
         }
-        subtitle="Direct-channel capture · the order is confirmed automatically when it is created"
+        subtitle="Direct-channel capture · the order is created in pending verification, and becomes ready to ship when it is sent to the courier"
         actions={
           <>
             <Button variant="secondary" size="page-header" onClick={() => navigate('/sales/orders')}>
@@ -458,7 +458,7 @@ export default function NewOrderPage(): React.JSX.Element {
           {/* ── The footer bar ─────────────────────────────────────────── */}
           <div style={footerBarStyle}>
             <div style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', lineHeight: 1.55, maxWidth: '520px' }}>
-              Both actions create the order as <strong>confirmed</strong>, automatically. Create and
+              Both actions create the order in <strong>pending verification</strong>. Create and
               print opens the invoice straight after, and printing changes no state.
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
@@ -549,14 +549,14 @@ export default function NewOrderPage(): React.JSX.Element {
             <div style={railCapStyle}>WHAT CREATING THIS DOES</div>
             <Field
               label="The state it will be created in"
-              reason="BR-184 — Trioloo runs no verification queue, so a new order is confirmed automatically by policy."
+              reason="BR-189 — a new order is pending verification until it is sent to the courier."
             >
-              <Select value="CONFIRMED" onChange={() => undefined} disabled>
-                <option value="CONFIRMED">Confirmed</option>
+              <Select value="PENDING_VERIFICATION" onChange={() => undefined} disabled>
+                <option value="PENDING_VERIFICATION">Pending verification</option>
               </Select>
             </Field>
             <ul style={consequenceListStyle}>
-              <li>Confirmation is automatic and recorded as such. No person is named as the confirmer (BR-166).</li>
+              <li>Creation is not confirmation. Sending the order to the courier makes it ready to ship. No confirmer is recorded (BR-166).</li>
               <li>No stock is reserved or deducted, and a shortage does not block capture.</li>
               <li>The price you enter is the price of record. It is not read as a discount against any list price.</li>
               <li>The order is ERP-managed from creation, and no marketplace holds authority over it.</li>

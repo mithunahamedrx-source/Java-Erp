@@ -34,8 +34,6 @@ class ManualOrderServiceTest {
     @Autowired
     private ManualOrderService orders;
     @Autowired
-    private OrderAutoConfirmation autoConfirmation;
-    @Autowired
     private JdbcTemplate jdbc;
 
     private UUID shopId;
@@ -67,34 +65,26 @@ class ManualOrderServiceTest {
     }
 
     @Test
-    @DisplayName("confirms the order by policy, records it, and fabricates no human confirmer")
-    void confirmsByPolicy() {
+    @DisplayName("creates the order in PENDING_VERIFICATION and confirms nobody")
+    void createsPendingVerification() {
         ManualOrderService.Created created = orders.create(order());
 
-        /*
-          ✅ Owner decision 2026-10-03 (BR-184): no human verification queue. BR-014 already
-          permits it - "not required" is itself a decision, recorded with its reason - so the
-          order is CONFIRMED and the decision is on the record.
-        */
-        assertThat(created.canonicalStatus()).isEqualTo("CONFIRMED");
+        // Owner decision 2026-10-05 (BR-189): a new order is Pending verification; it becomes Ready to
+        // ship when it is sent to the courier. Creation is not confirmation (PRM-093.b).
+        assertThat(created.canonicalStatus()).isEqualTo("PENDING_VERIFICATION");
 
         Map<String, Object> row = jdbc.queryForMap(
-                "SELECT ownership, canonical_statuses_json::text AS canon, statuses_json::text AS raw, "
-                        + "confirmation_mode, confirmation_reason, confirmed_at, confirmed_by, "
+                "SELECT ownership, statuses_json::text AS raw, confirmation_mode, confirmed_at, confirmed_by, "
                         + "channel_order_effective_statuses(id)::text AS effective "
                         + "FROM channel_order WHERE id = ?", created.id());
-        // The marketplace-style mirror is left exactly as written (BR-171); the ERP reading is derived.
-        assertThat(row.get("canon")).asString().contains("PENDING_VERIFICATION");
-        assertThat(row.get("effective")).asString().contains("CONFIRMED")
-                .doesNotContain("PENDING_VERIFICATION");
-        assertThat(row.get("confirmation_mode")).isEqualTo("AUTO_CONFIRMED");
-        assertThat(row.get("confirmation_reason")).isEqualTo("VERIFICATION_NOT_REQUIRED");
-        assertThat(row.get("confirmed_at")).isNotNull();
-        // 🔴 BR-166 - no human Confirmed By is invented.
+        assertThat(row.get("effective")).asString().contains("PENDING_VERIFICATION");
+        // BR-164 / BR-176 - nothing writes a confirmer or a confirmation moment.
+        assertThat(row.get("confirmation_mode")).isNull();
+        assertThat(row.get("confirmed_at")).isNull();
         assertThat(row.get("confirmed_by")).isNull();
-        // 🔴 BR-168 — a direct-channel order is ERP_MANAGED from creation (no takeover, BR-169).
+        // BR-168 - a direct-channel order is ERP_MANAGED from creation (no takeover, BR-169).
         assertThat(row.get("ownership")).isEqualTo("ERP_MANAGED");
-        // 🔴 BR-171 / SYS-034 — no marketplace said anything, so the external array is EMPTY.
+        // BR-171 / SYS-034 - no marketplace said anything, so the external array is EMPTY.
         assertThat(row.get("raw")).isEqualTo("[]");
     }
 
@@ -103,7 +93,7 @@ class ManualOrderServiceTest {
     void followsTheShipment() {
         ManualOrderService.Created created = orders.create(order());
 
-        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+        assertThat(effective(created.id())).isEqualTo("[\"PENDING_VERIFICATION\"]");
 
         UUID shipment = insertShipment(created, "BOOKED");
         assertThat(effective(created.id())).isEqualTo("[\"COURIER_BOOKED\"]");
@@ -113,13 +103,13 @@ class ManualOrderServiceTest {
         assertThat(effective(created.id())).isEqualTo("[\"DELIVERED\"]");
 
         // A shipment state with no ratified Order consequence maps to nothing (DLV-027, SYS-034):
-        // the order falls back to its confirmation instead of inventing a reading.
+        // the order falls back to its mirror instead of inventing a reading.
         jdbc.update("UPDATE shipment SET state = 'LOST' WHERE id = ?", shipment);
-        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+        assertThat(effective(created.id())).isEqualTo("[\"PENDING_VERIFICATION\"]");
 
         // A cancelled parcel is not the order's reading either.
         jdbc.update("UPDATE shipment SET state = 'CANCELLED' WHERE id = ?", shipment);
-        assertThat(effective(created.id())).isEqualTo("[\"CONFIRMED\"]");
+        assertThat(effective(created.id())).isEqualTo("[\"PENDING_VERIFICATION\"]");
 
         // 🔴 A marketplace CANCELLED is never painted over by a shipment (BR-011, OM 6.5).
         jdbc.update("UPDATE shipment SET state = 'IN_TRANSIT' WHERE id = ?", shipment);
@@ -129,21 +119,7 @@ class ManualOrderServiceTest {
     }
 
     @Test
-    @DisplayName("auto-confirmation is idempotent and never moves the first confirmation")
-    void autoConfirmationIsIdempotent() {
-        ManualOrderService.Created created = orders.create(order());
-        Object first = jdbc.queryForObject(
-                "SELECT confirmed_at FROM channel_order WHERE id = ?", Object.class, created.id());
-
-        assertThat(autoConfirmation.confirmIfAwaitingVerification(created.id())).isFalse();
-
-        Object after = jdbc.queryForObject(
-                "SELECT confirmed_at FROM channel_order WHERE id = ?", Object.class, created.id());
-        assertThat(after).isEqualTo(first);
-    }
-
-    @Test
-    @DisplayName("the schema refuses an automatic confirmation that names a human")
+    @DisplayName("the schema refuses a confirmer when no confirmation is recorded")
     void schemaRefusesFabricatedConfirmer() {
         ManualOrderService.Created created = orders.create(order());
         UUID someone = actorId;

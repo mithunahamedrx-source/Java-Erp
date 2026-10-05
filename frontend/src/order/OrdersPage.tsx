@@ -450,9 +450,9 @@ export default function OrdersPage(): React.JSX.Element {
           individually and <code>GAP-034</code> records no permitted bulk-action inventory.
         </span>{' '}
         <span id="orders-create-reason">
-          <strong>Create Order</strong> captures a direct-channel order. It is confirmed
-          <strong> automatically</strong> — Trioloo runs no verification queue (<code>BR-184</code>) —
-          and the confirmation is recorded without naming a person (<code>PRM-093</code>, <code>BR-166</code>).
+          <strong>Create Order</strong> captures a direct-channel order. It is created in
+          <strong> Pending verification</strong> — the same state an imported order arrives in —
+          and becomes <strong>Ready to ship</strong> when it is sent to the courier (<code>PRM-093</code>, <code>BR-189</code>).
         </span>
       </p>
 
@@ -795,7 +795,7 @@ export default function OrdersPage(): React.JSX.Element {
         ) : (
           <ConfirmDialog
             title={`Restore order ${lifecycleDialog.order.triolooInvoiceNumber ?? lifecycleDialog.order.externalOrderId}`}
-            consequence="The order returns to the lifecycle as confirmed. Trioloo takes control of it from now on, and marketplace updates — including a later 'cancelled' — will not overwrite it. That cannot be undone. The marketplace is not told."
+            consequence="The order returns to Pending verification. Trioloo takes control of it from now on, and marketplace updates — including a later 'cancelled' — will not overwrite it. That cannot be undone. The marketplace is not told."
             confirmLabel="Restore order"
             busy={lifecycleBusy}
             error={lifecycleError}
@@ -1509,8 +1509,8 @@ function statusCountFor(statusCounts: ReadonlyMap<string, number>, status: strin
 }
 
 const TAB_GROUPS: Readonly<Record<string, readonly string[]>> = {
-  CONFIRMED: ['CONFIRMED', 'PENDING_VERIFICATION', 'RELEASED', 'IN_FULFILLMENT'],
-  READY_TO_SHIP: ['READY_TO_SHIP', 'COURIER_BOOKED'],
+  // Owner decision 2026-10-05 (BR-189): Ready to ship means confirmed.
+  READY_TO_SHIP: ['READY_TO_SHIP', 'COURIER_BOOKED', 'CONFIRMED', 'RELEASED', 'IN_FULFILLMENT'],
 };
 function exportLabel(selectedCount: number): string {
   return selectedCount > 0 ? `Export ${selectedCount}` : 'Export all';

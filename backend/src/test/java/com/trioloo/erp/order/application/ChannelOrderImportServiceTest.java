@@ -272,37 +272,62 @@ class ChannelOrderImportServiceTest {
         service.importWindow(shop, AFTER, BEFORE, 100);
 
         actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
-        var page = queries.list(new ChannelOrderQueryService.Filter(shop, null, CanonicalOrderStatus.CONFIRMED.name(), "ORD-O-600", null),
+        var page = queries.list(new ChannelOrderQueryService.Filter(shop, null, CanonicalOrderStatus.PENDING_VERIFICATION.name(), "ORD-O-600", null),
                 PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().getFirst().externalOrderId()).isEqualTo("O-600");
         assertThat(page.getContent().getFirst().statuses()).containsExactly("pending");
-        // BR-014 / BR-184 - the marketplace says pending; Trioloo confirmed it by policy. Two facts.
-        assertThat(page.getContent().getFirst().canonicalStatuses()).containsExactly("CONFIRMED");
+        // BR-189 - a pending marketplace order is Pending verification until it is sent to the courier.
+        assertThat(page.getContent().getFirst().canonicalStatuses()).containsExactly("PENDING_VERIFICATION");
         assertThat(page.getContent().getFirst().ownership()).isEqualTo("API_MANAGED");
     }
 
     @Test
-    @DisplayName("confirms an imported pending order by policy, once, without taking authority")
-    void confirmsImportedOrderByPolicy() {
+    @DisplayName("leaves an imported pending order pending verification and API-managed")
+    void importedPendingOrderStaysPending() {
         PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-610", "OI-610"))));
         service.importWindow(shop, AFTER, BEFORE, 100);
-        Object first = jdbc.queryForObject(
-                "SELECT confirmed_at FROM channel_order WHERE external_order_id = 'O-610'", Object.class);
-
         PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-610", "OI-610"))));
         service.importWindow(shop, AFTER, BEFORE, 100);
 
-        var row = jdbc.queryForMap("SELECT ownership, confirmation_mode, confirmation_reason, confirmed_by, "
-                + "confirmed_at FROM channel_order WHERE external_order_id = 'O-610'");
-        assertThat(row.get("confirmation_mode")).isEqualTo("AUTO_CONFIRMED");
-        assertThat(row.get("confirmation_reason")).isEqualTo("VERIFICATION_NOT_REQUIRED");
-        // BR-166 - no human confirmer is fabricated; BR-169 - a system confirmation is no takeover.
+        var row = jdbc.queryForMap("SELECT ownership, confirmation_mode, confirmed_by, "
+                + "channel_order_effective_statuses(id)::text AS effective FROM channel_order "
+                + "WHERE external_order_id = 'O-610'");
+        // BR-164 / BR-166 - nobody confirmed it, so nothing says so; BR-169 - ingestion is no takeover.
+        assertThat(row.get("confirmation_mode")).isNull();
         assertThat(row.get("confirmed_by")).isNull();
         assertThat(row.get("ownership")).isEqualTo("API_MANAGED");
-        // A re-poll never moves the first confirmation.
-        assertThat(row.get("confirmed_at")).isEqualTo(first);
+        assertThat(row.get("effective")).asString().contains("PENDING_VERIFICATION");
+    }
+
+    @Test
+    @DisplayName("sending a pending order to the courier moves it from Pending verification to Ready to ship")
+    void courierBookingMovesAPendingOrderToReadyToShip() {
+        PAGES.add(new ChannelOrderProvider.Page(1, 1, List.of(order("O-620", "OI-620"))));
+        service.importWindow(shop, AFTER, BEFORE, 100);
+        actingWith(OrderPermissions.CHANNEL_ORDER_VIEW);
+        var pending = new ChannelOrderQueryService.Filter(shop, null, "PENDING_VERIFICATION", null, null);
+        var ready = new ChannelOrderQueryService.Filter(shop, null, "READY_TO_SHIP", null, null);
+        assertThat(queries.list(pending, PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
+        assertThat(queries.list(ready, PageRequest.of(0, 20)).getTotalElements()).isZero();
+
+        // Send to Steadfast: the shipment is booked. Ready to ship means confirmed (BR-189), and with a
+        // shipment the courier's report is followed instead of the marketplace's (DLV-025).
+        jdbc.update("""
+                INSERT INTO shipment (id, channel_order_id, trioloo_invoice_number, state, consignment_id,
+                                      recipient_name, recipient_phone, recipient_address, cod_amount)
+                SELECT gen_random_uuid(), id, 'TRX620', 'BOOKED', 'C-620', 'T', '017', 'Dhaka', 100.00
+                  FROM channel_order WHERE external_order_id = 'O-620'
+                """);
+
+        assertThat(queries.list(pending, PageRequest.of(0, 20)).getTotalElements()).isZero();
+        var moved = queries.list(ready, PageRequest.of(0, 20));
+        assertThat(moved.getTotalElements()).isEqualTo(1);
+        assertThat(moved.getContent().getFirst().canonicalStatuses()).containsExactly("COURIER_BOOKED");
+
+        // And with no shipment, a Daraz order keeps following Daraz: its raw word is untouched.
+        assertThat(moved.getContent().getFirst().statuses()).containsExactly("pending");
     }
 
     @Test
@@ -650,6 +675,13 @@ class ChannelOrderImportServiceTest {
     }
 
     private void clean() {
+        jdbc.update("""
+                DELETE FROM shipment WHERE channel_order_id IN (
+                    SELECT id FROM channel_order WHERE channel_instance_id IN (
+                        SELECT id FROM channel_instance WHERE code LIKE 'ORDER-IMPORT-%'
+                    )
+                )
+                """);
         jdbc.update("""
                 DELETE FROM channel_order_item WHERE channel_order_id IN (
                     SELECT id FROM channel_order WHERE channel_instance_id IN (

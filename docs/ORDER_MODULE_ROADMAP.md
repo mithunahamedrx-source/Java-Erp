@@ -1,7 +1,7 @@
 # Order Module — implementation roadmap
 
 **Owner:** Trioloo Engineering · **Status:** 📌 **WORKING RECORD — NOT CANONICAL ARCHITECTURE**
-**Version:** 1.2.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-05 · **Rule prefix:** none, by design
+**Version:** 1.3.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-05 · **Rule prefix:** none, by design
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It sequences work already decided elsewhere and records
 > where each phase stands. **It issues no rule, defines no business behaviour and closes no gap.**
@@ -144,13 +144,13 @@ state an imported order arrives in, so both enter one verification queue.
 | **Migration** | `V26__order_auto_confirmation_and_effective_status.sql` |
 
 **Owner's decisions, 2026-10-03:**
-- ✅ **No human verification step.** Every order — imported or manual — is **confirmed automatically on arrival and the decision is recorded** (`AUTO_CONFIRMED`, reason `VERIFICATION_NOT_REQUIRED`); no person is named as confirmer.
+- ⚠ **CORRECTED 2026-10-05:** a new order is **Pending verification**; **Send to Steadfast** makes it **Ready to ship**, and **Ready to ship means confirmed** (`OM BR-189`; `BR-184` superseded). *(Originally recorded here as automatic confirmation, which the owner did not intend.)*
 - ✅ **`Pending verification`, `Released`, `In fulfilment` and `Courier booked` are not status tabs.** The states stay in `SM-1`; the strip groups them under the tab they lead to and the card shows the exact stage as a hover title.
 - ✅ **Scope: the core flow first.**
 
 **What the flow is now, end to end**
-1. **Arrives** — Daraz pull (every 5 min as deployed) or manual `Create Order` → **Confirmed** automatically.
-2. **Send to Steadfast** — single or selected bulk, once per invoice (`V21` unique indexes) → reads **Ready to ship** (courier booked).
+1. **Arrives** — Daraz pull (every 5 min as deployed) or manual `Create Order` → **Pending verification**.
+2. **Send to Steadfast** — single or selected bulk, once per invoice (`V21` unique indexes) → **Ready to ship** (= confirmed). No shipment → a Daraz order keeps following Daraz.
 3. **Tracking** — manual refresh per order, plus a **scheduled courier pull** (`trioloo.delivery.tracking.enabled`, off by default, `PT30M`) → **Delivered** when the courier reports `delivered`.
 4. **Invoice** — `E-039` snapshot, 0% VAT for now.
 
@@ -189,6 +189,7 @@ state an imported order arrives in, so both enter one verification queue.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-10-05** | **Owner correction `BR-189`/`OSC-064`:** Pending verification → (Send to Steadfast) → Ready to ship; `V28`. |
 | **1.2.0** | **2026-10-05** | **Cancel and restore built** (`PRM-095`, `OM §31`, `V27`). Hold remains blocked on a capability code. |
 | **1.1.0** | **2026-10-03** | **Phase 2 recorded DONE; Phase 7 added** — owner removed the verification step and the Released / In fulfilment / Courier booked tabs; core flow built (auto-confirmation, effective status, scheduled tracking). Cancel, hold and automatic Dispatched are listed as blocked with their reasons. |
 | **1.0.0** | **2026-08-24** | **Initial record.** Sequences the Order module into six phases and fixes the per-phase discipline the product owner instructed: **page contract → API mismatch check → design → build → report**. ✅ **Phase 1 DONE.** 🔴 **Issues no rule and closes no gap; five open questions carried explicitly rather than resolved.** |

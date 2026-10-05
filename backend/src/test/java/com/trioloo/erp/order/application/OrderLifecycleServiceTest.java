@@ -117,18 +117,17 @@ class OrderLifecycleServiceTest {
     }
 
     @Test
-    @DisplayName("restores a marketplace-cancelled order: confirmed, ERP-managed, and the stale cancelled is kept as evidence")
+    @DisplayName("restores a marketplace-cancelled order: pending verification, ERP-managed, and the stale cancelled is kept as evidence")
     void restoresAMarketplaceCancelledOrder() {
         UUID id = marketplaceOrder("[\"CANCELLED\"]");
         assertThat(row(id).get("effective")).isEqualTo("[\"CANCELLED\"]");
 
         OrderLifecycleService.Outcome outcome = lifecycle.restore(id);
 
-        assertThat(outcome.canonicalStatus()).isEqualTo("CONFIRMED");
+        assertThat(outcome.canonicalStatus()).isEqualTo("PENDING_VERIFICATION");
         Map<String, Object> row = row(id);
-        // BR-012 + BR-184 — re-verification is automatic; no human confirmer is invented (BR-166).
-        assertThat(row.get("effective")).isEqualTo("[\"CONFIRMED\"]");
-        assertThat(row.get("confirmation_mode")).isEqualTo("AUTO_CONFIRMED");
+        // BR-012 — a restored order re-enters verification; nobody is recorded as confirming it (BR-166).
+        assertThat(row.get("effective")).isEqualTo("[\"PENDING_VERIFICATION\"]");
         assertThat(row.get("confirmed_by")).isNull();
         // BR-172 — ERP_MANAGED immediately, caused by the restoration.
         assertThat(row.get("ownership")).isEqualTo("ERP_MANAGED");
@@ -147,13 +146,13 @@ class OrderLifecycleServiceTest {
         UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
         lifecycle.cancel(id, "DUPLICATE_ORDER", null);
         lifecycle.restore(id);
-        assertThat(row(id).get("effective")).isEqualTo("[\"CONFIRMED\"]");
+        assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_VERIFICATION\"]");
 
         // A second cancellation after the restore wins, because it is the later fact.
         lifecycle.cancel(id, "CHANGED_MIND", null);
         assertThat(row(id).get("effective")).isEqualTo("[\"CANCELLED\"]");
         lifecycle.restore(id);
-        assertThat(row(id).get("effective")).isEqualTo("[\"CONFIRMED\"]");
+        assertThat(row(id).get("effective")).isEqualTo("[\"PENDING_VERIFICATION\"]");
     }
 
     @Test
@@ -213,15 +212,11 @@ class OrderLifecycleServiceTest {
         jdbc.update("""
                 INSERT INTO channel_order (id, channel_instance_id, external_order_id, order_number,
                     trioloo_invoice_number, ownership, statuses_json, canonical_statuses_json,
-                    price, shipping_first_name, shipping_phone, shipping_address1, confirmed_at,
-                    confirmation_mode, confirmation_reason, provider_created_at, imported_at, last_seen_at)
+                    price, shipping_first_name, shipping_phone, shipping_address1,
+                    provider_created_at, imported_at, last_seen_at)
                 VALUES (?, ?, ?, ?, ?, 'API_MANAGED', '[]'::jsonb, CAST(? AS jsonb), 100.00, 'Rahim',
-                        '01700000000', 'Dhaka', CASE WHEN ? LIKE '%PENDING_VERIFICATION%' THEN now() END,
-                        CASE WHEN ? LIKE '%PENDING_VERIFICATION%' THEN 'AUTO_CONFIRMED' END,
-                        CASE WHEN ? LIKE '%PENDING_VERIFICATION%' THEN 'VERIFICATION_NOT_REQUIRED' END,
-                        now(), now(), now())
-                """, id, shopId, ext, ext, "TR" + Math.abs(id.hashCode()), canonicalJson,
-                canonicalJson, canonicalJson, canonicalJson);
+                        '01700000000', 'Dhaka', now(), now(), now())
+                """, id, shopId, ext, ext, "TR" + Math.abs(id.hashCode()), canonicalJson);
         return id;
     }
 

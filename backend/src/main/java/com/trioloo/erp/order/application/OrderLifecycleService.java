@@ -54,11 +54,9 @@ public class OrderLifecycleService {
             "COURIER_BOOKED");
 
     private final JdbcTemplate jdbc;
-    private final OrderAutoConfirmation autoConfirmation;
 
-    public OrderLifecycleService(JdbcTemplate jdbc, OrderAutoConfirmation autoConfirmation) {
+    public OrderLifecycleService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.autoConfirmation = autoConfirmation;
     }
 
     @Transactional
@@ -127,18 +125,8 @@ public class OrderLifecycleService {
                        version = version + 1
                  WHERE id = ?
                 """, actor, actor, orderId);
-        /*
-          BR-012 — the restored order RE-ENTERS verification. BR-184 makes verification automatic, so
-          it is confirmed by policy again if it never was; an existing confirmation is kept (its
-          moment is not rewritten) and no human confirmer is invented (BR-166).
-        */
-        jdbc.update("""
-                UPDATE channel_order
-                   SET confirmed_at = now(), confirmation_mode = ?, confirmation_reason = ?
-                 WHERE id = ? AND confirmed_at IS NULL
-                """, OrderAutoConfirmation.MODE, OrderAutoConfirmation.REASON, orderId);
-
-        return new Outcome(orderId, "CONFIRMED", marketplaceNote(state, "restored"));
+        // BR-012 — a restored order RE-ENTERS verification and never resumes at its prior stage.
+        return new Outcome(orderId, "PENDING_VERIFICATION", marketplaceNote(state, "restored"));
     }
 
     private static String marketplaceNote(OrderState state, String verb) {

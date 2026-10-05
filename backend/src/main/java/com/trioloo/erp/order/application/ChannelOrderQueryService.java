@@ -336,18 +336,16 @@ public class ChannelOrderQueryService {
             return List.of("");
         }
         /*
-          ✅ Owner decision 2026-10-03 (BR-184, OSC-030.a): there are no tabs for pending
-          verification, released or in fulfilment. The states remain in SM-1, so an order in one is
-          GROUPED under the tab it leads to rather than orphaned from every tab.
+          ✅ Owner decision 2026-10-05 (BR-189, OSC-064): "Ready to ship means confirmed". The stages the
+          owner does not want as tabs are GROUPED under Ready to ship so no order is orphaned from
+          every tab: confirmed, released, in fulfilment, ready to ship and courier booked.
         */
-        if (requested == CanonicalOrderStatus.CONFIRMED) {
-            return List.of(CanonicalOrderStatus.CONFIRMED.name(),
-                    CanonicalOrderStatus.PENDING_VERIFICATION.name(),
+        if (requested == CanonicalOrderStatus.READY_TO_SHIP) {
+            return List.of(CanonicalOrderStatus.READY_TO_SHIP.name(),
+                    CanonicalOrderStatus.COURIER_BOOKED.name(),
+                    CanonicalOrderStatus.CONFIRMED.name(),
                     CanonicalOrderStatus.RELEASED.name(),
                     CanonicalOrderStatus.IN_FULFILLMENT.name());
-        }
-        if (requested == CanonicalOrderStatus.READY_TO_SHIP) {
-            return List.of(CanonicalOrderStatus.READY_TO_SHIP.name(), CanonicalOrderStatus.COURIER_BOOKED.name());
         }
         return List.of(requested.name());
     }

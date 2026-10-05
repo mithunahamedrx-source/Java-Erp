@@ -17,7 +17,7 @@ const ORDER_ROW: ChannelOrderRow = {
   triolooInvoiceNumber: 'TR0001',
   ownership: 'API_MANAGED',
   statuses: ['pending'],
-  canonicalStatuses: ['CONFIRMED'],
+  canonicalStatuses: ['PENDING_VERIFICATION'],
   dispatchObservedAt: null,
   providerCreatedAt: '2026-08-21T10:26:00Z',
   providerUpdatedAt: '2026-08-21T11:02:00Z',
@@ -53,7 +53,7 @@ const SUMMARY: ChannelOrderSummary = {
   // 🔴 The channel filter is built from THIS, never from a list in the browser.
   channelTypes: [{ channelType: 'DARAZ', orderCount: 1 }],
   // ⚠ Only the statuses that HAVE orders. Every other tab renders no count rather than a `0`.
-  statusCounts: [{ status: 'CONFIRMED', orderCount: 1 }],
+  statusCounts: [{ status: 'PENDING_VERIFICATION', orderCount: 1 }],
   // 🔴 `BR-002` — attribution is at channel INSTANCE level, not channel type.
   shops: [{ channelInstanceId: '067774fc-c4d6-4618-a590-f85ff055d2ab', code: 'CHN-000001', name: 'Ryzen Builder', orderCount: 1 }],
 };
@@ -61,9 +61,9 @@ const SUMMARY: ChannelOrderSummary = {
 const ORDER_DETAIL: ChannelOrderDetail = {
   ...ORDER_ROW,
   channelType: 'DARAZ',
-  confirmationMode: 'AUTO_CONFIRMED',
-  confirmedAt: '2026-08-23T11:00:05Z',
-  confirmationReason: 'VERIFICATION_NOT_REQUIRED',
+  confirmationMode: null,
+  confirmedAt: null,
+  confirmationReason: null,
   importedAt: '2026-08-23T11:00:00Z',
   shippingFee: '0.00',
   shippingFeeOriginal: null,
@@ -219,7 +219,7 @@ describe('Orders first slice', () => {
     const startsWith = (label: string): boolean => tabLabels.some((text) => text.startsWith(label));
 
     // ✅ Ratified `SM-1` states only (`OM §6.2`, `OSC-030.a`).
-    for (const label of ['All', 'Confirmed', 'Ready to ship', 'Dispatched', 'Delivered', 'Cancelled']) {
+    for (const label of ['All', 'Pending verification', 'Ready to ship', 'Dispatched', 'Delivered', 'Cancelled']) {
       expect(startsWith(label)).toBe(true);
     }
 
@@ -303,10 +303,10 @@ describe('Orders first slice', () => {
     // 🔴 The prefix word is gone (`OSC-056.c`), so this test can no longer lean on it. What it
     // asserts instead is the property the rule actually names: the two words live in SEPARATE
     // elements, neither containing the other.
-    // ⚠ Scoped to the CARD: the status tab is also named `Confirmed`, and a
+    // ⚠ Scoped to the CARD: the status tab is also named `Pending verification`, and a
     // document-wide query would match the tab rather than the chip.
     const inCard = within(card);
-    const canonical = inCard.getByText('Confirmed');
+    const canonical = inCard.getByText('Pending verification');
     const external = inCard.getByText('pending');
     expect(canonical).not.toBe(external);
     expect(canonical.contains(external)).toBe(false);
@@ -318,7 +318,7 @@ describe('Orders first slice', () => {
     const cluster = external.parentElement;
     expect(cluster?.textContent).toContain('Ryzen Builder');
     expect(cluster?.textContent).toContain('3985600001');
-    expect(cluster?.textContent).not.toContain('Confirmed');
+    expect(cluster?.textContent).not.toContain('Pending verification');
 
     // ⚠ The marketplace's word is printed as the marketplace spelled it — not title-cased.
     expect(external.textContent).toBe('pending');
@@ -390,7 +390,7 @@ describe('Orders first slice', () => {
 
     const card = await screen.findByTestId('order-card');
 
-    // 🔴 The fixture order is `CONFIRMED` — goods NOT delivered — so `SM-5` is
+    // 🔴 The fixture order is `PENDING_VERIFICATION` — goods NOT delivered — so `SM-5` is
     // `NOT_DUE` by `OM §11.3` and `BR-033`. Anything else would claim an obligation that
     // `SM-5.4` prohibits before delivery.
     expect(card.textContent).toContain('Payment not due');
@@ -550,8 +550,8 @@ describe('Orders first slice', () => {
     // what an operator is about to CREATE as much as to a takeover. The state is stated in
     // VISIBLE text, and `PRM-093.b` is why it matters: creation is NOT confirmation.
     const reason = document.getElementById('orders-create-reason');
-    expect(reason?.textContent).toContain('confirmed');
-    expect(reason?.textContent).toContain('without naming a person');
+    expect(reason?.textContent).toContain('Pending verification');
+    expect(reason?.textContent).toContain('Ready to ship');
   });
 
   it('enables Print for exactly one selected order and never for a set', async () => {
@@ -710,8 +710,8 @@ describe('Orders first slice', () => {
     const textOf = (label: string): string =>
       tabs.find((tab) => (tab.textContent ?? '').startsWith(label))?.textContent ?? '';
 
-    // The server reported CONFIRMED = 1, so that tab carries a count.
-    expect(textOf('Confirmed')).toBe('Confirmed1');
+    // The server reported PENDING_VERIFICATION = 1, so that tab carries a count.
+    expect(textOf('Pending verification')).toBe('Pending verification1');
 
     // 🔴 `SYS-034` / `OSC-045` — a status the server did not report carries NO count. It is
     // absent, and an absence must never be rendered as a plausible `0`.
@@ -831,8 +831,7 @@ describe('Orders first slice', () => {
       🔴 `BR-164` / `BR-166` — `Confirmed By` IS NEVER DERIVED, AND ITS ABSENCE IS THE FACT. It is
       not filled from an assigned agent, an owner or the audit history.
     */
-    // BR-184 — the fixture is auto-confirmed: said in words, and NO person is named.
-    expect(screen.getByText(/Confirmed automatically — no person confirmed this order/)).not.toBeNull();
+    expect(screen.getByText(/Not recorded — no confirmer is held/)).not.toBeNull();
 
     /*
       🔴 THE PROTOTYPE'S SAMPLE DATA IS NOT PRINTED. It shows a warehouse, a named picker, a pick
@@ -894,12 +893,12 @@ describe('Orders first slice', () => {
   });
 });
 
-describe('Orders status tabs after the owner removed the extra stages (BR-184)', () => {
-  it('offers no Pending verification, Released, In fulfilment or Courier booked tab', async () => {
+describe('Orders status tabs after the owner removed the extra stages (BR-189)', () => {
+  it('offers no Confirmed, Released, In fulfilment or Courier booked tab', async () => {
     renderAt('/sales/orders');
     await screen.findByTestId('order-card');
     const labels = screen.getAllByRole('tab').map((tab) => tab.textContent ?? '');
-    for (const removed of ['Pending verification', 'Released', 'In fulfilment', 'Courier booked']) {
+    for (const removed of ['Confirmed', 'Released', 'In fulfilment', 'Courier booked']) {
       expect(labels.some((text) => text.startsWith(removed))).toBe(false);
     }
   });
