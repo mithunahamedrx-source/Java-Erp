@@ -98,7 +98,7 @@ class OrderLifecycleServiceTest {
     }
 
     @Test
-    @DisplayName("refuses to cancel after dispatch, while a courier shipment is live, or twice")
+    @DisplayName("refuses to cancel after dispatch or twice, yet allows it while a consignment is booked (BR-200)")
     void refusesOutsideTheWindow() {
         UUID dispatched = marketplaceOrder("[\"DISPATCHED\"]");
         assertThatThrownBy(() -> lifecycle.cancel(dispatched, "CHANGED_MIND", null))
@@ -106,11 +106,13 @@ class OrderLifecycleServiceTest {
 
         UUID booked = marketplaceOrder("[\"READY_TO_SHIP\"]");
         shipment(booked, "BOOKED");
-        assertThatThrownBy(() -> lifecycle.cancel(booked, "CHANGED_MIND", null))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Steadfast");
-        // Once the consignment is cancelled at the courier and tracking records it, cancel is open.
-        jdbc.update("UPDATE shipment SET state = 'CANCELLED' WHERE channel_order_id = ?", booked);
-        assertThat(lifecycle.cancel(booked, "CHANGED_MIND", null).canonicalStatus()).isEqualTo("PENDING_CANCELLATION");
+        // BR-200 - Ready to ship may be cancelled although a consignment is booked; the operator is told
+        // to cancel it at Steadfast (no cancel API exists), and the shipment record is untouched.
+        OrderLifecycleService.Outcome outcome = lifecycle.cancel(booked, "CHANGED_MIND", null);
+        assertThat(outcome.canonicalStatus()).isEqualTo("PENDING_CANCELLATION");
+        assertThat(outcome.marketplaceNote()).contains("Steadfast panel");
+        assertThat(jdbc.queryForObject("SELECT state FROM shipment WHERE channel_order_id = ?", String.class, booked))
+                .isEqualTo("BOOKED");
 
         assertThatThrownBy(() -> lifecycle.cancel(booked, "CHANGED_MIND", null))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("already cancelled");

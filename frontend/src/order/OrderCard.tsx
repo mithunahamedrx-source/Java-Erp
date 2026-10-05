@@ -418,18 +418,13 @@ function moreActions(
     an operation; the rule is that the operation does not exist on a dispatched order.
   */
   if (preDispatch) {
-    // The server refuses cancelling while a courier shipment is live (STF-016: a booking cannot be
-    // withdrawn by API), so the menu says so rather than letting the click fail.
-    const liveShipment = booked && order.shipmentState !== 'CANCELLED';
+    // BR-200 - cancelling is open on Ready to ship even with a Steadfast consignment booked; the dialog tells
+    // the operator the parcel must also be cancelled in the Steadfast panel (no cancel API, STF-016).
     items.push({
       label: 'Cancel order',
       description: 'Pre-dispatch only · needs a reason',
       separatorBefore: true,
       destructive: true,
-      disabled: liveShipment,
-      reason: liveShipment
-        ? 'A Steadfast consignment is live. Cancel it in the Steadfast panel, refresh tracking, then cancel the order.'
-        : undefined,
       onSelect: () => onCancelOrder(order),
     });
   }

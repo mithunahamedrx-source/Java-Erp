@@ -57,6 +57,11 @@ public class ChannelOrderController {
         return queries.summary(query.toFilter());
     }
 
+    @GetMapping("/{id}/tracking-events")
+    public java.util.List<ChannelOrderQueryService.TrackingEventView> trackingEvents(@PathVariable UUID id) {
+        return queries.trackingEvents(id);
+    }
+
     @GetMapping("/{id}")
     public ChannelOrderQueryService.ChannelOrderDetail detail(@PathVariable UUID id) {
         return queries.detail(id);

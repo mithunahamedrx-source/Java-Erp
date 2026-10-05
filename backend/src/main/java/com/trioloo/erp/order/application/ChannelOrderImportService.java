@@ -178,8 +178,8 @@ public class ChannelOrderImportService {
         }
         ChannelInstanceEntity channel = channels.findById(channelInstanceId)
                 .orElseThrow(() -> new ChannelOrderImportException("No registered shop with that id."));
-        if (!DARAZ.equalsIgnoreCase(channel.getChannelType())) {
-            throw new ChannelOrderImportException("This shop is not Daraz.");
+        if (!DARAZ.equalsIgnoreCase(channel.getChannelType()) && !"WEBSITE".equalsIgnoreCase(channel.getChannelType())) {
+            throw new ChannelOrderImportException("Orders are imported from Daraz and website shops only.");
         }
         /*
           🔴 THE SAME BR-181 GATE THE SCHEDULER APPLIES, ENFORCED AGAIN HERE.
@@ -194,12 +194,12 @@ public class ChannelOrderImportService {
         */
         if (channel.getRecordStatus() != RecordStatus.ACTIVE
                 && !(admitDraftShops && channel.getRecordStatus() == RecordStatus.DRAFT)) {
-            throw new ChannelOrderImportException("This Daraz shop is not ACTIVE.");
+            throw new ChannelOrderImportException("This shop is not ACTIVE.");
         }
         ConnectionState state = connections.findByChannelInstanceIdIn(List.of(channelInstanceId))
                 .stream().map(c -> c.getState()).findFirst().orElse(null);
         if (state != ConnectionState.CONNECTED) {
-            throw new ChannelOrderImportException("This Daraz shop is not connected.");
+            throw new ChannelOrderImportException("This shop is not connected.");
         }
         return channel;
     }

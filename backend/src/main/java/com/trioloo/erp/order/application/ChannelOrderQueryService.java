@@ -675,6 +675,24 @@ public class ChannelOrderQueryService {
         }
     }
 
+    /** V39 — what the courier has told us about this order's parcels, oldest first. */
+    public List<TrackingEventView> trackingEvents(UUID orderId) {
+        if (currentActor.current().filter(a -> a.hasPermission(OrderPermissions.CHANNEL_ORDER_VIEW)).isEmpty()) {
+            throw new AccessDeniedByPermissionException(OrderPermissions.CHANNEL_ORDER_VIEW);
+        }
+        return jdbc.query("""
+                SELECT e.observed_at, e.event_type, e.provider_status_raw, e.shipment_state
+                  FROM shipment_tracking_event e JOIN shipment s ON s.id = e.shipment_id
+                 WHERE s.channel_order_id = ?
+                 ORDER BY e.observed_at ASC, e.id ASC
+                """, (rs, n) -> new TrackingEventView(
+                        rs.getTimestamp("observed_at").toInstant(), rs.getString("event_type"),
+                        rs.getString("provider_status_raw"), rs.getString("shipment_state")), orderId);
+    }
+
+    public record TrackingEventView(Instant observedAt, String eventType, String providerStatusRaw,
+                                    String shipmentState) {}
+
     public record AddressView(String firstName, String lastName, String phone, String phone2,
                               String address1, String address2, String address3, String address4,
                               String address5, String city, String postCode, String country) {}

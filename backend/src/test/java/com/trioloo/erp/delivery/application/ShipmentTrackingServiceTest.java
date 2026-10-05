@@ -94,6 +94,22 @@ class ShipmentTrackingServiceTest {
     }
 
     @Test
+    @DisplayName("logs a tracking event only when the courier's word changes (V39)")
+    void logsTrackingEventsOnChange() {
+        actingWith(DeliveryPermissions.SHIPMENT_TRACK);
+
+        tracking.refreshForOrder(orderId);   // in_review: first observation
+        tracking.refreshForOrder(orderId);   // in_review again: nothing new
+        REPLIES.add(new SteadfastTransport.Response(200,
+                "{\"status\":200,\"consignment_id\":\"123\",\"tracking_code\":\"ABC\",\"delivery_status\":\"delivered\"}"));
+        tracking.refreshForOrder(orderId);   // delivered: a change
+
+        assertThat(jdbc.queryForList(
+                "SELECT provider_status_raw FROM shipment_tracking_event WHERE shipment_id = ? ORDER BY observed_at, id",
+                String.class, shipmentId)).containsExactly("in_review", "delivered");
+    }
+
+    @Test
     @DisplayName("refreshes the active shipment for an order")
     void refreshesActiveShipmentForOrder() {
         actingWith(DeliveryPermissions.SHIPMENT_TRACK);

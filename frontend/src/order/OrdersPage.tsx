@@ -789,6 +789,9 @@ export default function OrdersPage(): React.JSX.Element {
                 ? 'Trioloo takes control of this marketplace order from now on, and marketplace updates will not overwrite it. That cannot be undone. '
                 : '')
               + 'The marketplace is not told — cancel it in the seller panel too. Once goods are with the courier an order cannot be cancelled, only returned.'
+              + (lifecycleDialog.order.courierConsignmentId
+                ? ' A Steadfast consignment is booked for this order and is NOT cancelled automatically — cancel it in the Steadfast panel too.'
+                : '')
             }
             confirmLabel="Cancel order"
             cancelLabel="Keep order"

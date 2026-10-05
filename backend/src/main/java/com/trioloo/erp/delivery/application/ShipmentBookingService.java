@@ -45,10 +45,14 @@ public class ShipmentBookingService {
     private final SteadfastCourierClient courier;
     private final Clock clock;
 
-    public ShipmentBookingService(JdbcTemplate jdbc, SteadfastCourierClient courier, Clock clock) {
+    private final com.trioloo.erp.order.application.OrderWritebackService writeback;
+
+    public ShipmentBookingService(JdbcTemplate jdbc, SteadfastCourierClient courier, Clock clock,
+                                  com.trioloo.erp.order.application.OrderWritebackService writeback) {
         this.jdbc = jdbc;
         this.courier = courier;
         this.clock = clock;
+        this.writeback = writeback;
     }
 
     /**
@@ -164,6 +168,18 @@ public class ShipmentBookingService {
                 ShipmentState.BOOKED.name(), booking.consignmentId(), booking.trackingCode(),
                 booking.providerStatusRaw(), Timestamp.from(now),
                 Timestamp.from(now), actor, Timestamp.from(now), shipmentId);
+
+        // V39 - the booking is the first event in the shipment's tracking log.
+        jdbc.update("""
+                INSERT INTO shipment_tracking_event (shipment_id, observed_at, event_type, provider_status_raw, shipment_state)
+                VALUES (?, ?, 'BOOKED', ?, 'BOOKED')
+                """, shipmentId, Timestamp.from(now), booking.providerStatusRaw());
+
+        /*
+          Ready to ship = confirmed (BR-189). A website order is the company's own, so its admin panel is told the
+          order is CONFIRMED. Best effort: the parcel is already booked, so a failure is logged and never undoes it.
+        */
+        writeback.publish(channelOrderId, com.trioloo.erp.order.domain.CanonicalOrderStatus.CONFIRMED, "confirmed");
 
         return new Booked(shipmentId, booking.consignmentId(), booking.trackingCode(),
                 booking.providerStatusRaw());

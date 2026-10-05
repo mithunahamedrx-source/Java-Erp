@@ -54,9 +54,11 @@ public class OrderLifecycleService {
             "COURIER_BOOKED");
 
     private final JdbcTemplate jdbc;
+    private final OrderWritebackService writeback;
 
-    public OrderLifecycleService(JdbcTemplate jdbc) {
+    public OrderLifecycleService(JdbcTemplate jdbc, OrderWritebackService writeback) {
         this.jdbc = jdbc;
+        this.writeback = writeback;
     }
 
     @Transactional
@@ -79,13 +81,12 @@ public class OrderLifecycleService {
                     "This order is past the point where it can be cancelled (BR-011). Once goods are "
                             + "with the courier the instrument is a return, not a cancellation.");
         }
-        if (state.liveShipment()) {
-            throw new IllegalStateException(
-                    "This order has a live Steadfast shipment. Steadfast cannot be cancelled from here "
-                            + "(STF-016): cancel the consignment in the Steadfast panel, refresh tracking, "
-                            + "then cancel the order.");
-        }
-
+        /*
+          Owner decision 2026-10-05 (BR-200): a Ready to ship order may be cancelled even though a Steadfast
+          consignment is booked. Steadfast offers no cancel call (STF-016), so the parcel is NOT withdrawn
+          here - the operator is told to cancel it in the Steadfast panel. The shipment record is left alone
+          (DLV-025: the courier is system of record for the parcel).
+        */
         jdbc.update("""
                 UPDATE channel_order
                    SET cancelled_at = now(), cancelled_by = ?, cancel_reason = ?, cancel_note = ?,
@@ -101,7 +102,15 @@ public class OrderLifecycleService {
                 """, actor, reason, blankToNull(note), actor, orderId);
 
         String after = load(orderId).effective().contains("PENDING_CANCELLATION") ? "PENDING_CANCELLATION" : "CANCELLED";
-        return new Outcome(orderId, after, marketplaceNote(state, "cancelled"));
+        String courier = state.liveShipment()
+                ? "The Steadfast consignment is still booked - cancel it in the Steadfast panel too."
+                : null;
+        OrderWritebackService.Result site = writeback.publish(orderId,
+                com.trioloo.erp.order.domain.CanonicalOrderStatus.CANCELLED, "cancelled");
+        // A website order is the company's own: the site is told. A marketplace is never told (BR-172).
+        String marketplace = site.supported() ? site.note() : marketplaceNote(state, "cancelled");
+        String outcomeNote = marketplace == null ? courier : courier == null ? marketplace : marketplace + " " + courier;
+        return new Outcome(orderId, after, outcomeNote);
     }
 
     @Transactional
@@ -127,7 +136,10 @@ public class OrderLifecycleService {
                  WHERE id = ?
                 """, actor, actor, orderId);
         // BR-012 — a restored order RE-ENTERS verification and never resumes at its prior stage.
-        return new Outcome(orderId, "PENDING_VERIFICATION", marketplaceNote(state, "restored"));
+        OrderWritebackService.Result site = writeback.publish(orderId,
+                com.trioloo.erp.order.domain.CanonicalOrderStatus.PENDING_VERIFICATION, "reopened");
+        return new Outcome(orderId, "PENDING_VERIFICATION",
+                site.supported() ? site.note() : marketplaceNote(state, "restored"));
     }
 
     /**

@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../shell/AppShell';
 import { Button, DetailTabs, EmptyState } from '../ui/primitives';
 import type { SemanticTone } from '../ui/primitives';
-import { bookOrderShipment, fetchChannelOrder, orderTypeLabel, refreshOrderTracking } from './orderApi';
-import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow } from './orderApi';
+import { bookOrderShipment, fetchChannelOrder, fetchTrackingEvents, orderTypeLabel, refreshOrderTracking } from './orderApi';
+import type { AddressView, ChannelOrderDetail, ChannelOrderItemRow, TrackingEvent } from './orderApi';
 import { ORDER_LIFECYCLE_ROLE, PAYMENT_POSITION_ROLE, semanticRoleOf } from '../design/semanticRole';
 import {
   addressLines,
@@ -775,15 +775,10 @@ function Fulfilment({
         >
           <div style={{ padding: '22px' }}>
             {/*
-              🔴 NO TRACKING EVENT STORE EXISTS. The prototype draws a connected timeline of
-              courier scans; reproducing it would print delivery movements that never happened.
-              `ORDER_MODULE_ROADMAP.md` Phase 3 blocks the `SM-4` status mapping on observing the
-              provider's real vocabulary, and `BR-007` / `SYS-034` forbid coercing an unknown one.
+              V39 — the courier's word, in the order Trioloo was told it. Steadfast publishes no scan history, so
+              each line is an OBSERVATION with its moment, never a reconstructed movement (BR-007, DLV-037).
             */}
-            <EmptyState
-              title="No tracking event is recorded"
-              guidance="Courier tracking events are not imported on this build. An unknown courier status is never coerced into a Trioloo state (BR-007), and LOST is entered only on the courier's own confirmation (DLV-027)."
-            />
+            <TrackingTimeline orderId={order.id} booked={booked} />
           </div>
         </Section>
       </div>
@@ -1022,6 +1017,52 @@ type FieldSpec = {
   readonly muted?: boolean;
   readonly full?: boolean;
 };
+
+function TrackingTimeline({ orderId, booked }: { readonly orderId: string; readonly booked: boolean }): React.JSX.Element {
+  const [events, setEvents] = useState<readonly TrackingEvent[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (booked) {
+      fetchTrackingEvents(orderId).then((rows) => { if (live) setEvents(Array.isArray(rows) ? rows : []); }).catch(() => { if (live) setEvents([]); });
+    }
+    return () => { live = false; };
+  }, [orderId, booked]);
+
+  if (!booked) {
+    return <EmptyState title="Not booked with Steadfast" guidance="Tracking begins when the order is sent to Steadfast." />;
+  }
+  if (events === null) {
+    return <EmptyState title="Loading tracking…" guidance="Fetching what Steadfast has reported." />;
+  }
+  if (events.length === 0) {
+    return <EmptyState title="No tracking event is recorded" guidance="Steadfast has not reported a status for this parcel yet." />;
+  }
+  return (
+    <ol data-testid="tracking-timeline" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-4)' }}>
+      {[...events].reverse().map((event, index) => (
+        <li key={event.observedAt + index} style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start' }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: '10px', height: '10px', borderRadius: '999px', marginTop: '5px', flexShrink: 0,
+              background: index === 0 ? 'var(--color-semantic-info-fg)' : 'var(--color-text-demoted)',
+            }}
+          />
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700 }}>
+              {event.eventType === 'BOOKED' ? 'Booked with Steadfast' : displayStatus(event.providerStatusRaw)}
+              {event.shipmentState && event.eventType !== 'BOOKED' ? ` · ${displayStatus(event.shipmentState)}` : ''}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              {displayMoment(event.observedAt)}
+              {event.eventType === 'BOOKED' && event.providerStatusRaw ? ` · Steadfast said: ${event.providerStatusRaw}` : ''}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function Section({
   title,

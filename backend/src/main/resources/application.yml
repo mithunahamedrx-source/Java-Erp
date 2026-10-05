@@ -98,6 +98,12 @@ integration:
     # rule or allow-list written against the brand will fail.
     base-url: ${STEADFAST_BASE_URL:https://portal.packzy.com/api/v1}
 
+  # The Zeon Tech storefront (BR-202). It runs on the same server, so the default is its loopback API. The key is the
+  # site's own ERP_API_KEY (>= 32 characters), sent as X-ERP-Key; it lives in the server environment only (DEP-021.b).
+  website:
+    base-url: ${WEBSITE_BASE_URL:http://127.0.0.1:4000/api/v1}
+    erp-key: ${WEBSITE_ERP_API_KEY:}
+
 management:
   endpoints:
     web:

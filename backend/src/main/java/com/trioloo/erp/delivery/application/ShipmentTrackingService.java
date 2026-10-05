@@ -43,10 +43,14 @@ public class ShipmentTrackingService {
     private final SteadfastCourierClient courier;
     private final Clock clock;
 
-    public ShipmentTrackingService(JdbcTemplate jdbc, SteadfastCourierClient courier, Clock clock) {
+    private final com.trioloo.erp.order.application.OrderWritebackService writeback;
+
+    public ShipmentTrackingService(JdbcTemplate jdbc, SteadfastCourierClient courier, Clock clock,
+                                   com.trioloo.erp.order.application.OrderWritebackService writeback) {
         this.jdbc = jdbc;
         this.courier = courier;
         this.clock = clock;
+        this.writeback = writeback;
     }
 
     /**
@@ -177,6 +181,22 @@ public class ShipmentTrackingService {
                         Timestamp.from(now), shipmentId));
 
         /*
+          V39 - an event is logged when the courier's word CHANGES (or none was logged yet), so a sweep that
+          finds the same status every fifteen minutes adds nothing. The raw word is kept as received.
+        */
+        jdbc.update("""
+                INSERT INTO shipment_tracking_event (shipment_id, observed_at, event_type, provider_status_raw, shipment_state)
+                SELECT ?, ?, 'STATUS', ?, ?
+                 WHERE NOT EXISTS (
+                        SELECT 1 FROM shipment_tracking_event e
+                         WHERE e.shipment_id = ?
+                           AND e.provider_status_raw IS NOT DISTINCT FROM ?
+                           AND e.id = (SELECT id FROM shipment_tracking_event
+                                        WHERE shipment_id = ? ORDER BY observed_at DESC, id DESC LIMIT 1))
+                """, shipmentId, Timestamp.from(now), raw, translated.map(Enum::name).orElse(null),
+                shipmentId, raw, shipmentId);
+
+        /*
           ✅ SM-4 PICKED_UP "Emit Order.Dispatched" (STATE_MACHINE_ARCHITECTURE 8.6). The ERP's own
           first observation of the order in flight is written ONCE and never rewritten
           (OSC-053.c) - it feeds "Today's dispatched". Only states that mean the parcel has left
@@ -187,6 +207,22 @@ public class ShipmentTrackingService {
                    SET dispatch_observed_at = coalesce(dispatch_observed_at, ?)
                  WHERE id = (SELECT channel_order_id FROM shipment WHERE id = ?)
                 """, Timestamp.from(now), shipmentId));
+
+        /*
+          BR-202 - a website order follows its parcel: in flight -> SHIPPED, delivered -> DELIVERED. Only on a CHANGE of
+          state (a sweep that finds the same word writes nothing), and best effort: the courier's word is already
+          recorded, so a refused write is logged and never undoes it. States the site has no word for are skipped.
+        */
+        translated.filter(state -> !state.name().equals(shipment.state())).ifPresent(state -> {
+            com.trioloo.erp.order.domain.CanonicalOrderStatus target = inFlight(state)
+                    ? com.trioloo.erp.order.domain.CanonicalOrderStatus.DISPATCHED
+                    : state == ShipmentState.DELIVERED ? com.trioloo.erp.order.domain.CanonicalOrderStatus.DELIVERED : null;
+            if (target != null) {
+                UUID orderId = jdbc.queryForObject("SELECT channel_order_id FROM shipment WHERE id = ?", UUID.class, shipmentId);
+                writeback.publish(orderId, target, target == com.trioloo.erp.order.domain.CanonicalOrderStatus.DELIVERED
+                        ? "marked delivered" : "marked shipped");
+            }
+        });
 
         return new Tracked(
                 shipmentId,

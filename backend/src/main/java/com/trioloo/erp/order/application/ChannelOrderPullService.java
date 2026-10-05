@@ -126,7 +126,7 @@ public class ChannelOrderPullService {
                 : " AND upper(record_status) = 'ACTIVE'";
         List<UUID> candidates = jdbc.queryForList("""
                 SELECT id FROM channel_instance
-                 WHERE upper(channel_type) = 'DARAZ'
+                 WHERE upper(channel_type) IN ('DARAZ', 'WEBSITE')
                 """ + configurationFilter + """
                  ORDER BY code ASC
                 """, UUID.class);

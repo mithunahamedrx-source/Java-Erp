@@ -277,6 +277,18 @@ export function orderTypeLabel(tag: string | null | undefined): string | null {
   return ORDER_TYPES.find((type) => type.value === tag)?.label ?? null;
 }
 
+/** `V39` — what the courier has told us, oldest first. Steadfast publishes no scan history: these are observations. */
+export type TrackingEvent = {
+  readonly observedAt: string;
+  readonly eventType: 'BOOKED' | 'STATUS';
+  readonly providerStatusRaw: string | null;
+  readonly shipmentState: string | null;
+};
+
+export function fetchTrackingEvents(orderId: string): Promise<readonly TrackingEvent[]> {
+  return apiRequest<readonly TrackingEvent[]>(`/api/order/channel-orders/${encodeURIComponent(orderId)}/tracking-events`);
+}
+
 export function fetchChannelOrder(id: string): Promise<ChannelOrderDetail> {
   return apiRequest<ChannelOrderDetail>(`/api/order/channel-orders/${encodeURIComponent(id)}`);
 }

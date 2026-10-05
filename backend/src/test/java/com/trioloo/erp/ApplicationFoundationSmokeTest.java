@@ -161,6 +161,7 @@ class ApplicationFoundationSmokeTest {
                 // settlement position: SM-4's authority is EXTERNAL (DLV-025), so it records what
                 // the courier reported and never what Trioloo inferred.
                 "shipment",
+                "shipment_tracking_event",
                 // E-039 Sales Invoice — the SNAPSHOT PRN-023 sources the printable from.
                 // 🔴 It holds a business position and is meant to: INV-39.2 requires the content
                 // preserved so the document reproduces years later, and PRN-022 makes it the
