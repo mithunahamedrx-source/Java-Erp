@@ -302,32 +302,32 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              padding: '6px 13px',
+              gap: '5px',
+              padding: '3px 9px',
               borderRadius: '999px',
               background: '#fdecec',
             }}>
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#c12d2b' }}></span>
-              <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.4px', color: '#c12d2b' }}>Due</span>
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#c12d2b' }}></span>
+              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.3px', color: '#c12d2b' }}>Due</span>
             </div>
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              padding: '6px 13px',
+              gap: '5px',
+              padding: '3px 9px',
               borderRadius: '999px',
               background: invoice.consignmentReference ? '#e8f0fe' : '#fef3e2',
             }}>
               <span style={{
-                width: '7px',
-                height: '7px',
+                width: '5px',
+                height: '5px',
                 borderRadius: '50%',
                 background: invoice.consignmentReference ? '#2f6df0' : '#e08a16',
               }}></span>
               <span style={{
-                fontSize: '12px',
+                fontSize: '10px',
                 fontWeight: 600,
-                letterSpacing: '0.4px',
+                letterSpacing: '0.3px',
                 color: invoice.consignmentReference ? '#1f55c4' : '#b56a09',
               }}>
                 {invoice.consignmentReference ? 'Shipped' : 'Processing'}
@@ -343,9 +343,14 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
             🔴 EACH NAMES ITS ISSUING PARTY (`DB-013`): two parties may legitimately issue the
             same string, and the design's unlabelled `Parcel ID.` is exactly that ambiguity.
           */}
-          <Ref label="No." value={invoice.invoiceNumber} strong />
-          <Ref label="Parcel ID." value={invoice.consignmentReference} />
-          <Ref label="Order Ref." value={invoice.externalOrderReference} />
+          {/* Owner, 2026-10-05: the INVOICE NUMBER is the hero; ONE reference follows it - the Steadfast Parcel ID once the
+              order is booked, otherwise the order reference - and the date. */}
+          <Ref label="Invoice No" value={invoice.invoiceNumber} hero />
+          {invoice.consignmentReference ? (
+            <Ref label="Parcel ID" value={invoice.consignmentReference} />
+          ) : (
+            <Ref label="Order Ref." value={invoice.externalOrderReference} />
+          )}
           <Ref label="Date" value={formatMoment(invoice.issuedAt) ?? '—'} />
         </div>
       </div>
@@ -474,21 +479,28 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
       </div>
     </div>
 
-    <div style={footerStyle}>
-      <div style={{
-        fontFamily: "'Space Grotesk', system-ui, sans-serif",
-        fontSize: '15px',
-        fontWeight: 600,
-      }}>
-        Thank you for your purchase.
-        {/* Owner, 2026-10-05: once the order is booked with Steadfast, its Parcel ID is printed large on the next line. */}
-        {invoice.consignmentReference ? (
-          <div data-testid="invoice-footer-parcel" style={{ marginTop: '22px', fontSize: '20px', fontWeight: 800, letterSpacing: '0.02em' }}>
-            Steadfast Parcel ID {invoice.consignmentReference}
-          </div>
-        ) : null}
+    <div style={{ ...footerStyle, flexDirection: 'column', alignItems: 'stretch' }}>
+      {/* Row one is untouched: the thank-you line and the website. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{
+          fontFamily: "'Space Grotesk', system-ui, sans-serif",
+          fontSize: '15px',
+          fontWeight: 600,
+        }}>
+          Thank you for your purchase.
+        </div>
+        <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
       </div>
-      <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
+      {/* Owner, 2026-10-05: once booked with Steadfast, the Parcel ID has a block of its own UNDER that row - the label on
+          one line, then just the number on the next, large. */}
+      {invoice.consignmentReference ? (
+        <div data-testid="invoice-footer-parcel" style={{ marginTop: '26px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', color: '#4a4a4a' }}>Steadfast Parcel ID</div>
+          <div data-testid="invoice-footer-parcel-number" style={{ marginTop: '4px', fontSize: '40px', fontWeight: 800, lineHeight: 1.1, letterSpacing: '0.03em' }}>
+            {invoice.consignmentReference}
+          </div>
+        </div>
+      ) : null}
     </div>
   </article>
     </>
@@ -514,20 +526,28 @@ function WhatsAppIcon(): React.JSX.Element {
   );
 }
 
-function Ref({ label, value, strong }: {
+function Ref({ label, value, hero }: {
   readonly label: string;
   readonly value: string | null;
-  readonly strong?: boolean;
+  readonly hero?: boolean;
 }): React.JSX.Element | null {
   // ⚠ A reference the order does not have is omitted rather than printed empty. An unbooked
   // order has no consignment, and a blank line beside a label reads as a missing value.
   if (!value) {
     return null;
   }
+  if (hero) {
+    return (
+      <div style={{ textAlign: 'right', marginBottom: '6px' }} data-testid="invoice-number-hero">
+        <div style={{ color: '#9a9a9a', fontSize: '11px', letterSpacing: '0.6px', textTransform: 'uppercase' }}>{label}</div>
+        <div style={{ fontWeight: 800, fontSize: '24px', lineHeight: 1.15, color: '#111111', letterSpacing: '0.02em' }}>{value}</div>
+      </div>
+    );
+  }
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', fontSize: '12px' }}>
       <span style={{ color: '#9a9a9a' }}>{label}</span>
-      <span style={{ fontWeight: strong ? 700 : 500, color: '#111111' }}>{value}</span>
+      <span style={{ fontWeight: 500, color: '#111111' }}>{value}</span>
     </div>
   );
 }
@@ -718,9 +738,9 @@ const sellerStyle: React.CSSProperties = {
 };
 
 const invoiceWordStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: '13px',
-  letterSpacing: '3px',
+  fontWeight: 800,
+  fontSize: '28px',
+  letterSpacing: '4px',
   color: '#111111',
   textTransform: 'uppercase',
 };
