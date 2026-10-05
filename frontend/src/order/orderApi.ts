@@ -262,3 +262,35 @@ export function refreshOrderTracking(orderId: string): Promise<ShipmentTrackingR
     { method: 'POST' },
   );
 }
+
+/** `BD-035` — the eight reasons Trioloo can give; the ninth is the marketplace's own act. */
+export const CANCEL_REASONS: readonly { readonly value: string; readonly label: string }[] = [
+  { value: 'CUSTOMER_UNREACHABLE', label: 'Customer cannot be contacted' },
+  { value: 'CUSTOMER_REQUESTED', label: 'Customer requested cancellation' },
+  { value: 'CHANGED_MIND', label: 'Customer changed their mind' },
+  { value: 'ADDRESS_INCORRECT', label: 'Delivery address incorrect or incomplete' },
+  { value: 'PHONE_INCORRECT', label: 'Phone number incorrect or unreachable' },
+  { value: 'PRODUCT_UNAVAILABLE', label: 'Product unavailable or out of stock' },
+  { value: 'CHANGE_NOT_FULFILLABLE', label: 'Requested changes cannot be fulfilled' },
+  { value: 'DUPLICATE_ORDER', label: 'Duplicate order' },
+];
+
+export type OrderLifecycleResult = {
+  readonly orderId: string;
+  readonly canonicalStatus: string;
+  /** What the operator must still do outside Trioloo, or `null`. */
+  readonly marketplaceNote: string | null;
+};
+
+export function cancelOrder(orderId: string, reason: string, note: string): Promise<OrderLifecycleResult> {
+  return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note }),
+  });
+}
+
+export function restoreOrder(orderId: string): Promise<OrderLifecycleResult> {
+  return apiRequest<OrderLifecycleResult>(`/api/order/orders/${encodeURIComponent(orderId)}/restore`, {
+    method: 'POST',
+  });
+}

@@ -61,6 +61,22 @@ public final class OrderPermissions {
      */
     public static final String ORDER_CREATE = "order.order.create";
 
+    /**
+     * {@code PRM-095} — CANCEL AN ORDER before dispatch, with a reason from the controlled
+     * vocabulary ({@code BR-011}, {@code BR-016}). Ratified on the product owner's instruction,
+     * 2026-10-05.
+     *
+     * <p>🔴 It grants no restoration, no courier cancellation, no marketplace write and no
+     * inventory, payment or refund action.
+     */
+    public static final String ORDER_CANCEL = "order.order.cancel";
+
+    /**
+     * {@code PRM-095} — RESTORE a cancelled order so it re-enters the lifecycle ({@code BR-012},
+     * {@code BR-172}). Independent of {@link #ORDER_CANCEL}.
+     */
+    public static final String ORDER_RESTORE = "order.order.restore";
+
     private OrderPermissions() {
     }
 }

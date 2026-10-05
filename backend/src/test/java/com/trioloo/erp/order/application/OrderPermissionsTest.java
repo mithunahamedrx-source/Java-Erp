@@ -64,7 +64,9 @@ class OrderPermissionsTest {
                 .containsExactlyInAnyOrder(
                         "order.channel-order.view",   // PRM-091
                         "order.channel-order.sync",   // PRM-091
-                        "order.order.create");        // PRM-093
+                        "order.order.create",         // PRM-093
+                        "order.order.cancel",         // PRM-095
+                        "order.order.restore");       // PRM-095
     }
 
     private static List<String> declaredCodes() {

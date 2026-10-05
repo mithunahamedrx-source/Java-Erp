@@ -433,7 +433,8 @@ describe('Orders first slice', () => {
 
     // 🔴 `BR-011` — `Cancel` is ABSENT after dispatch, not disabled. This order is pre-dispatch,
     // so the item is present, and it is dimmed for the same reason as its siblings.
-    expect(within(menu).getByRole('menuitem', { name: /Cancel order/ }).hasAttribute('disabled')).toBe(true);
+    // PRM-095 - Cancel is BUILT: enabled for a pre-dispatch order with no live courier shipment.
+    expect(within(menu).getByRole('menuitem', { name: /Cancel order/ }).hasAttribute('disabled')).toBe(false);
 
     // ⚠ `OSC-056.g` — the invoice element in the bottom strip is an ACTION, not a caption, and
     // the MARKETPLACE's invoice number is not printed beside it.
@@ -901,5 +902,80 @@ describe('Orders status tabs after the owner removed the extra stages (BR-184)',
     for (const removed of ['Pending verification', 'Released', 'In fulfilment', 'Courier booked']) {
       expect(labels.some((text) => text.startsWith(removed))).toBe(false);
     }
+  });
+});
+
+describe('Cancel and restore from More Actions (PRM-095)', () => {
+  function renderWith(order: ChannelOrderRow): { readonly calls: { url: string; init?: RequestInit }[] } {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        calls.push({ url, init });
+        const json = (body: unknown, status = 200): Response =>
+          new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (url.includes('/api/auth/me')) {
+          return json({ id: 'dev', username: 'm', fullName: 'M', roles: [], permissions: ['order.channel-order.view'] });
+        }
+        if (url.includes('/cancel') || url.includes('/restore')) {
+          return json({ orderId: order.id, canonicalStatus: 'CANCELLED', marketplaceNote: 'The marketplace is not told.' });
+        }
+        if (url.includes('/summary')) return json(SUMMARY);
+        return json({ content: [order], page: 0, size: 5, totalElements: 1, totalPages: 1 });
+      }),
+    );
+    render(
+      <AuthProvider>
+        <PageActionsProvider>
+          <MemoryRouter initialEntries={['/sales/orders']}>
+            <Routes>
+              <Route path="/sales/orders" element={<OrdersPage />} />
+            </Routes>
+          </MemoryRouter>
+        </PageActionsProvider>
+      </AuthProvider>,
+    );
+    return { calls };
+  }
+
+  it('cancels only after a reason is chosen, and states the consequence first', async () => {
+    const { calls } = renderWith(ORDER_ROW);
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    fireEvent.click(within(await screen.findByTestId('order-actions-menu')).getByRole('menuitem', { name: /Cancel order/ }));
+
+    const dialog = await screen.findByTestId('cancel-order-dialog');
+    // UX-184 / RULE 3.19.b - the consequence is on screen BEFORE the action is reachable.
+    expect(dialog.textContent).toContain('Trioloo takes control');
+    expect(dialog.textContent).toContain('The marketplace is not told');
+    const confirm = within(dialog).getAllByRole('button').find((b) => b.textContent === 'Cancel order') as HTMLButtonElement;
+    // BR-016 - no reason, no cancellation.
+    expect(confirm.disabled).toBe(true);
+
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'CHANGED_MIND' } });
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      const post = calls.find((c) => c.url.endsWith('/cancel'));
+      expect(post?.init?.method).toBe('POST');
+      expect(String(post?.init?.body)).toContain('CHANGED_MIND');
+    });
+    await waitFor(() => expect(screen.getByTestId('orders-notice').textContent).toContain('cancelled'));
+  });
+
+  it('offers Restore on a cancelled order and not Cancel', async () => {
+    const { calls } = renderWith({ ...ORDER_ROW, canonicalStatuses: ['CANCELLED'], statuses: ['canceled'] });
+    await screen.findByTestId('order-card');
+    fireEvent.click(screen.getByTestId('order-more-actions'));
+    const menu = await screen.findByTestId('order-actions-menu');
+    expect(within(menu).queryByRole('menuitem', { name: /Cancel order/ })).toBeNull();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /Restore order/ }));
+
+    const dialog = await screen.findByTestId('restore-order-dialog');
+    expect(dialog.textContent).toContain('cannot be undone');
+    fireEvent.click(within(dialog).getAllByRole('button').find((b) => b.textContent === 'Restore order') as HTMLButtonElement);
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/restore') && c.init?.method === 'POST')).toBe(true));
   });
 });

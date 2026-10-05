@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../shell/AppShell';
 import { Button, EmptyState, SegmentedControl, Select, buttonStyle, srOnly } from '../ui/primitives';
+import { ConfirmDialog } from '../ui/Overlay';
 import OrderCard from './OrderCard';
 import { ApiError } from '../platform/api';
-import { bookOrderShipment, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking } from './orderApi';
+import { CANCEL_REASONS, bookOrderShipment, cancelOrder, fetchChannelOrderSummary, listChannelOrders, refreshOrderTracking, restoreOrder } from './orderApi';
 import type { ChannelOrderFilters, ChannelOrderRow, ChannelOrderSummary } from './orderApi';
 import { ORDER_STATUS_TABS, displayMoney, displayStatus } from './orderView';
 import { buildOrderCsv, orderCsvFilename } from './orderCsv';
@@ -258,6 +259,49 @@ export default function OrdersPage(): React.JSX.Element {
       setBusyOrder(null);
     }
   }, [load]);
+
+  /*
+    ✅ CANCEL AND RESTORE (PRM-095). Each is ONE order at a time and is confirmed first: the
+    consequence is stated BEFORE the act (UX-184, RULE 3.19.b), because taking control of a
+    marketplace order is permanent in V1 (BR-175) and the marketplace is not told (OSC-036).
+  */
+  const [lifecycleDialog, setLifecycleDialog] = useState<
+    { readonly kind: 'cancel' | 'restore'; readonly order: ChannelOrderRow } | null
+  >(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelNote, setCancelNote] = useState('');
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+
+  const openLifecycle = useCallback((kind: 'cancel' | 'restore', order: ChannelOrderRow) => {
+    setCancelReason('');
+    setCancelNote('');
+    setLifecycleError(null);
+    setLifecycleDialog({ kind, order });
+  }, []);
+
+  const confirmLifecycle = useCallback(async () => {
+    if (!lifecycleDialog) {
+      return;
+    }
+    const { kind, order } = lifecycleDialog;
+    setLifecycleBusy(true);
+    setLifecycleError(null);
+    try {
+      const result = kind === 'cancel'
+        ? await cancelOrder(order.id, cancelReason, cancelNote)
+        : await restoreOrder(order.id);
+      const reference = order.triolooInvoiceNumber ?? order.externalOrderId;
+      setNotice(`${reference} ${kind === 'cancel' ? 'cancelled' : 'restored'}.${result.marketplaceNote ? ` ${result.marketplaceNote}` : ''}`);
+      setLifecycleDialog(null);
+      await load();
+    } catch (cause) {
+      // Shown IN the dialog, so the operator keeps their place (ConfirmDialog.error).
+      setLifecycleError(cause instanceof Error ? cause.message : 'The action could not be completed.');
+    } finally {
+      setLifecycleBusy(false);
+    }
+  }, [lifecycleDialog, cancelReason, cancelNote, load]);
 
   const bookSelectedShipments = useCallback(async () => {
     const orders = [...selected.values()];
@@ -644,6 +688,8 @@ export default function OrdersPage(): React.JSX.Element {
                 onSelectedChange={(next) => setSelectedFor(order, next)}
                 onBookShipment={bookShipment}
                 onRefreshTracking={refreshTracking}
+                onCancelOrder={(target) => openLifecycle('cancel', target)}
+                onRestoreOrder={(target) => openLifecycle('restore', target)}
               />
             ))}
           </div>
@@ -705,6 +751,60 @@ export default function OrdersPage(): React.JSX.Element {
           </div>
         </div>
       </div>
+      {lifecycleDialog ? (
+        lifecycleDialog.kind === 'cancel' ? (
+          <ConfirmDialog
+            title={`Cancel order ${lifecycleDialog.order.triolooInvoiceNumber ?? lifecycleDialog.order.externalOrderId}`}
+            consequence={
+              (lifecycleDialog.order.ownership === 'API_MANAGED'
+                ? 'Trioloo takes control of this marketplace order from now on, and marketplace updates will not overwrite it. That cannot be undone. '
+                : '')
+              + 'The marketplace is not told — cancel it in the seller panel too. Once goods are with the courier an order cannot be cancelled, only returned.'
+            }
+            confirmLabel="Cancel order"
+            cancelLabel="Keep order"
+            destructive
+            busy={lifecycleBusy}
+            error={lifecycleError}
+            confirmDisabled={!cancelReason}
+            confirmDisabledReason={!cancelReason ? 'Choose a reason — every cancellation records one.' : undefined}
+            testId="cancel-order-dialog"
+            onConfirm={() => void confirmLifecycle()}
+            onCancel={() => setLifecycleDialog(null)}
+          >
+            <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+              <label style={{ display: 'grid', gap: 'var(--space-1)', fontSize: '12.5px' }}>
+                <span style={{ fontWeight: 600 }}>Reason</span>
+                <Select value={cancelReason} onChange={setCancelReason}>
+                  <option value="">Choose a reason</option>
+                  {CANCEL_REASONS.map((reason) => (
+                    <option key={reason.value} value={reason.value}>{reason.label}</option>
+                  ))}
+                </Select>
+              </label>
+              <label style={{ display: 'grid', gap: 'var(--space-1)', fontSize: '12.5px' }}>
+                <span style={{ fontWeight: 600 }}>Note (optional)</span>
+                <input
+                  value={cancelNote}
+                  onChange={(event) => setCancelNote(event.target.value)}
+                  style={{ height: '36px', borderRadius: '9px', padding: '0 12px', border: '1px solid var(--color-border-control)', fontSize: '13px' }}
+                />
+              </label>
+            </div>
+          </ConfirmDialog>
+        ) : (
+          <ConfirmDialog
+            title={`Restore order ${lifecycleDialog.order.triolooInvoiceNumber ?? lifecycleDialog.order.externalOrderId}`}
+            consequence="The order returns to the lifecycle as confirmed. Trioloo takes control of it from now on, and marketplace updates — including a later 'cancelled' — will not overwrite it. That cannot be undone. The marketplace is not told."
+            confirmLabel="Restore order"
+            busy={lifecycleBusy}
+            error={lifecycleError}
+            testId="restore-order-dialog"
+            onConfirm={() => void confirmLifecycle()}
+            onCancel={() => setLifecycleDialog(null)}
+          />
+        )
+      ) : null}
     </>
   );
 }

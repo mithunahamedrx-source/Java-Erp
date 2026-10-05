@@ -51,6 +51,8 @@ export default function OrderCard({
   onSelectedChange,
   onBookShipment,
   onRefreshTracking,
+  onCancelOrder,
+  onRestoreOrder,
 }: {
   readonly order: ChannelOrderRow;
   readonly selected: boolean;
@@ -58,6 +60,8 @@ export default function OrderCard({
   readonly onSelectedChange: (selected: boolean) => void;
   readonly onBookShipment: (order: ChannelOrderRow) => void;
   readonly onRefreshTracking: (order: ChannelOrderRow) => void;
+  readonly onCancelOrder: (order: ChannelOrderRow) => void;
+  readonly onRestoreOrder: (order: ChannelOrderRow) => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
 
@@ -248,7 +252,7 @@ export default function OrderCard({
             menuWidth="264px"
             testId="order-actions-menu"
             triggerTestId="order-more-actions"
-            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking)}
+            actions={moreActions(order, canonical, navigate, busyAction, onBookShipment, onRefreshTracking, onCancelOrder, onRestoreOrder)}
           />
         </div>
       </div>
@@ -303,6 +307,8 @@ function moreActions(
   busyAction: 'booking' | 'tracking' | undefined,
   onBookShipment: (order: ChannelOrderRow) => void,
   onRefreshTracking: (order: ChannelOrderRow) => void,
+  onCancelOrder: (order: ChannelOrderRow) => void,
+  onRestoreOrder: (order: ChannelOrderRow) => void,
 ): readonly MenuAction[] {
   const preDispatch = PRE_DISPATCH.has(canonical ?? '');
   const booked = Boolean(order.courierConsignmentId);
@@ -384,14 +390,32 @@ function moreActions(
     an operation; the rule is that the operation does not exist on a dispatched order.
   */
   if (preDispatch) {
+    // The server refuses cancelling while a courier shipment is live (STF-016: a booking cannot be
+    // withdrawn by API), so the menu says so rather than letting the click fail.
+    const liveShipment = booked && order.shipmentState !== 'CANCELLED';
     items.push({
       label: 'Cancel order',
-      description: 'Pre-dispatch only',
+      description: 'Pre-dispatch only · needs a reason',
       separatorBefore: true,
       destructive: true,
-      disabled: true,
-      reason: 'No cancellation endpoint exists. PRM-025 requires per-record authority before one is offered.',
-      onSelect: () => undefined,
+      disabled: liveShipment,
+      reason: liveShipment
+        ? 'A Steadfast consignment is live. Cancel it in the Steadfast panel, refresh tracking, then cancel the order.'
+        : undefined,
+      onSelect: () => onCancelOrder(order),
+    });
+  }
+  /*
+    ✅ RESTORE (BR-012, BR-172, PRM-095). Offered only on a CANCELLED order. The consequence — Trioloo
+    takes control of the order permanently and the marketplace is not told — is stated in the
+    confirmation BEFORE the act (UX-184), not here.
+  */
+  if (canonical === 'CANCELLED') {
+    items.push({
+      label: 'Restore order',
+      description: 'Re-enters the lifecycle as confirmed',
+      separatorBefore: true,
+      onSelect: () => onRestoreOrder(order),
     });
   }
   return items;

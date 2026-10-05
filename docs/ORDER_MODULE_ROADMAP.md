@@ -1,7 +1,7 @@
 # Order Module — implementation roadmap
 
 **Owner:** Trioloo Engineering · **Status:** 📌 **WORKING RECORD — NOT CANONICAL ARCHITECTURE**
-**Version:** 1.1.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-03 · **Rule prefix:** none, by design
+**Version:** 1.2.0 · **Established:** 2026-08-24 · **Updated:** 2026-10-05 · **Rule prefix:** none, by design
 
 > ⚠ **THIS DOCUMENT LEGISLATES NOTHING.** It sequences work already decided elsewhere and records
 > where each phase stands. **It issues no rule, defines no business behaviour and closes no gap.**
@@ -159,7 +159,8 @@ state an imported order arrives in, so both enter one verification queue.
 🔴 **NOT BUILT, AND WHY (each needs an owner decision or a ratified rule — none is invented):**
 | Item | Blocker |
 |---|---|
-| **Cancel order** (pre-dispatch) | No `order.order.cancel` capability is ratified (`PRM-089.f`); cancel consequences unspecified (`GAP-020`) |
+| ~~**Cancel order** (pre-dispatch)~~ | ✅ **BUILT 2026-10-05** — `PRM-095`, `OM BR-186`, `OSC-063`, migration `V27`. One order at a time; refused while a courier shipment is live (`STF-016`) |
+| **Restore order** | ✅ **BUILT 2026-10-05** — `OM BR-187`, `BR-172` |
 | **Hold / release hold / release reserved quantity** | No capability ratified; `BR-149`–`BR-152` define behaviour but no code exists |
 | **`Dispatched` for Steadfast parcels** | Only `in_review`, `delivered`, `cancelled` translate (`STF-011`); `pending` is refused. **Owner decision:** map `pending`, or ratify a hand-over act and its capability |
 | **`Failed delivery` from Steadfast** | The courier publishes no failed-delivery word in its observed vocabulary (`GAP-140` is the sibling for partial delivery) |
@@ -180,7 +181,7 @@ state an imported order arrives in, so both enter one verification queue.
 | 4 | **Bulk action inventory** — `Send to Steadfast`, `Print invoices` | `GAP-034` |
 | 5 | **Courier rate structure** — no rate is exposed by the API | `GAP-138.e` |
 | 6 | **Steadfast `pending` → which order state?** Or ratify a hand-over act | `OM §30.2.e` |
-| 7 | **Cancel and hold capabilities** — codes to ratify before those actions can exist | `PRM-089.f`, `GAP-020` |
+| 7 | **Hold capability** — code to ratify before hold / release hold can exist (cancel and restore are done) | `PRM-089.f` |
 
 ---
 
@@ -188,5 +189,6 @@ state an imported order arrives in, so both enter one verification queue.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-10-05** | **Cancel and restore built** (`PRM-095`, `OM §31`, `V27`). Hold remains blocked on a capability code. |
 | **1.1.0** | **2026-10-03** | **Phase 2 recorded DONE; Phase 7 added** — owner removed the verification step and the Released / In fulfilment / Courier booked tabs; core flow built (auto-confirmation, effective status, scheduled tracking). Cancel, hold and automatic Dispatched are listed as blocked with their reasons. |
 | **1.0.0** | **2026-08-24** | **Initial record.** Sequences the Order module into six phases and fixes the per-phase discipline the product owner instructed: **page contract → API mismatch check → design → build → report**. ✅ **Phase 1 DONE.** 🔴 **Issues no rule and closes no gap; five open questions carried explicitly rather than resolved.** |

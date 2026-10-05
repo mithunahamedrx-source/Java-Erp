@@ -62,6 +62,21 @@ public class ShipmentBookingService {
         OrderForBooking order = loadOrder(channelOrderId);
 
         /*
+          🔴 A CANCELLED ORDER IS NEVER BOOKED. Booking dispatches a real rider and costs money, and
+          BR-011 makes cancellation the instrument only BEFORE goods move. The check reads the
+          order's EFFECTIVE status, so both Trioloo's own cancellation and the marketplace's are
+          honoured (a restored order reads CONFIRMED again and may be booked).
+        */
+        Boolean cancelled = jdbc.queryForObject(
+                "SELECT channel_order_effective_statuses(?) @> '[\"CANCELLED\"]'::jsonb",
+                Boolean.class, channelOrderId);
+        if (Boolean.TRUE.equals(cancelled)) {
+            throw new ShipmentBookingRefusedException(
+                    "Order " + channelOrderId + " is cancelled, so it cannot be sent to Steadfast. "
+                            + "Restore it first if it should go ahead.");
+        }
+
+        /*
           🔴 THE INVOICE MUST EXIST BEFORE A PARCEL DOES. OSC-057 makes the Trioloo number unique,
           immutable and never reused (PRN-013, DB-012), which is precisely what an external
           idempotency key has to be. ⚠ Booking against a null reference would hand the courier an
