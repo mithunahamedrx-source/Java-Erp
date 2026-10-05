@@ -987,7 +987,7 @@ describe('More Actions menu shows labels only (owner decision 2026-10-05)', () =
     fireEvent.click(screen.getByTestId('order-more-actions'));
     const menu = await screen.findByTestId('order-actions-menu');
 
-    for (const gone of ['The full record and its eight lifecycles', 'Books one Steadfast consignment', 'No hold endpoint exists']) {
+    for (const gone of ['The full record and its eight lifecycles', 'Books one Steadfast consignment', 'Names you as the actor']) {
       expect(menu.textContent).not.toContain(gone);
     }
     // The reason is not lost: it is on the dimmed item as its title.
