@@ -12,6 +12,7 @@ const ORDER_ROW: ChannelOrderRow = {
   id: '11111111-1111-1111-1111-111111111111',
   channelInstanceId: '067774fc-c4d6-4618-a590-f85ff055d2ab',
   channelName: 'Ryzen Builder',
+  channelType: 'DARAZ',
   externalOrderId: '3985600001',
   orderNumber: 'TRL-2026-004176',
   triolooInvoiceNumber: 'TR0001',
@@ -377,18 +378,24 @@ describe('Orders first slice', () => {
       may legitimately issue the same string, and an operator who cannot tell whose number they
       are reading cannot tell who to ask about the parcel.
     */
-    expect(card.textContent).toContain('Daraz PO');
-    expect(card.textContent).toContain('Daraz tracking');
-    // A bare `Tracking` label is exactly the ambiguity this rule forbids.
-    expect(card.textContent).not.toMatch(/(?<!Daraz |Steadfast )Tracking\s/);
+    // Owner, 2026-10-05: ONE line, the tracking number only - no Daraz PO. Its issuer is still named (a Daraz order
+    // with no booking shows Daraz's number).
+    const line = within(card).getByTestId('order-courier-line');
+    expect(line.textContent).toBe('Daraz DEX-BDN-0072025926');
+    expect(card.textContent).not.toContain('Daraz PO');
+    // The SOURCE chip comes before the shop name.
+    const source = within(card).getByTestId('order-source-chip');
+    expect(source.textContent).toBe('Daraz');
+    expect(source.compareDocumentPosition(screen.getByText('Ryzen Builder')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows the courier booking when one exists, and its absence when it does not', async () => {
     renderAt('/sales/orders');
 
     // BR-134 / FRAME 06 - an unbooked order says so rather than rendering a blank.
+    // An order with no parcel shows the marketplace's own tracking, or says there is none yet (BR-134), never a blank.
     const line = await screen.findByTestId('order-courier-line');
-    expect(line.textContent).toBe('Courier not booked');
+    expect(line.textContent).toBe('Daraz DEX-BDN-0072025926');
   });
 
   it('states the SM-5 payment position and never claims one it cannot derive', async () => {

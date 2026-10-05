@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { orderTypeLabel } from './orderApi';
+import { orderTypeLabel, sourceLabel } from './orderApi';
 import type { ChannelOrderRow } from './orderApi';
 import { ActionMenu } from '../ui/Overlay';
 import type { MenuAction } from '../ui/Overlay';
@@ -123,6 +123,13 @@ export default function OrderCard({
             {order.shippingPhone || 'Contact not recorded'}
           </span>
           <span style={{ ...metaStyle, marginRight: 'var(--space-5)' }}>{displayMoment(order.providerCreatedAt, true)}</span>
+          {/* The SOURCE comes first, then the shop: where the order came from, then which shop of that source. */}
+          {sourceLabel(order.channelType) ? (
+            <span style={{ ...chipStyle('neutral'), ...chipWithIconStyle }} data-testid="order-source-chip" title="Where this order came from">
+              <SourceIcon source={order.channelType} />
+              {sourceLabel(order.channelType)}
+            </span>
+          ) : null}
           <span style={metaStyle}>{order.channelName ?? 'Shop not recorded'}</span>
           {/* V30 — a recorded attribute of how the order was captured; a label, not a state. */}
           {orderTypeLabel(order.orderTag) ? (
@@ -176,42 +183,24 @@ export default function OrderCard({
             <span style={qtyStyle}>· {order.itemsCount ?? 0} item{order.itemsCount === 1 ? '' : 's'}</span>
           </div>
           {/*
-            🔴 EVERY EXTERNAL IDENTIFIER NAMES THE PARTY THAT ISSUED IT (`DB-013`, and `OSC-030`'s
-            required data says so outright — *external references with their issuing party*). Once
-            a courier exists the omission stops being cosmetic: `Tracking` was Daraz's code, the
-            shipment now carries STEADFAST's, and two parties may legitimately issue the same
-            string. An operator who cannot tell whose number they are reading cannot tell who to
-            ask about the parcel.
-
-            ⚠ `purchase_order_id` is what Daraz publishes; it is NOT relabelled "Parcel" because
-            `DZC-047.c` names a separate `package_id` this slice does not import (`UX-271.a`).
-          */}
-          <div style={subLineStyle}>
-            Daraz PO <span style={monoStyle}>{order.purchaseOrderId || 'not recorded'}</span>
-            {' · '}
-            Daraz tracking <span style={monoStyle}>{order.trackingCode || 'not recorded'}</span>
-          </div>
-          {/*
-            ✅ THE BOOKING, WHEN ONE EXISTS (product owner, 2026-08-24). 🔴 An order with no
-            consignment says so rather than rendering a blank: `BR-134` — absent is not empty, and
-            `FRAME 06` requires the shipment state or an explicit "not created".
+            ✅ ONE LINE, THE TRACKING NUMBER ONLY (owner, 2026-10-05). Whose number it is stays visible by its label,
+            because two parties may issue the same string (`DB-013`): the courier's once a parcel is booked, otherwise
+            Daraz's - and only for a Daraz order. Anything else says there is none yet (`BR-134`).
           */}
           <div style={{ ...subLineStyle, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }} data-testid="order-courier-line">
             <TruckIcon active={Boolean(order.courierConsignmentId)} />
-            {order.courierConsignmentId ? (
+            {order.courierTrackingCode ? (
               <>
-                Steadfast booking{' '}
-                <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>
-                  {order.courierConsignmentId}
-                </span>
-                {order.courierTrackingCode ? (
-                  <>
-                    {' · '}Steadfast tracking <span style={monoStyle}>{order.courierTrackingCode}</span>
-                  </>
-                ) : null}
+                Steadfast <span style={{ ...monoStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>{order.courierTrackingCode}</span>
+              </>
+            ) : order.courierConsignmentId ? (
+              <>Steadfast tracking not issued yet</>
+            ) : order.trackingCode && order.channelType?.toUpperCase() === 'DARAZ' ? (
+              <>
+                Daraz <span style={monoStyle}>{order.trackingCode}</span>
               </>
             ) : (
-              'Courier not booked'
+              'No tracking yet'
             )}
           </div>
         </div>
@@ -599,6 +588,22 @@ function CoinIcon(): React.JSX.Element {
       <path d="M14.5 9.5c-.6-.8-1.6-1.2-2.6-1.2-1.4 0-2.4.8-2.4 1.9 0 2.6 5 1.2 5 3.8 0 1.1-1.1 1.9-2.5 1.9-1.1 0-2.2-.5-2.8-1.4M12 6.5v1.8M12 15.7v1.8" />
     </svg>
   );
+}
+
+/** The source of an order, drawn small: a storefront for the website, a bag for a marketplace, a handset for the phone. */
+function SourceIcon({ source }: { readonly source: string | null | undefined }): React.JSX.Element {
+  const kind = (source ?? '').toUpperCase();
+  const common = {
+    width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+    strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true, style: { flexShrink: 0 },
+  };
+  if (kind === 'WEBSITE') {
+    return (<svg {...common}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" /></svg>);
+  }
+  if (kind === 'PHONE') {
+    return (<svg {...common}><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M10.5 18.5h3" /></svg>);
+  }
+  return (<svg {...common}><path d="M5 8h14l-1 12H6L5 8z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg>);
 }
 
 /** Green-blue (the courier's own ink) once a parcel is booked; muted while there is no booking. */

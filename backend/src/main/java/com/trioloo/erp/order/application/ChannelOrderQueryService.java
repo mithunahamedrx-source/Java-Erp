@@ -45,7 +45,7 @@ public class ChannelOrderQueryService {
         String where = where(f);
         Object[] args = args(f);
         List<ChannelOrderRow> rows = jdbc.query("""
-                SELECT o.id, o.channel_instance_id, ci.name AS channel_name,
+                SELECT o.id, o.channel_instance_id, ci.name AS channel_name, ci.channel_type,
                        o.external_order_id, o.order_number, o.trioloo_invoice_number, o.ownership, o.order_tag, o.statuses_json::text,
                        channel_order_effective_statuses(o.id)::text AS canonical_statuses_json, o.dispatch_observed_at,
                        o.provider_created_at, o.provider_updated_at, o.last_seen_at,
@@ -360,7 +360,7 @@ public class ChannelOrderQueryService {
 
     private ChannelOrderRow row(ResultSet rs) throws SQLException {
         return new ChannelOrderRow(
-                uuid(rs, "id"), uuid(rs, "channel_instance_id"), rs.getString("channel_name"),
+                uuid(rs, "id"), uuid(rs, "channel_instance_id"), rs.getString("channel_name"), rs.getString("channel_type"),
                 rs.getString("external_order_id"), rs.getString("order_number"),
                 rs.getString("trioloo_invoice_number"), rs.getString("ownership"),
                 statuses(rs.getString("statuses_json")),
@@ -597,6 +597,8 @@ public class ChannelOrderQueryService {
      * {@code DISPATCHED}, not when the carrier took it — Daraz publishes no such timestamp.
      */
     public record ChannelOrderRow(UUID id, UUID channelInstanceId, String channelName,
+                                  /** The SOURCE of the order: DARAZ, WEBSITE, PHONE, ... (BR-002). */
+                                  String channelType,
                                   String externalOrderId, String orderNumber,
                                   /*
                                     🔴 THE TRIOLOO-ISSUED NUMBER, AND IT IS NOT `invoiceNumber`.

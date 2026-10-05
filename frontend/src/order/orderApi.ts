@@ -81,6 +81,8 @@ export type ChannelOrderRow = {
   readonly id: string;
   readonly channelInstanceId: string;
   readonly channelName: string | null;
+  /** The SOURCE of the order: DARAZ, WEBSITE, PHONE, WALKIN ... */
+  readonly channelType?: string | null;
   readonly externalOrderId: string;
   readonly orderNumber: string | null;
   /**
@@ -271,6 +273,20 @@ export const WARRANTY_TERMS: readonly { readonly value: string; readonly label: 
 
 export function warrantyTermLabel(code: string | null | undefined): string | null {
   return WARRANTY_TERMS.find((term) => term.value === code)?.label ?? null;
+}
+
+/** The order's source as the operator reads it. A type with no ratified label shows its own word, title-cased. */
+export function sourceLabel(channelType: string | null | undefined): string | null {
+  if (!channelType) {
+    return null;
+  }
+  switch (channelType.toUpperCase()) {
+    case 'DARAZ': return 'Daraz';
+    case 'WEBSITE': return 'Website';
+    case 'PHONE': return 'Phone';
+    case 'WALKIN': return 'Walk-in';
+    default: return channelType.charAt(0).toUpperCase() + channelType.slice(1).toLowerCase();
+  }
 }
 
 export function orderTypeLabel(tag: string | null | undefined): string | null {
