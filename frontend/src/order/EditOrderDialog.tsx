@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from '../ui/Overlay';
-import { editOrder, fetchChannelOrder } from './orderApi';
+import { WARRANTY_TERMS, editOrder, fetchChannelOrder } from './orderApi';
 import type { ChannelOrderDetail, ChannelOrderRow, EditOrderResult } from './orderApi';
 
 /**
@@ -29,6 +29,7 @@ type Draft = {
   address: string;
   total: string;
   advance: string;
+  warranty: string;
   lines: LineDraft[];
 };
 
@@ -80,6 +81,7 @@ function draftOf(detail: ChannelOrderDetail): Draft {
     address: joinAddress(detail),
     total: detail.price ?? '',
     advance: detail.advanceReceived ?? '',
+    warranty: detail.warrantyTerm ?? '',
     lines: detail.items.map((item) => ({
       id: item.id,
       name: item.name ?? '',
@@ -174,6 +176,8 @@ export default function EditOrderDialog({
         address: draft.address,
         total: draft.total.trim() || null,
         advanceReceived: advanceChanged ? (draft.advance.trim() || '0') : null,
+        // Unchanged -> null (leave it); cleared -> "NONE"; otherwise the chosen term (BR-197).
+        warrantyTerm: draft.warranty === initial.warranty ? null : (draft.warranty || 'NONE'),
         lines: draft.lines.map((line) => ({
           id: line.id,
           name: line.name,
@@ -235,6 +239,19 @@ export default function EditOrderDialog({
             <Field label="Order total" value={draft.total} onChange={(v) => set({ total: v })} mono />
             <Field label="Advance received" value={draft.advance} onChange={(v) => set({ advance: v })} mono placeholder="0 — none" />
           </div>
+          <label style={{ display: 'grid', gap: 'var(--space-1)', fontSize: '12.5px' }}>
+            <span style={{ fontWeight: 600 }}>Warranty</span>
+            <select
+              value={draft.warranty}
+              onChange={(event) => set({ warranty: event.target.value })}
+              style={{ height: '36px', borderRadius: '9px', padding: '0 12px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit' }}
+            >
+              <option value="">No warranty term</option>
+              {WARRANTY_TERMS.map((term) => (
+                <option key={term.value} value={term.value}>{term.label}</option>
+              ))}
+            </select>
+          </label>
           <div style={{ fontSize: '12.5px', fontWeight: 700 }}>Product lines</div>
           {draft.lines.map((line, index) => (
             <div key={line.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 0.8fr) minmax(0, 1.2fr)', gap: 'var(--space-3)' }}>

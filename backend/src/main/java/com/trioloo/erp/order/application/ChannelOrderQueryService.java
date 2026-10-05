@@ -229,7 +229,7 @@ public class ChannelOrderQueryService {
         requireViewer();
         List<ChannelOrderDetail> found = jdbc.query("""
                 SELECT o.*, channel_order_effective_statuses(o.id)::text AS effective_statuses_json,
-                       (SELECT p.full_name FROM operational_user_profile p WHERE p.id = o.sold_by) AS sold_by_name,
+                       (SELECT p.full_name FROM operational_user_profile p WHERE p.id = o.sold_by) AS sold_by_name, o.warranty_term,
                        ci.name AS channel_name, ci.channel_type
                   FROM channel_order o
                   JOIN channel_instance ci ON ci.id = o.channel_instance_id
@@ -399,7 +399,7 @@ public class ChannelOrderQueryService {
                 address(rs, "billing"), address(rs, "shipping"),
                 rs.getString("confirmation_mode"), instant(rs, "confirmed_at"),
                 rs.getString("confirmation_reason"), rs.getString("order_tag"),
-                rs.getBigDecimal("advance_received"), rs.getString("sold_by_name"), List.of());
+                rs.getBigDecimal("advance_received"), rs.getString("sold_by_name"), rs.getString("warranty_term"), List.of());
     }
 
     private ChannelOrderItemRow item(ResultSet rs) throws SQLException {
@@ -657,6 +657,8 @@ public class ChannelOrderQueryService {
                                      @MonetaryAmount BigDecimal advanceReceived,
                                      /** V32 — the user the sale is attributed to, or {@code null} = not recorded. */
                                      String soldByName,
+                                     /** BR-197 — D7 .. Y12, or {@code null}. */
+                                     String warrantyTerm,
                                      List<ChannelOrderItemRow> items) {
         ChannelOrderDetail withItems(List<ChannelOrderItemRow> items) {
             return new ChannelOrderDetail(id, channelInstanceId, channelName, channelType,
@@ -668,7 +670,7 @@ public class ChannelOrderQueryService {
                     voucherCode, itemsCount, promisedShippingTimes, warehouseCode, deliveryInfo,
                     buyerNote, remarks, giftOption, giftMessage, nationalRegistrationNumber1,
                     branchNumber, taxCode, extraAttributes, customerFirstName, customerLastName,
-                    billingAddress, shippingAddress, confirmationMode, confirmedAt, confirmationReason, orderTag, advanceReceived, soldByName,
+                    billingAddress, shippingAddress, confirmationMode, confirmedAt, confirmationReason, orderTag, advanceReceived, soldByName, warrantyTerm,
                     items == null ? List.of() : List.copyOf(items));
         }
     }

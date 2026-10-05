@@ -171,6 +171,21 @@ class OrderAmendmentServiceTest {
     }
 
     @Test
+    @DisplayName("sets, changes and clears the warranty term, recorded field by field (BR-197)")
+    void editsTheWarrantyTerm() {
+        UUID id = order("[\"PENDING_VERIFICATION\"]");
+
+        amendments.edit(id, new OrderAmendmentService.Edit(null, null, null, null, null, null, null, "Y5"));
+        assertThat(jdbc.queryForObject("SELECT warranty_term FROM channel_order WHERE id = ?", String.class, id)).isEqualTo("Y5");
+        amendments.edit(id, new OrderAmendmentService.Edit(null, null, null, null, null, null, null, "NONE"));
+        assertThat(jdbc.queryForObject("SELECT warranty_term FROM channel_order WHERE id = ?", String.class, id)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM channel_order_amendment WHERE channel_order_id = ? AND field = 'warranty_term'",
+                Integer.class, id)).isEqualTo(2);
+        assertThatThrownBy(() -> amendments.edit(id, new OrderAmendmentService.Edit(null, null, null, null, null, null, null, "Y13")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("warranty term");
+    }
+
+    @Test
     @DisplayName("a note on its own is recorded, changes no order fact and does not take authority")
     void noteOnlyIsRecorded() {
         UUID id = order("[\"PENDING_VERIFICATION\"]");

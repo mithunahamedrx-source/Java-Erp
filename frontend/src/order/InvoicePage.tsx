@@ -401,25 +401,15 @@ export default function InvoicePage(): React.JSX.Element {
           {/* ── Totals + Warranty/Note ──────────────────────────────── */}
           <div style={totalsRowStyle}>
             <div style={{ flex: 1, paddingTop: '2px' }}>
-              <div style={sectionLabelStyle}>Warranty &amp; Policies</div>
-              <ul style={{
-                margin: '0 0 20px',
-                paddingLeft: '16px',
-                fontSize: '11.5px',
-                color: '#555555',
-                lineHeight: 1.7,
-                textAlign: 'justify',
-              }}>
-                {warrantyTermLabel(invoice.warrantyTerm) ? (
-                  <li data-testid="invoice-warranty" style={{ paddingLeft: '2px', fontWeight: 600 }}>
+              {/* Nothing here is standing text: the warranty block exists only when the order carries a term. */}
+              {warrantyTermLabel(invoice.warrantyTerm) ? (
+                <>
+                  <div style={sectionLabelStyle}>Warranty</div>
+                  <div data-testid="invoice-warranty" style={{ ...noteStyle, marginBottom: '20px', fontWeight: 600 }}>
                     Warranty: {warrantyTermLabel(invoice.warrantyTerm)}.
-                  </li>
-                ) : (
-                  <li style={{ paddingLeft: '2px' }}>All televisions and computers carry a minimum 3-year manufacturer's warranty.</li>
-                )}
-                <li style={{ paddingLeft: '2px' }}>Returns are accepted within 7 days with product replacement.</li>
-                <li style={{ paddingLeft: '2px' }}>Warranty void if seal is broken or physical/liquid damage occurs.</li>
-              </ul>
+                  </div>
+                </>
+              ) : null}
               {/* The note is the one typed on the order; nothing is printed when there is none. */}
               {invoice.note?.trim() ? (
                 <>

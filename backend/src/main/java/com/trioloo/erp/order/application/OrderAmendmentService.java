@@ -113,6 +113,18 @@ public class OrderAmendmentService {
             }
         }
 
+        if (edit.warrantyTerm() != null) {
+            String requested = edit.warrantyTerm().trim();
+            if (!requested.equals("NONE") && !requested.matches("D7|D15|M1|M3|M6|Y([1-9]|1[0-2])")) {
+                throw new IllegalArgumentException("The warranty term must be one of the listed terms (BR-197).");
+            }
+            String after = requested.equals("NONE") ? null : requested;
+            if (!Objects.equals(after, current.warrantyTerm())) {
+                changes.add(new Change("warranty_term", current.warrantyTerm(), after));
+                orderSets.add(new Object[] {"warranty_term", after});
+            }
+        }
+
         // BR-127 / BR-193 — the advance may be corrected; 0 clears it. It can never exceed the total.
         boolean advanceChanged = false;
         BigDecimal newAdvance = current.advance();
@@ -274,7 +286,7 @@ public class OrderAmendmentService {
                        channel_order_effective_statuses(o.id)::text AS effective,
                        nullif(btrim(concat_ws(' ', coalesce(o.shipping_first_name, o.customer_first_name),
                                               coalesce(o.shipping_last_name, o.customer_last_name))), '') AS full_name,
-                       o.shipping_phone,
+                       o.shipping_phone, o.warranty_term,
                        nullif(concat_ws(', ', nullif(o.shipping_address1, ''), nullif(o.shipping_address2, ''),
                                        nullif(o.shipping_address3, ''), nullif(o.shipping_address4, ''),
                                        nullif(o.shipping_address5, ''), nullif(o.shipping_city, ''),
@@ -288,7 +300,7 @@ public class OrderAmendmentService {
                         "API_MANAGED".equals(rs.getString("ownership")), rs.getBigDecimal("price"),
                         rs.getBigDecimal("advance_received"), parse(rs.getString("effective")),
                         rs.getString("full_name"), rs.getString("shipping_phone"), rs.getString("address"),
-                        rs.getBoolean("live_shipment"), new ArrayList<>()), orderId);
+                        rs.getBoolean("live_shipment"), new ArrayList<>(), rs.getString("warranty_term")), orderId);
         Current current = found.stream().findFirst().orElseThrow(
                 () -> new IllegalArgumentException("Order " + orderId + " does not exist."));
         current.lines().addAll(jdbc.query("""
@@ -336,7 +348,7 @@ public class OrderAmendmentService {
 
     private record Current(boolean apiManaged, BigDecimal total, BigDecimal advance, List<String> effective,
                            String fullName, String phone, String address,
-                           boolean liveShipment, List<Line> lines) {
+                           boolean liveShipment, List<Line> lines, String warrantyTerm) {
     }
 
     private record Line(UUID id, String externalItemId, String name, int quantity, BigDecimal price,
@@ -357,7 +369,15 @@ public class OrderAmendmentService {
                        @MonetaryAmount BigDecimal total,
                        /** BR-127 — {@code null} = leave as is; {@code 0} = clear; otherwise the new advance. */
                        @MonetaryAmount BigDecimal advanceReceived,
-                       List<LineEdit> lines) {
+                       List<LineEdit> lines,
+                       /** BR-197 — {@code null} = leave as is; {@code NONE} = clear; otherwise D7 .. Y12. */
+                       String warrantyTerm) {
+
+        /** Callers that predate the warranty term. */
+        public Edit(String reason, String recipientName, String phone, String address, BigDecimal total,
+                    BigDecimal advanceReceived, List<LineEdit> lines) {
+            this(reason, recipientName, phone, address, total, advanceReceived, lines, null);
+        }
     }
 
     /** A line's description, quantity and unit price. {@code null} = leave as is. No SKU: the owner removed it. */

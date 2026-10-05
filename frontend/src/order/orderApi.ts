@@ -173,6 +173,7 @@ export type ChannelOrderDetail = ChannelOrderRow & {
   readonly confirmationReason: string | null;
   /** `BR-127` — money received before delivery; `null` = none recorded. A STRING, never parsed. */
   readonly advanceReceived?: string | null;
+  readonly warrantyTerm?: string | null;
   /** `V32` — the user the sale is attributed to; `null` = not recorded. */
   readonly soldByName?: string | null;
   readonly importedAt: string | null;
@@ -352,6 +353,8 @@ export type EditOrderPayload = {
   readonly total: string | null;
   /** `null` = leave the advance as it is; `"0"` = clear it; otherwise the new amount. */
   readonly advanceReceived: string | null;
+  /** BR-197 — `null` = unchanged; `"NONE"` = clear; otherwise a term code. */
+  readonly warrantyTerm?: string | null;
   readonly lines: readonly {
     readonly id: string;
     readonly name: string;

@@ -173,6 +173,19 @@ class OrderLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("an order made in Trioloo is cancelled directly even under a Daraz shop; only an imported one waits (V37)")
+    void madeInTriolooOrderIsCancelledDirectly() {
+        UUID made = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        jdbc.update("UPDATE channel_order SET statuses_json = '[]'::jsonb WHERE id = ?", made);
+        lifecycle.cancel(made, "CHANGED_MIND", null);
+        assertThat(row(made).get("effective")).isEqualTo("[\"CANCELLED\"]");
+
+        UUID imported = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
+        lifecycle.cancel(imported, "CHANGED_MIND", null);
+        assertThat(row(imported).get("effective")).isEqualTo("[\"PENDING_CANCELLATION\"]");
+    }
+
+    @Test
     @DisplayName("a cancelled order cannot be sent to Steadfast")
     void cancelledOrdersAreNotBooked() {
         UUID id = marketplaceOrder("[\"PENDING_VERIFICATION\"]");
@@ -231,7 +244,7 @@ class OrderLifecycleServiceTest {
                     trioloo_invoice_number, ownership, statuses_json, canonical_statuses_json,
                     price, shipping_first_name, shipping_phone, shipping_address1,
                     provider_created_at, imported_at, last_seen_at)
-                VALUES (?, ?, ?, ?, ?, 'API_MANAGED', '[]'::jsonb, CAST(? AS jsonb), 100.00, 'Rahim',
+                VALUES (?, ?, ?, ?, ?, 'API_MANAGED', '["pending"]'::jsonb, CAST(? AS jsonb), 100.00, 'Rahim',
                         '01700000000', 'Dhaka', now(), now(), now())
                 """, id, shopId, ext, ext, "TR" + Math.abs(id.hashCode()), canonicalJson);
         return id;
