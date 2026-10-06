@@ -172,6 +172,9 @@ function menuFor(item: StockItem, actions: StockItemCardActions, navigate: Retur
 export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: StockItem; readonly actions?: StockItemCardActions }): React.JSX.Element {
   const navigate = useNavigate();
   const status = STATUS_STYLE[item.recordStatus] ?? NEUTRAL_STATUS;
+  // PRD-207 - a discontinued item stays on the list but is visibly set back: its identity and figures fade, while the
+  // DISCONTINUED mark, the status and the actions menu stay at full strength so it can still be acted on.
+  const fade: React.CSSProperties = item.discontinued ? { opacity: 0.45 } : {};
 
   return (
     <div
@@ -208,6 +211,7 @@ export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: S
           borderRadius: '9px',
           background: 'var(--color-status-neutral-bg)',
           flexShrink: 0,
+          ...fade,
         }}
       />
 
@@ -218,7 +222,7 @@ export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: S
         `min-width` is a floor rather than a fixed width: below it the row stops shrinking and
         the region scrolls instead (RULE 7.5).
       */}
-      <div style={{ minWidth: '140px', flex: '1 1 auto', overflow: 'hidden' }}>
+      <div style={{ minWidth: '140px', flex: '1 1 auto', overflow: 'hidden', ...fade }}>
         <Link
           to={`/inventory/products/stock/${item.id}`}
           data-testid="stock-item-name"
@@ -303,6 +307,7 @@ export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: S
           paddingRight: 'var(--space-3)',
           borderRight: '1px solid var(--color-border-card)',
           flexShrink: 0,
+          ...fade,
         }}
       >
         <Metric label="Physical" value={item.physicalStock} unit={item.unitOfMeasure} />
@@ -310,7 +315,7 @@ export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: S
       </div>
 
       {/* COST — `PRD-206`. The weighted average when one exists, else the owner-entered reference cost. */}
-      <div style={{ width: '96px', textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ width: '96px', textAlign: 'right', flexShrink: 0, ...fade }}>
         {(item.costBasis === 'WEIGHTED_AVERAGE' ? item.weightedAverageCost : item.referenceCost) != null ? (
           <>
             <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)' }}>
@@ -328,7 +333,7 @@ export function StockItemCard({ item, actions = NO_ACTIONS }: { readonly item: S
       </div>
 
       {/* VALUATION — present only where authorised. 🔴 Absent, never ৳0. */}
-      <div style={{ width: '108px', textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ width: '108px', textAlign: 'right', flexShrink: 0, ...fade }}>
         {item.stockValue != null ? (
           <>
             <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)' }}>Stock Value</div>

@@ -328,6 +328,17 @@ describe('StockItemCard anatomy', () => {
     expect(screen.getByTestId('stock-item-value').textContent).toBe('0.00');
   });
 
+  it('PRD-207 — a discontinued card fades its identity and figures but keeps the mark and the menu at full strength', () => {
+    renderCard({ ...ITEM, discontinued: true });
+    expect(screen.getByTestId('stock-item-name').parentElement!.style.opacity).toBe('0.45');
+    expect(screen.getByTestId('stock-item-value').parentElement!.style.opacity).toBe('0.45');
+    expect(screen.getByTestId('discontinued-badge').style.opacity).toBe('');
+    expect(screen.getByTestId('stock-item-actions').closest('[data-testid=\"stock-item-menu\"]')?.getAttribute('style') ?? '').not.toContain('opacity');
+    cleanup();
+    renderCard(ITEM);
+    expect(screen.getByTestId('stock-item-name').parentElement!.style.opacity).toBe('');
+  });
+
   it('PRD-207 — a discontinued item carries a Discontinued mark; others do not', () => {
     renderCard({ ...ITEM, discontinued: true });
     expect(screen.getByTestId('discontinued-badge')).toBeTruthy();
