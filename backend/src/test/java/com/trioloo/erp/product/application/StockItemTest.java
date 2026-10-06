@@ -471,6 +471,36 @@ class StockItemTest {
         assertThat(queries.summary(ssd).totalStockItems()).isEqualTo(2);
     }
 
+    @Test
+    @DisplayName("Search is by word - 'i7 processor' finds 'Core i7-860 ... Processor' - and a miss offers the closest items, flagged")
+    void searchByWordAndRecommendation() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE);
+        for (String[] row : new String[][] {
+                {"S-1", "Intel Core i7-860 Legacy Desktop Processor"}, {"S-2", "Intel Core i5-650 Legacy Desktop Processor"},
+                {"S-3", "Kingston FURY Beast 16GB DDR4 Desktop RAM"}}) {
+            commands.create(new StockItemCommandService.StockItemInput(row[0], row[1], null, null, "pcs", null, null, null, RecordStatus.ACTIVE));
+        }
+        PageRequest page = PageRequest.of(0, 10);
+
+        var words = queries.search(new StockItemFilter("i7 processor", null, null, null, null, null, false), page);
+        assertThat(words.recommended()).isFalse();
+        assertThat(words.page().getContent()).extracting(StockItemView::inventorySku).containsExactly("S-1");
+        assertThat(queries.search(new StockItemFilter("i7860", null, null, null, null, null, false), page).page().getContent()).isEmpty();
+        assertThat(queries.search(new StockItemFilter("s-3", null, null, null, null, null, false), page).page().getContent())
+                .extracting(StockItemView::inventorySku).containsExactly("S-3");
+
+        // Nothing matches exactly ('i7' and 'ddr4' never share an item): the closest are offered, flagged.
+        var near = queries.search(new StockItemFilter("i7 ddr4", null, null, null, null, null, false), page);
+        assertThat(near.recommended()).isTrue();
+        assertThat(near.page().getContent()).extracting(StockItemView::inventorySku).contains("S-1", "S-3");
+        // A typo still finds its family by the first four letters.
+        var typo = queries.search(new StockItemFilter("proccesor", null, null, null, null, null, false), page);
+        assertThat(typo.recommended()).isTrue();
+        assertThat(typo.page().getContent()).extracting(StockItemView::inventorySku).contains("S-1", "S-2");
+        // Nothing related at all offers nothing.
+        assertThat(queries.search(new StockItemFilter("zzzzqq", null, null, null, null, null, false), page).page().getContent()).isEmpty();
+    }
+
     // ================================================================= CSV
 
     @Test

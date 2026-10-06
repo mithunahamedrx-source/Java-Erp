@@ -49,6 +49,7 @@ export default function StockItemsPage(): React.JSX.Element {
   const [sort, setSort] = useState('stock:DESC');
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [recommended, setRecommended] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -68,6 +69,7 @@ export default function StockItemsPage(): React.JSX.Element {
       setItems(pageResult.content);
       setTotalPages(pageResult.totalPages);
       setTotalElements(pageResult.totalElements);
+      setRecommended(pageResult.recommended === true);
       setSummary(summaryResult);
     } catch (cause) {
       // UX-112 - a permission refusal, a business refusal and a system error are different
@@ -284,6 +286,16 @@ export default function StockItemsPage(): React.JSX.Element {
         )}
 
       </div>
+
+      {recommended && !loading ? (
+        <div data-testid="stock-recommended" role="status"
+          style={{
+            marginBottom: 'var(--space-4)', padding: '10px 14px', borderRadius: 'var(--radius-control)', fontSize: '13px',
+            fontWeight: 600, background: 'var(--color-status-pending-bg)', color: 'var(--color-status-pending-fg)',
+          }}>
+          No exact match for “{filters.search}”. Showing the closest items instead.
+        </div>
+      ) : null}
 
       {notice ? (
         <div role={notice.tone === 'error' ? 'alert' : 'status'} data-testid="stock-notice"

@@ -67,10 +67,12 @@ public class StockItemController {
                                     @RequestParam(defaultValue = "stock") String sort,
                                     @RequestParam(defaultValue = "DESC") String direction) {
         Sort.Direction dir = "DESC".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Page<StockItemView> result = queries.list(query.toFilter(),
+        StockItemQueryService.SearchResult found = queries.search(query.toFilter(),
                 PageRequest.of(Math.max(page, 0), clampSize(size), Sort.by(dir, safeSort(sort))));
+        Page<StockItemView> result = found.page();
 
         return Map.of(
+                "recommended", found.recommended(),
                 "content", result.getContent(),
                 "page", result.getNumber(),
                 "size", result.getSize(),

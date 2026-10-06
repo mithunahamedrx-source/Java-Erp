@@ -83,9 +83,17 @@ public class StockItemQueryService {
     @Transactional(readOnly = true)
     public List<StockItemView> allMatching(StockItemFilter filter) {
         requireViewer();
-        List<StockItemView> composed = compose(variants.searchAll(filter.search(), filter.status(),
-                filter.category(), filter.brand(), filter.serializationPolicy(),
-                filter.componentClass()));
+        // 🔴 SEARCH IS BY WORD, never by the whole typed phrase: "i7 processor" finds "Intel Core i7-860 ... Processor".
+        // Every word must be present (in the name, SKU, barcode, brand or category); the other filters stay in SQL.
+        List<String> words = words(filter.search());
+        List<ProductVariantEntity> candidates = variants.searchAll(null, filter.status(),
+                filter.category(), filter.brand(), filter.serializationPolicy(), filter.componentClass()).stream()
+                .filter(e -> words.isEmpty() || words.stream().allMatch(w -> haystack(e).contains(w)))
+                .toList();
+        return narrow(compose(candidates), filter);
+    }
+
+    private static List<StockItemView> narrow(List<StockItemView> composed, StockItemFilter filter) {
         return composed.stream()
                 .filter(v -> !filter.outOfStockOnly() || v.outOfStock())
                 .filter(v -> !filter.inStockOnly() || !v.outOfStock())
@@ -186,6 +194,64 @@ public class StockItemQueryService {
                     e.getUpdatedAt(), e.getVersion()));
         }
         return views;
+    }
+
+    /** The typed search as lower-case words; punctuation separates words, so "i7-860" and "i7 860" read alike. */
+    static List<String> words(String search) {
+        if (search == null || search.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(search.toLowerCase().split("[^\\p{L}\\p{N}]+")).filter(w -> !w.isBlank()).toList();
+    }
+
+    private static String haystack(ProductVariantEntity e) {
+        return (" " + e.getTechnicalName() + " " + e.getInventorySku() + " " + (e.getBarcode() == null ? "" : e.getBarcode())
+                + " " + (e.getBrand() == null ? "" : e.getBrand()) + " " + (e.getInventoryCategory() == null ? "" : e.getInventoryCategory()) + " ")
+                .toLowerCase().replaceAll("[^\\p{L}\\p{N}]+", " ");
+    }
+
+    /** A page of results, and whether it holds the closest matches because nothing matched exactly. */
+    public record SearchResult(Page<StockItemView> page, boolean recommended) {
+    }
+
+    /**
+     * The list for the workspace. When a search matches nothing exactly it offers the CLOSEST items instead, flagged as
+     * recommended, so a typo or a loose phrase still finds something - an item scores for each typed word it contains
+     * and half as much for a word it nearly contains (same first four letters). Nothing unrelated is ever offered.
+     */
+    @Transactional(readOnly = true)
+    public SearchResult search(StockItemFilter filter, Pageable pageable) {
+        requireViewer();
+        List<StockItemView> exact = allMatching(filter);
+        List<String> words = words(filter.search());
+        if (!exact.isEmpty() || words.isEmpty()) {
+            return new SearchResult(page(exact, pageable), false);
+        }
+        List<ProductVariantEntity> all = variants.searchAll(null, filter.status(), filter.category(), filter.brand(),
+                filter.serializationPolicy(), filter.componentClass());
+        java.util.Map<UUID, Integer> score = new java.util.HashMap<>();
+        for (ProductVariantEntity e : all) {
+            String hay = haystack(e);
+            int points = 0;
+            for (String w : words) {
+                if (hay.contains(w)) {
+                    points += 2;
+                } else if (w.length() >= 4 && hay.contains(w.substring(0, 4))) {
+                    points += 1;
+                }
+            }
+            if (points > 0) {
+                score.put(e.getId(), points);
+            }
+        }
+        List<ProductVariantEntity> best = all.stream().filter(e -> score.containsKey(e.getId()))
+                .sorted(Comparator.<ProductVariantEntity>comparingInt(e -> -score.get(e.getId()))
+                        .thenComparing(ProductVariantEntity::getInventorySku, String.CASE_INSENSITIVE_ORDER))
+                .limit(30).toList();
+        List<StockItemView> ordered = narrow(compose(best), filter);
+        int from = (int) Math.min(pageable.getOffset(), ordered.size());
+        int to = Math.min(from + pageable.getPageSize(), ordered.size());
+        return new SearchResult(new PageImpl<>(ordered.subList(from, to), pageable, ordered.size()), !ordered.isEmpty());
     }
 
     /**

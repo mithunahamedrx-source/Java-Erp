@@ -98,6 +98,7 @@ function stubApi(options: {
     if (url.includes('/stock-items')) {
       return new Response(JSON.stringify({
         content: items, page: 0, size: 50, totalElements: items.length, totalPages: 1,
+        recommended: url.includes('search=nomatch'),
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -271,6 +272,18 @@ describe('Stock Items results — cards, never a table', () => {
       expect(urls.some((u) => u.includes('/stock-items?') && u.includes('category=SSD'))).toBe(true);
       expect(urls.some((u) => u.includes('/summary') && u.includes('category=SSD'))).toBe(true);
     });
+  });
+
+  it('says so when nothing matched exactly and the closest items are shown instead', async () => {
+    stubApi();
+    renderWorkspace('/inventory/products/stock');
+    await waitFor(() => expect(screen.getByTestId('stock-search')).toBeTruthy());
+    expect(screen.queryByTestId('stock-recommended')).toBeNull();
+
+    fireEvent.change(screen.getByTestId('stock-search'), { target: { value: 'nomatch' } });
+    await waitFor(() => expect(screen.getByTestId('stock-recommended').textContent).toContain('nomatch'));
+    expect(screen.getByTestId('stock-recommended').textContent).toContain('closest items');
+    expect(screen.getByTestId('stock-item-results')).toBeTruthy();
   });
 
   it('paginates on the server and shows the range', async () => {

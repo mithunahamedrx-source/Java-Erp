@@ -45,6 +45,8 @@ export type StockItem = {
 };
 
 export type StockItemPage = {
+  /** True when nothing matched the search exactly and these are the closest items instead. */
+  readonly recommended?: boolean;
   readonly content: readonly StockItem[];
   readonly page: number;
   readonly size: number;
