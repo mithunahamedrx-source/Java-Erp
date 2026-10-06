@@ -164,7 +164,7 @@ describe('Warehouses and Stock Locations', () => {
     stub({ permissions: ['warehouse.warehouse.view', 'warehouse.warehouse.manage'], warehouses: [] }, calls);
     renderAt('/inventory/warehouses');
     await waitFor(() => expect(screen.getByText('No warehouses yet')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('new-warehouse'));
+    fireEvent.click(await screen.findByTestId('new-warehouse'));
     await waitFor(() => expect(screen.getByTestId('warehouse-dialog')).toBeTruthy());
     fireEvent.change(screen.getByTestId('warehouse-identifier'), { target: { value: 'WH-MAIN' } });
     fireEvent.change(screen.getByTestId('warehouse-name'), { target: { value: 'Main Warehouse' } });
@@ -194,7 +194,7 @@ describe('Warehouses and Stock Locations', () => {
     stub({ permissions: ['warehouse.warehouse.view', 'warehouse.stock-location.view', 'warehouse.stock-location.manage'], warehouses: [WAREHOUSE()], locations: [] }, calls);
     renderAt('/inventory/warehouses/locations');
     await waitFor(() => expect(screen.getByText('No stock locations yet')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('new-location'));
+    fireEvent.click(await screen.findByTestId('new-location'));
     await waitFor(() => expect(screen.getByTestId('location-dialog')).toBeTruthy());
     expect(screen.getByTestId('location-dialog').querySelector('input[type=checkbox]')).toBeNull(); // sellability is never an input
     fireEvent.change(screen.getByTestId('location-identifier'), { target: { value: 'main-storage-a' } });

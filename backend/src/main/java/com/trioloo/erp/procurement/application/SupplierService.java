@@ -48,7 +48,9 @@ public class SupplierService {
                       long orders, @MonetaryAmount BigDecimal totalPurchaseValue) {
     }
 
-    public record Kpis(long suppliers, long active, long archived) {
+    /** {@code totalDue} stays null: a due is a payable (accepted receipts less payments), and none exists yet. */
+    public record Kpis(long suppliers, long active, long archived, @MonetaryAmount BigDecimal totalPurchase, String purchaseCurrency,
+                       @MonetaryAmount BigDecimal totalDue) {
     }
 
     public record Page(List<Row> content, long totalElements, int page, int size, int totalPages, Kpis kpis) {
@@ -66,42 +68,73 @@ public class SupplierService {
         return actor;
     }
 
+    /** The start of a reporting period, or null for all time. Weeks start on Monday. */
+    private static LocalDate periodStart(String period) {
+        LocalDate today = LocalDate.now();
+        if (period == null) return null;
+        return switch (period.trim().toLowerCase(Locale.ROOT)) {
+            case "today" -> today;
+            case "week" -> today.with(java.time.DayOfWeek.MONDAY);
+            case "month" -> today.withDayOfMonth(1);
+            default -> null;
+        };
+    }
+
     @Transactional(readOnly = true)
-    public Page list(String search, String status, int page, int size) {
+    public Page list(String search, String status, String currency, String activity, String period, int page, int size) {
         require(VIEW);
         int pageSize = Math.min(Math.max(size, 1), 100);
         int current = Math.max(page, 0);
         String like = search == null || search.isBlank() ? null : "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
         String state = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
-        String where = """
-                 WHERE (?::text IS NULL OR lower(s.name) LIKE ?::text OR lower(coalesce(s.contact_name, '')) LIKE ?::text
-                        OR lower(coalesce(s.phone, '')) LIKE ?::text OR lower(coalesce(s.email, '')) LIKE ?::text
-                        OR lower(coalesce(s.external_reference, '')) LIKE ?::text)
-                   AND (?::text IS NULL OR s.record_status = ?::text)
-                """;
-        Object[] filters = {like, like, like, like, like, like, state, state};
+        String money = currency == null || currency.isBlank() ? null : currency.trim().toUpperCase(Locale.ROOT);
+        String act = activity == null || activity.isBlank() ? null : activity.trim().toLowerCase(Locale.ROOT);
+        LocalDate from = periodStart(period);
+        // PRC-067.b / PRC-009 - purchase figures are DERIVED from purchase orders: live orders only, in the supplier's own
+        // currency, inside the chosen period.
+        String live = " p.supplier_id = s.id AND p.status <> 'CANCELLED' AND (?::date IS NULL OR p.order_date >= ?::date) ";
+        String where = " WHERE (?::text IS NULL OR lower(s.name) LIKE ?::text OR lower(coalesce(s.contact_name, '')) LIKE ?::text"
+                + " OR lower(coalesce(s.phone, '')) LIKE ?::text OR lower(coalesce(s.email, '')) LIKE ?::text"
+                + " OR lower(coalesce(s.external_reference, '')) LIKE ?::text)"
+                + " AND (?::text IS NULL OR s.record_status = ?::text)"
+                + " AND (?::text IS NULL OR s.currency = ?::text)"
+                + " AND (?::text IS NULL OR (?::text = 'with-orders' AND EXISTS (SELECT 1 FROM purchase_order p WHERE" + live + "))"
+                + " OR (?::text = 'without-orders' AND NOT EXISTS (SELECT 1 FROM purchase_order p WHERE" + live + ")))";
+        Object[] filters = {like, like, like, like, like, like, state, state, money, money, act, act, from, from, act, from, from};
         Long total = jdbc.queryForObject("SELECT count(*) FROM supplier s" + where, Long.class, filters);
-        Object[] paged = java.util.Arrays.copyOf(filters, filters.length + 2);
-        paged[filters.length] = pageSize;
-        paged[filters.length + 1] = (long) current * pageSize;
-        List<Row> rows = jdbc.query("""
-                SELECT s.id, s.name, s.contact_name, s.phone, s.email, s.address, s.currency, s.external_reference,
-                       s.active_from, s.active_until, s.record_status, s.created_at, s.updated_at, s.version,
-                       -- PRC-067.b - derived from purchase orders (PRC-009): this supplier's live orders in the supplier's own currency.
-                       (SELECT count(*) FROM purchase_order p WHERE p.supplier_id = s.id AND p.status <> 'CANCELLED') AS orders,
-                       coalesce((SELECT sum(i.quantity_ordered * i.unit_cost) FROM purchase_order p JOIN purchase_order_item i ON i.purchase_order_id = p.id
-                                  WHERE p.supplier_id = s.id AND p.status <> 'CANCELLED' AND i.currency = s.currency), 0) AS purchase_value
-                  FROM supplier s
-                """ + where + " ORDER BY lower(s.name) LIMIT ? OFFSET ?",
+
+        String value = "coalesce((SELECT sum(i.quantity_ordered * i.unit_cost) FROM purchase_order p JOIN purchase_order_item i ON i.purchase_order_id = p.id"
+                + " WHERE" + live + "AND i.currency = s.currency), 0)";
+        Object[] paged = new Object[4 + filters.length + 2];
+        int k = 0;
+        paged[k++] = from; paged[k++] = from;          // order count
+        paged[k++] = from; paged[k++] = from;          // purchase value
+        for (Object f : filters) paged[k++] = f;
+        paged[k++] = pageSize;
+        paged[k] = (long) current * pageSize;
+        List<Row> rows = jdbc.query("SELECT s.id, s.name, s.contact_name, s.phone, s.email, s.address, s.currency, s.external_reference,"
+                + " s.active_from, s.active_until, s.record_status, s.created_at, s.updated_at, s.version,"
+                + " (SELECT count(*) FROM purchase_order p WHERE" + live + ") AS orders, " + value + " AS purchase_value"
+                + " FROM supplier s" + where + " ORDER BY lower(s.name) LIMIT ? OFFSET ?",
                 (rs, n) -> new Row((UUID) rs.getObject("id"), rs.getString("name"), rs.getString("contact_name"), rs.getString("phone"),
                         rs.getString("email"), rs.getString("address"), rs.getString("currency"), rs.getString("external_reference"),
                         rs.getObject("active_from", LocalDate.class), rs.getObject("active_until", LocalDate.class),
                         rs.getString("record_status"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
                         rs.getLong("version"), rs.getLong("orders"), rs.getBigDecimal("purchase_value")), paged);
         long count = total == null ? 0 : total;
-        Kpis kpis = jdbc.queryForObject("""
-                SELECT count(*), count(*) FILTER (WHERE record_status = 'ACTIVE'), count(*) FILTER (WHERE record_status = 'ARCHIVED') FROM supplier
-                """, (rs, n) -> new Kpis(rs.getLong(1), rs.getLong(2), rs.getLong(3)));
+
+        // The strip follows the same filters. Purchase value is summed in one currency (the chosen one, else taka) so that
+        // different currencies are never added together.
+        String sumCurrency = money != null ? money : "BDT";
+        Object[] kpiParams = new Object[3 + filters.length];
+        kpiParams[0] = from;
+        kpiParams[1] = from;
+        kpiParams[2] = sumCurrency;
+        System.arraycopy(filters, 0, kpiParams, 3, filters.length);
+        Kpis kpis = jdbc.queryForObject("SELECT count(*), count(*) FILTER (WHERE s.record_status = 'ACTIVE'),"
+                + " count(*) FILTER (WHERE s.record_status = 'ARCHIVED'),"
+                + " coalesce(sum(" + value + ") FILTER (WHERE s.currency = ?::text), 0) FROM supplier s" + where,
+                (rs, n) -> new Kpis(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getBigDecimal(4), sumCurrency, null), kpiParams);
         return new Page(rows, count, current, pageSize, (int) Math.max(1, Math.ceil(count / (double) pageSize)), kpis);
     }
 

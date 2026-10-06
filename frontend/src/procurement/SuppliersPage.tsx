@@ -29,11 +29,14 @@ export default function SuppliersPage(): React.JSX.Element {
   const [searchDraft, setSearchDraft] = useState('');
   const search = useDebounced(searchDraft);
   const [status, setStatus] = useState('');
+  const [currency, setCurrency] = useState('');
+  const [activity, setActivity] = useState('');
+  const [period, setPeriod] = useState('');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Supplier | 'new' | null>(null);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
-  const list = useRemoteList(() => listSuppliers({ search, status, page, size: PAGE_SIZE }), [search, status, page]);
+  const list = useRemoteList(() => listSuppliers({ search, status, currency, activity, period, page, size: PAGE_SIZE }), [search, status, currency, activity, period, page]);
 
   const setRecordStatus = async (s: Supplier, next: RecordStatus): Promise<void> => {
     try {
@@ -60,7 +63,7 @@ export default function SuppliersPage(): React.JSX.Element {
 
   const rows = list.data?.content ?? [];
   const kpis = list.data?.kpis;
-  const filtered = search !== '' || status !== '';
+  const filtered = search !== '' || status !== '' || currency !== '' || activity !== '' || period !== '';
   const total = list.data?.totalElements ?? 0;
 
   const header = useMemo(() => (
@@ -81,12 +84,19 @@ export default function SuppliersPage(): React.JSX.Element {
       <KpiStrip kpis={[
         { key: 'suppliers', label: 'SUPPLIERS', value: kpis?.suppliers ?? '—' },
         { key: 'active', label: 'ACTIVE', value: kpis?.active ?? '—' },
-        { key: 'archived', label: 'ARCHIVED', value: kpis?.archived ?? '—' },
+        { key: 'purchase', label: 'TOTAL PURCHASE', value: kpis ? `${kpis.purchaseCurrency} ${displayMoney(kpis.totalPurchase)}` : '—' },
+        { key: 'due', label: 'TOTAL DUE', value: kpis?.totalDue != null ? `${kpis.purchaseCurrency} ${displayMoney(kpis.totalDue)}` : '—' },
       ]} />
       <Toolbar>
         <SearchBox testId="supplier-search" value={searchDraft} onChange={(v) => { setSearchDraft(v); setPage(0); }} placeholder="Search supplier name, contact, phone or reference" />
         <FilterSelect label="Record state" testId="supplier-filter-status" value={status} onChange={(v) => { setStatus(v); setPage(0); }}
           options={[['ACTIVE', 'Active'], ['ARCHIVED', 'Archived']]} />
+        <FilterSelect label="Currency" testId="supplier-filter-currency" value={currency} onChange={(v) => { setCurrency(v); setPage(0); }}
+          options={[['BDT', 'BDT'], ['USD', 'USD'], ['CNY', 'CNY']]} />
+        <FilterSelect label="Purchases" testId="supplier-filter-activity" value={activity} onChange={(v) => { setActivity(v); setPage(0); }}
+          options={[['with-orders', 'With orders'], ['without-orders', 'Without orders']]} />
+        <FilterSelect label="Period" testId="supplier-filter-period" value={period} onChange={(v) => { setPeriod(v); setPage(0); }}
+          options={[['today', 'Today'], ['week', 'This week'], ['month', 'This month']]} />
       </Toolbar>
 
       {notice ? (

@@ -44,7 +44,11 @@ export type Supplier = {
   /** Derived from purchase orders (`PRC-009`); live orders only, in the supplier's currency. */
   readonly orders?: number; readonly totalPurchaseValue?: string;
 };
-export type SupplierKpis = { readonly suppliers: number; readonly active: number; readonly archived: number };
+export type SupplierKpis = {
+  readonly suppliers: number; readonly active: number; readonly archived: number;
+  /** Derived from purchase orders in the chosen period; `totalDue` is null until payables exist. */
+  readonly totalPurchase: string; readonly purchaseCurrency: string; readonly totalDue: string | null;
+};
 
 const query = (params: Record<string, string | number | undefined | null>): string => {
   const q = new URLSearchParams();
@@ -64,7 +68,7 @@ export const saveLocation = (id: string | null, body: Record<string, unknown>) =
   id ? apiRequest<void>(`/api/warehouse/locations/${id}`, { method: 'PUT', body: JSON.stringify(body) })
      : apiRequest<{ id: string }>('/api/warehouse/locations', { method: 'POST', body: JSON.stringify(body) });
 
-export const listSuppliers = (p: { search?: string; status?: string; page: number; size: number }) =>
+export const listSuppliers = (p: { search?: string; status?: string; currency?: string; activity?: string; period?: string; page: number; size: number }) =>
   apiRequest<Paged<Supplier, SupplierKpis>>(`/api/procurement/suppliers?${query(p)}`);
 export const saveSupplier = (id: string | null, body: Record<string, unknown>) =>
   id ? apiRequest<void>(`/api/procurement/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(body) })

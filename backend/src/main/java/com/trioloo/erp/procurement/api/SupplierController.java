@@ -33,8 +33,10 @@ public class SupplierController {
 
     @GetMapping
     public SupplierService.Page list(@RequestParam(required = false) String search, @RequestParam(required = false) String status,
+                                     @RequestParam(required = false) String currency, @RequestParam(required = false) String activity,
+                                     @RequestParam(required = false) String period,
                                      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        return suppliers.list(search, status, page, size);
+        return suppliers.list(search, status, currency, activity, period, page, size);
     }
 
     @PostMapping

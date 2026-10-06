@@ -76,7 +76,7 @@ class WarehouseSupplierTest {
 
         actingWith();
         assertThatThrownBy(() -> warehouses.list(null, null, 0, 10)).isInstanceOf(AccessDeniedByPermissionException.class);
-        assertThatThrownBy(() -> suppliers.list(null, null, 0, 10)).isInstanceOf(AccessDeniedByPermissionException.class);
+        assertThatThrownBy(() -> suppliers.list(null, null, null, null, null, 0, 10)).isInstanceOf(AccessDeniedByPermissionException.class);
         assertThatThrownBy(() -> locations.list(null, null, null, null, null, 0, 10)).isInstanceOf(AccessDeniedByPermissionException.class);
     }
 
@@ -169,7 +169,7 @@ class WarehouseSupplierTest {
     void supplierLifecycle() {
         actingWith(ALL);
         UUID id = suppliers.create(supplier("Star Tech Ltd"));
-        var row = suppliers.list(null, null, 0, 10).content().getFirst();
+        var row = suppliers.list(null, null, null, null, null, 0, 10).content().getFirst();
         assertThat(row.currency()).isEqualTo("BDT");
         assertThat(row.recordStatus()).isEqualTo("ACTIVE");
 
@@ -180,13 +180,22 @@ class WarehouseSupplierTest {
                 LocalDate.of(2026, 5, 1), LocalDate.of(2026, 1, 1), null, null))).isInstanceOf(IllegalArgumentException.class);
 
         suppliers.create(supplier("Ryans Computers"));
-        assertThat(suppliers.list("01711", null, 0, 10).content()).hasSize(2);
-        assertThat(suppliers.list("ryans", null, 0, 10).content()).extracting(SupplierService.Row::name).containsExactly("Ryans Computers");
+        assertThat(suppliers.list("01711", null, null, null, null, 0, 10).content()).hasSize(2);
+        assertThat(suppliers.list("ryans", null, null, null, null, 0, 10).content()).extracting(SupplierService.Row::name).containsExactly("Ryans Computers");
 
         suppliers.update(id, new SupplierService.Input("Star Tech Ltd", "Ashraful Alam", "01711-204488", null, "Dhaka", "usd", null, null, null,
                 "ARCHIVED", row.version()));
-        assertThat(suppliers.list(null, "ARCHIVED", 0, 10).content()).singleElement().satisfies(s -> assertThat(s.currency()).isEqualTo("USD"));
-        assertThat(suppliers.list(null, null, 0, 10).kpis().archived()).isEqualTo(1);
+        assertThat(suppliers.list(null, "ARCHIVED", null, null, null, 0, 10).content()).singleElement().satisfies(s -> assertThat(s.currency()).isEqualTo("USD"));
+        assertThat(suppliers.list(null, null, null, null, null, 0, 10).kpis().archived()).isEqualTo(1);
+
+        // Filters by currency, purchase activity and period; the strip follows them. No order exists, so purchase is zero and
+        // the due is withheld (null) until payables exist.
+        assertThat(suppliers.list(null, null, "USD", null, null, 0, 10).content()).hasSize(1);
+        assertThat(suppliers.list(null, null, null, "without-orders", "month", 0, 10).content()).hasSize(2);
+        assertThat(suppliers.list(null, null, null, "with-orders", "week", 0, 10).content()).isEmpty();
+        var strip = suppliers.list(null, null, null, null, "today", 0, 10).kpis();
+        assertThat(strip.totalPurchase()).isEqualByComparingTo("0");
+        assertThat(strip.totalDue()).isNull();
     }
 
     @Test
@@ -196,10 +205,10 @@ class WarehouseSupplierTest {
         for (int i = 0; i < 12; i++) {
             suppliers.create(supplier("Supplier %02d".formatted(i)));
         }
-        var first = suppliers.list(null, null, 0, 10);
+        var first = suppliers.list(null, null, null, null, null, 0, 10);
         assertThat(first.content()).hasSize(10);
         assertThat(first.totalElements()).isEqualTo(12);
         assertThat(first.totalPages()).isEqualTo(2);
-        assertThat(suppliers.list(null, null, 1, 10).content()).hasSize(2);
+        assertThat(suppliers.list(null, null, null, null, null, 1, 10).content()).hasSize(2);
     }
 }
