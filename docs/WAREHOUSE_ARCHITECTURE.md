@@ -1,7 +1,7 @@
 # Warehouse Architecture
 
 **Owner:** Trioloo Technology · **Module:** Warehouse · **Status:** Canonical
-**Version:** 1.6.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `WHS-`
+**Version:** 1.7.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**`WHS-074` — Warehouse and Stock Location master data implemented**) · **Rule prefix:** `WHS-`
 
 ---
 
@@ -165,6 +165,16 @@ The business stated this for stock in its own words — *"stock figures must nev
 **`E-035` Pick Task already carries *"lines with location and quantity"***, so the model can express a location on a pick line today. **What is absent is any rule about how that location is chosen or structured** — and the business excluded exactly that from §17. Recorded as an explicit scope boundary; **it is not a gap in the audit, because it was never asked.**
 
 ---
+
+## 4.4 The first implemented slice - master data
+
+> **WHS-074 — ✅ WAREHOUSES AND STOCK LOCATIONS ARE MAINTAINED AS MASTER DATA. Ratified 2026-10-06 on explicit business decision.** The business has ONE warehouse today (Main Warehouse, Dhanmondi 7A), so the surface is deliberately light.
+>
+> **a.** ✅ A warehouse carries an identifier, a name, an address and a record status; a location carries an identifier, its warehouse, a description, its type and its record status. Courier coverage, assembly capability and capacity indicators (`E-004`) are NOT recorded - nothing yet defines how they behave.
+> **b.** 🔴 **Sellability follows the type and is never chosen:** only `Storage` is sellable, `Quarantine` never is, and the other types are not established as sellable, so none is (`WHS-008`, `INV-5.2`). The database refuses any other pairing.
+> **c.** 🔴 **A location's type is fixed once made** - turning Quarantine into Storage would silently make held stock sellable; archive it and make another.
+> **d.** 🔴 **Nothing is deleted** (`INV-4.3`): archive and restore only. An archived or suspended warehouse takes no new location (`PRD-063`).
+> **e.** ⚠ No stock figure is shown against a warehouse or location: stock is derived from movements and is not yet attributed to a location (`DB-001`). Capabilities: `warehouse.warehouse.view` / `.manage` and `warehouse.stock-location.view` / `.manage` (`PRM-099`).
 
 # 5. Goods Receipt Execution
 
@@ -839,6 +849,7 @@ The business described **what a count produces**, not the states it passes throu
 
 | Version | Date | Change |
 |---|---|---|
+| **1.7.0** | **2026-10-06** | ✅ **WAREHOUSE AND STOCK LOCATION MASTER DATA — `§4.4`, `WHS-074`, on explicit business decision.** Maintained with archive-only lifecycle; sellability follows the location type; the type is fixed once made. 🔴 No existing rule amended; no stock figure introduced. Migration `V44`. |
 | **1.4.1** | **2026-08-09** | **`WHS-043`'s ratification caveat withdrawn — no rule changed.** `PRD-046` was discharged when `OM §14.4` was amended (`BR-143`, `BR-144`), so **consumption at assembly is now fully ratified** and `WHS-043` stands without qualification |
 | **1.4.0** | **2026-08-09** | **`WHS-074` added — what `READY_FOR_PACKING` hands over, from `BD-434`.** The terminal stage hands a **build-to-order** unit to **packing for its originating Order** and a **build-to-stock** unit to **warehouse stock** — **the finished unit is created in both cases**, and only availability differs (`IVN-043`). **A customer-specific build is never exposed as available stock even momentarily** (`IVN-044`). **`WHS-039` – `WHS-045` are unchanged**, and no state, transition or QC boundary moved |
 | **1.3.0** | **2026-08-09** | **One cross-reference added — `WHS-073`; no process, rule or boundary changed.** `EVT-091 Warranty.ReplacementAuthorised` names Warehouse as a consumer, whose confirmed reaction is *“the applicable controlled process for picking, required QC/verification, and handover or dispatch”* (`BD-426`). **That process already exists in full** at `WHS-026` – `WHS-037`, so **no warranty-specific process was created** — `WHS-073` records only that a warranty replacement enters the existing one, and that **the trigger is warranty-specific while the process is not.** Reservation and deduction remain Inventory's figures |

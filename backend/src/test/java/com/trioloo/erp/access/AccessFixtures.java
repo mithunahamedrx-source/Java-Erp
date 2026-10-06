@@ -30,6 +30,9 @@ public final class AccessFixtures {
     /** Removes every access row so each test starts from an empty, unseeded system. */
     public void clear() {
         jdbc.update("DELETE FROM notification"); // per-recipient rows reference the profiles about to go
+        jdbc.update("DELETE FROM stock_location"); // warehouse / location / supplier rows record who made them
+        jdbc.update("DELETE FROM warehouse");
+        jdbc.update("DELETE FROM supplier");
         jdbc.update("DELETE FROM user_permission_override");
         jdbc.update("DELETE FROM user_scope_assignment");
         jdbc.update("DELETE FROM user_role");

@@ -8,6 +8,8 @@ import PrimitivesHarness from './dev/PrimitivesHarness';
 import ProductWorkspace from './product/ProductWorkspace';
 import StockItemsPage from './product/StockItemsPage';
 import NotificationCenterPage from './notification/NotificationCenterPage';
+import WarehousesPage from './warehouse/WarehousesPage';
+import SuppliersPage from './procurement/SuppliersPage';
 import StockItemFormPage from './product/StockItemFormPage';
 import StockItemImportPage from './product/StockItemImportPage';
 import SellableProductsPage from './product/SellableProductsPage';
@@ -70,6 +72,10 @@ export default function App(): React.JSX.Element {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         {/* The Notification Center is a header-utility destination, never a sidebar one (UX-017). */}
         <Route path="/notifications" element={<NotificationCenterPage />} />
+        {/* Master data the Inventory and Procurement modules stand on (E-004, E-005, E-025). */}
+        <Route path="/inventory/warehouses" element={<WarehousesPage tab="warehouses" />} />
+        <Route path="/inventory/warehouses/locations" element={<WarehousesPage tab="locations" />} />
+        <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
 
         {/*
           The Products workspace - ONE sidebar destination carrying three entity-class tabs at

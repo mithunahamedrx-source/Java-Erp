@@ -1,7 +1,7 @@
 # Procurement Architecture
 
 **Owner:** Trioloo Technology · **Module:** Procurement · **Status:** Canonical
-**Version:** 1.1.0 · **Ratified:** 2026-08-08 · **Rule prefix:** `PRC-`
+**Version:** 1.2.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
 
 ---
 
@@ -148,6 +148,15 @@ The business drew this boundary itself, and §18 contains **both sides of it**:
 > **PRC-010 — Creating a supplier and approving payment to that supplier are never held by one actor** (`INV-25.1`, `PRM-012`). **This pair guards against fabricated-supplier fraud** and is the one segregation constraint this domain carries unconditionally.
 
 > **PRC-011 — A supplier referenced by any historical record is archived, never deleted** (`INV-25.2`, `SYS-024`, `BD-338`).
+
+## 4.0 The first implemented slice
+
+> **PRC-067 — ✅ SUPPLIERS ARE MAINTAINED AS A SIMPLE PARTY RECORD. Ratified 2026-10-06 on explicit business decision.** It applies `PRC-008` - nothing more.
+>
+> **a.** ✅ A supplier carries a name, a contact person, phone, email, address, currency (taka by default), a reference identifier, an active period and a record status. **Payment terms and lead times are NOT recorded** - their home is undecided (`GAP-079`) and none is assumed.
+> **b.** ✅ Purchase history, outstanding balance and advance held are DERIVED from purchase orders, receipts and payables (`PRC-009`); none exists yet, so none is shown - not even as zero.
+> **c.** 🔴 **Nothing is deleted** (`PRC-011`): archive and restore only. Names are unique regardless of case.
+> **d.** 🔴 `PRC-010` stands: `procurement.supplier.manage` and approving payment to a supplier are never held by one actor. Payment approval does not exist yet; the pair is guarded by keeping the two capabilities apart in role design. Capabilities: `procurement.supplier.view` / `.manage` (`PRM-099`).
 
 ## 4.1 ⚠ Per-supplier commercial terms — `GAP-079`
 
@@ -608,6 +617,7 @@ Three of the eleven confirmed V1 reports read procurement-owned facts (`SYS-087`
 
 | Version | Date | Change |
 |---|---|---|
+| **1.2.0** | **2026-10-06** | ✅ **SUPPLIER MASTER DATA — `§4.0`, `PRC-067`, on explicit business decision.** A simple party record with archive-only lifecycle; no payment terms or lead times (`GAP-079` carried unchanged). 🔴 No existing rule amended. Migration `V44`. |
 | **1.1.0** | **2026-08-09** | **Warranty-claim consumer contracts propagated — `PRC-063` – `PRC-066` added; no existing rule changed.** §13 described the supplier warranty claim only as it enters from a **return-QC `Supplier Claim` disposition**. `BD-427` confirmed a **second entry path from a warranty case**, and a reaction this document did not carry: **Procurement makes the claim visible against the supplier and accumulates that supplier's warranty/claim history.** §13.1 records that, plus the three negatives — **submission moves no money, posting, stock or inventory; acceptance creates no assumed recovery; actual recovery is a separate later fact recorded by its owning module.** **`PRC-058` – `PRC-062` are untouched.** **No state machine, purchase, payable, receivable, posting, movement, scoring or penalty was created**, and the claim remains part of the warranty case — **not `SM-14`** (`EVA-023`) |
 | **1.0.0** | **2026-08-08** | **Initial ratification.** Consolidates `BUSINESS_DISCOVERY.md` §18 Purchase & Supplier (`BD-293` – `BD-303`) with the reconciliations at `OM §9.9` (`BR-105` – `BR-115`), `PRD §29` (`PRD-121` – `PRD-124`), `SMA §19.5` (`SMA-032` – `SMA-034`, `SMA-036`) and `DOMAIN_MODEL.md` `DM-045` – `DM-050`. **63 rules (`PRC-000` – `PRC-062`), all traceable; no business rule, entity, state machine or lifecycle introduced.** `PRC-000` records the ownership boundary; **`PRC-036` records the goods-receipt split with Warehouse — Procurement owns the record and the acceptance decision, Warehouse owns the physical act.** **`PRC-001` records that multi-level approval, tendering, RFQ comparison and supplier scoring were excluded from §18 by the business and are not reconstructed.** **`GAP-080`'s referral loop between `SMA-032` and `RET §2.2` is recorded, not resolved.** Ten open items carried; none closed |
 
