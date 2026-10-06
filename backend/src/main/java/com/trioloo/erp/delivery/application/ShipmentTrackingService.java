@@ -44,9 +44,12 @@ public class ShipmentTrackingService {
     private final Clock clock;
 
     private final com.trioloo.erp.order.application.OrderWritebackService writeback;
+    private final com.trioloo.erp.notification.application.NotificationEmitter notifications;
 
     public ShipmentTrackingService(JdbcTemplate jdbc, SteadfastCourierClient courier, Clock clock,
-                                   com.trioloo.erp.order.application.OrderWritebackService writeback) {
+                                   com.trioloo.erp.order.application.OrderWritebackService writeback,
+                                   com.trioloo.erp.notification.application.NotificationEmitter notifications) {
+        this.notifications = notifications;
         this.jdbc = jdbc;
         this.courier = courier;
         this.clock = clock;
@@ -221,6 +224,21 @@ public class ShipmentTrackingService {
                 UUID orderId = jdbc.queryForObject("SELECT channel_order_id FROM shipment WHERE id = ?", UUID.class, shipmentId);
                 writeback.publish(orderId, target, target == com.trioloo.erp.order.domain.CanonicalOrderStatus.DELIVERED
                         ? "marked delivered" : "marked shipped");
+            }
+        });
+
+        /*
+          Notification (NOTIFICATION v1.2.1) - a parcel that moves INTO a delivery-problem or return state tells the
+          people who may act on the order. Only on a CHANGE of state, once per order and state (the emitter dedupes),
+          and isolated: the courier's word is already recorded and a notification fault never undoes it.
+        */
+        translated.filter(state -> !state.name().equals(shipment.state())).ifPresent(state -> {
+            if (state == ShipmentState.DELIVERY_ATTEMPTED || state == ShipmentState.RETURNING
+                    || state == ShipmentState.RETURNED_TO_WAREHOUSE) {
+                UUID orderId = jdbc.queryForObject("SELECT channel_order_id FROM shipment WHERE id = ?", UUID.class, shipmentId);
+                notifications.shipmentProblem(state == ShipmentState.DELIVERY_ATTEMPTED
+                        ? com.trioloo.erp.notification.application.NotificationType.DELIVERY_FAILED
+                        : com.trioloo.erp.notification.application.NotificationType.RETURN_ARRIVED, orderId, state.name());
             }
         });
 

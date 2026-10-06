@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import NotificationBell from '../notification/NotificationBell';
 import { CHEVRON_SIZE, CHEVRON_STROKE, DISCLOSURE_GLYPH, DISCLOSURE_ROTATION, UTILITY_ICON, UTILITY_ICON_SIZE, UTILITY_ICON_STROKE } from './icons';
 
 /**
@@ -13,9 +14,8 @@ import { CHEVRON_SIZE, CHEVRON_STROKE, DISCLOSURE_GLYPH, DISCLOSURE_ROTATION, UT
  * renders as the compact ink identity control. Every icon-only control carries an `aria-label`,
  * so nothing is identified by shape alone.
  *
- * <p>🔴 ENTRY POINTS ONLY. The Chat and Notification modules are not implemented. No unread
- * count, badge, dot or state is rendered, because no canonical data exists and inventing one
- * would be fabricating business meaning.
+ * <p>Chat is an entry point only (the Chat module is not implemented). Notifications are live: the bell shows the
+ * person's own unread count and a short list, and opens the Notification Center (`NOTIFICATION_ARCHITECTURE.md`).
  */
 export default function HeaderUtilities(): React.JSX.Element {
   const { session, signOut } = useAuth();
@@ -24,7 +24,6 @@ export default function HeaderUtilities(): React.JSX.Element {
   const user = session.status === 'authenticated' ? session.user : null;
 
   const ChatIcon = UTILITY_ICON.chat;
-  const BellIcon = UTILITY_ICON.notifications;
   const Chevron = DISCLOSURE_GLYPH;
 
   /*
@@ -135,20 +134,7 @@ export default function HeaderUtilities(): React.JSX.Element {
         />
       </button>
 
-      <button
-        type="button"
-        aria-label="Notifications"
-        title="Notifications"
-        style={utilityButton}
-        data-testid="utility-notifications"
-      >
-        <BellIcon
-          size={UTILITY_ICON_SIZE}
-          strokeWidth={UTILITY_ICON_STROKE}
-          color="var(--color-icon-stroke-header)"
-          aria-hidden="true"
-        />
-      </button>
+      <NotificationBell buttonStyle={utilityButton} />
 
       <div ref={profileRootRef} style={{ position: 'relative' }} data-testid="profile-control-root">
         {/*

@@ -1,7 +1,7 @@
 # Notification Architecture
 
 **Owner:** Trioloo Technology · **Module:** Notification · **Status:** Canonical
-**Version:** 1.2.1 · **Ratified:** 2026-08-08 · **Rule prefix:** `NOT-`
+**Version:** 1.3.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**§26.4 the first implemented slice — `NOT-046`, `NOT-047`**) · **Rule prefix:** `NOT-`
 
 ---
 
@@ -899,12 +899,25 @@ sequenceDiagram
 | `NOT-025` – `NOT-029` | Recipients, scope, mandatory/optional |
 | `NOT-030` – `NOT-038` | Configuration, per-recipient state, history, retry, retention, audit |
 
+## 26.4 The first implemented slice
+
+> **NOT-046 — ✅ THE FIRST SLICE REACHES PEOPLE THROUGH THE IN-APP NOTIFICATION CENTER, FOR ORDER EVENTS. Ratified 2026-10-06 on explicit business decision.** It is the application of `NOT-019`'s first delivery method and builds nothing the architecture does not already name.
+>
+> a. **Generated events (Information):** a new order arrived (Daraz or the website); a delivery attempt failed; a parcel is returning or has returned. Each is generated **once** per event and reaches the people **holding the capability to act on the order**, the Owner included (`AGV-033`) - never by role name (`PRM-004`).
+> b. **Ongoing Conditions (evaluated, never stored - `NOT-013`):** orders on hold; orders waiting for the marketplace to confirm a cancellation; deliveries that failed and whose parcel has not been received; and a shop connection needing attention. A connection problem is **mandatory** and cannot be silenced (`NOT-014`). A condition is visible only to a person who may act on its subject.
+> c. **Per-recipient engagement:** each person reads and dismisses their own copy; neither ends any work (`NOT-015`). Every intended recipient is recorded with a delivery attempt per channel (`NOT-009`, `NOT-017`).
+> d. **Failure isolates (P6):** generating a notification runs apart from the business act and can never fail, delay or roll it back.
+> e. **Not yet built, and not implied:** the Action Queue (`E-079`) and reminders, the seven configuration dimensions, scope filtering, desktop / browser notification and sound, and every external channel. Mandatory / optional, category and priority are declared in code per type for now; making them configuration is owed (`SYS-099`).
+
+> **NOT-047 — A freshly connected shop's history is not news.** Raising `New order` is suppressed for an order whose provider creation time is more than three days old, so a backfill of months does not flood the Center. 🔴 An engineering guard over a window, not a business rule; the window may change without amending this document.
+
 ---
 
 # 27. Version History
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-10-06** | ✅ **FIRST IMPLEMENTED SLICE — `§26.4`, `NOT-046`, `NOT-047`, on explicit business decision.** In-app Notification Center for order events: new order, delivery failed, return arriving (generated once, to the holders of the capability) and four Ongoing Conditions (on hold, waiting for marketplace, delivery failed not yet received, connection problem - the last mandatory). Per-recipient read / dismiss; failure isolated. 🔴 No existing rule amended; Action Queue, reminders, configuration, desktop/sound and external channels remain unbuilt. Migration `V43`. |
 | **1.2.1** | **2026-08-09** | **Event cross-references added — no rule changed.** §11.1's two Trade-In Action Queue entries now name their triggers, **`EVT-098`** and **`EVT-099`**. **Both remain internal staff work**; `NOT-044` still holds that **Trade-In requires no automatic customer notification at any transition** |
 | **1.2.0** | **2026-08-09** | **Trade-In confirmed to require NO customer notification — `NOT-044`, `NOT-045` added; nothing else changed.** `BD-432` establishes that **Trade-In customer communication is manual and that no automatic notification is required at any lifecycle transition.** **No consumer, trigger or event is created**, and a whole capability area is removed by explicit answer as `BD-335` removed loaners (`CP-9`). **`NOT-045` preserves the two internal Trade-In Action Queue entries** — a component blocking a case, and unclaimed property follow-up — which are **staff work, not customer messages**. A future automated messaging capability is noted in `BD-432` and **given no architectural weight**; `NOT-019` already defers external channels past V1 |
 | **1.1.0** | **2026-08-09** | **Warranty & Repair notification triggers propagated — `NOT-039` – `NOT-043` added; no existing rule changed.** §21.1 item 4 carried *“warranty status and delays”* as a single line because `BD-334` said no more. **`BD-428` supplied the precision**, and §21.1a records **four determinate triggers** — `EVT-089`, `EVT-090`, `EVT-094`, `EVT-095` — with **`NOT-040` recording that routine progress is explicitly not one.** **`NOT-041` records the two confirmed requirements that have no determinate trigger**: a material diagnostic finding (**judgement, not a point**) and a significant delay (**`GAP-087`'s threshold is undefined**) — **neither is implemented by guessing.** **`NOT-042` is the important guard**: ready-for-handback **gates handover readiness and is NOT a closure condition**, so item 6's `BD-352` return rule **must not be generalised to warranty.** `NOT-043` records that silence is never approval. **No delivery method, template, retry, SLA, escalation or preference rule was added**, and `NOT-019`'s V1 channel constraint stands |

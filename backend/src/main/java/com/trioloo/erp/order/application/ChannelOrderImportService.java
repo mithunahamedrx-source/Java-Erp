@@ -33,6 +33,7 @@ public class ChannelOrderImportService {
     private final ChannelConnectionRepository connections;
     private final List<ChannelOrderProvider> providers;
     private final CurrentActor currentActor;
+    private final com.trioloo.erp.notification.application.NotificationEmitter notifications;
     private final ObjectMapper json = new ObjectMapper();
     private final Clock clock;
 
@@ -45,6 +46,7 @@ public class ChannelOrderImportService {
                                      List<ChannelOrderProvider> providers,
                                      CurrentActor currentActor,
                                      Clock clock,
+                                     com.trioloo.erp.notification.application.NotificationEmitter notifications,
                                      @org.springframework.beans.factory.annotation.Value(
                                              "${trioloo.order.pull.admit-draft-shops:false}")
                                      boolean admitDraftShops) {
@@ -55,6 +57,7 @@ public class ChannelOrderImportService {
         this.currentActor = currentActor;
         this.clock = clock == null ? Clock.systemUTC() : clock;
         this.admitDraftShops = admitDraftShops;
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -144,6 +147,10 @@ public class ChannelOrderImportService {
                 ordersSeen++;
                 if (orderResult.created()) {
                     ordersCreated++;
+                    // Communication evidence only, isolated: a fault here never touches the import.
+                    notifications.newOrder(orderResult.id(), channelInstanceId,
+                            order.orderNumber() != null ? order.orderNumber() : order.externalOrderId(),
+                            order.providerCreatedAt());
                 } else {
                     ordersUpdated++;
                 }

@@ -7,6 +7,7 @@ import ModulePlaceholder from './pages/ModulePlaceholder';
 import PrimitivesHarness from './dev/PrimitivesHarness';
 import ProductWorkspace from './product/ProductWorkspace';
 import StockItemsPage from './product/StockItemsPage';
+import NotificationCenterPage from './notification/NotificationCenterPage';
 import StockItemFormPage from './product/StockItemFormPage';
 import StockItemImportPage from './product/StockItemImportPage';
 import SellableProductsPage from './product/SellableProductsPage';
@@ -67,6 +68,8 @@ export default function App(): React.JSX.Element {
           destination carries no business content of any kind.
         */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* The Notification Center is a header-utility destination, never a sidebar one (UX-017). */}
+        <Route path="/notifications" element={<NotificationCenterPage />} />
 
         {/*
           The Products workspace - ONE sidebar destination carrying three entity-class tabs at
