@@ -5,6 +5,7 @@ import { FilterSelect, FormBox, KpiStrip, Pager, RecordCard, SearchBox, Toolbar,
 import { LOCATION_TYPES, listLocations, listWarehouses, locationTypeLabel, saveLocation, saveWarehouse } from '../masterdata/masterDataApi';
 import type { RecordStatus, StockLocation, Warehouse } from '../masterdata/masterDataApi';
 import { PageHeader } from '../shell/AppShell';
+import { usePageActions } from '../shell/PageActions';
 import { ConfirmDialog } from '../ui/Overlay';
 import type { MenuAction } from '../ui/Overlay';
 import { Button, Card, EmptyState } from '../ui/primitives';
@@ -100,6 +101,11 @@ function WarehousesTab(): React.JSX.Element {
   const kpis = list.data?.kpis;
   const filtered = search !== '' || status !== '';
 
+  usePageActions(
+    mayManage ? <Button variant="primary" size="page-header" onClick={() => setEditing('new')} testId="new-warehouse">New warehouse</Button> : null,
+    [mayManage],
+  );
+
   if (list.forbidden) {
     return <Card><EmptyState title="You do not have access to Warehouses" guidance="Viewing warehouses needs the warehouse.warehouse.view capability. Ask an administrator to grant it." /></Card>;
   }
@@ -113,8 +119,6 @@ function WarehousesTab(): React.JSX.Element {
       <Toolbar>
         <SearchBox testId="warehouse-search" value={searchDraft} onChange={(v) => { setSearchDraft(v); setPage(0); }} placeholder="Search warehouse name, identifier or address" />
         <FilterSelect label="Record state" testId="warehouse-filter-status" value={status} onChange={(v) => { setStatus(v); setPage(0); }} options={[['ACTIVE', 'Active'], ['ARCHIVED', 'Archived']]} />
-        <div style={{ flex: 1 }} />
-        {mayManage ? <Button variant="primary" size="page-header" onClick={() => setEditing('new')} testId="new-warehouse">New warehouse</Button> : null}
       </Toolbar>
       <Notice notice={notice} />
       {list.loading ? <Card><EmptyState title="Loading warehouses…" guidance="Fetching the current list from the server." /></Card>
@@ -210,6 +214,11 @@ function LocationsTab(): React.JSX.Element {
   const kpis = list.data?.kpis;
   const filtered = search !== '' || warehouseId !== '' || type !== '' || sellable !== '';
 
+  usePageActions(
+    mayManage ? <Button variant="primary" size="page-header" onClick={() => setEditing('new')} testId="new-location">New location</Button> : null,
+    [mayManage],
+  );
+
   if (list.forbidden) {
     return <Card><EmptyState title="You do not have access to Stock Locations" guidance="Viewing locations needs the warehouse.stock-location.view capability. Ask an administrator to grant it." /></Card>;
   }
@@ -225,8 +234,6 @@ function LocationsTab(): React.JSX.Element {
         <FilterSelect label="Warehouse" testId="location-filter-warehouse" value={warehouseId} onChange={(v) => { setWarehouseId(v); setPage(0); }} options={warehouseOptions} />
         <FilterSelect label="Type" testId="location-filter-type" value={type} onChange={(v) => { setType(v); setPage(0); }} options={LOCATION_TYPES} />
         <FilterSelect label="Sellable" testId="location-filter-sellable" value={sellable} onChange={(v) => { setSellable(v); setPage(0); }} options={[['true', 'Sellable'], ['false', 'Not sellable']]} />
-        <div style={{ flex: 1 }} />
-        {mayManage ? <Button variant="primary" size="page-header" onClick={() => setEditing('new')} testId="new-location">New location</Button> : null}
       </Toolbar>
       <Notice notice={notice} />
       {list.loading ? <Card><EmptyState title="Loading locations…" guidance="Fetching the current list from the server." /></Card>

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { FilterSelect, KpiStrip, Pager, RecordCard, SearchBox, Toolbar, useDebounced, useRemoteList } from '../masterdata/MasterDataParts';
 import { listSuppliers } from '../masterdata/masterDataApi';
 import { PageHeader } from '../shell/AppShell';
+import { usePageActions } from '../shell/PageActions';
 import { Button, Card, EmptyState } from '../ui/primitives';
 import { displayMoney } from '../product/stockItemApi';
 import { STATUS_LABEL, listPurchaseOrders } from './purchaseApi';
@@ -62,6 +63,12 @@ function OrdersTab(): React.JSX.Element {
   const [shipped, setShipped] = useState('');
   const [page, setPage] = useState(0);
 
+  // Level 1 page action (UX-045): the one dark primary sits in the page header, never in the dataset toolbar.
+  usePageActions(
+    mayManage ? <Button variant="primary" size="page-header" onClick={() => navigate('/purchasing/purchases/new')} testId="new-po">New purchase order</Button> : null,
+    [mayManage],
+  );
+
   const suppliers = useRemoteList(() => listSuppliers({ page: 0, size: 100 }), []);
   const list = useRemoteList(() => listPurchaseOrders({ search, status, supplierId, shipped, page, size: PAGE_SIZE }), [search, status, supplierId, shipped, page]);
   const supplierOptions = useMemo(() => (suppliers.data?.content ?? []).map((s) => [s.id, s.name] as const), [suppliers.data]);
@@ -87,8 +94,6 @@ function OrdersTab(): React.JSX.Element {
         <FilterSelect label="Supplier" testId="po-filter-supplier" value={supplierId} onChange={(v) => { setSupplierId(v); setPage(0); }} options={supplierOptions} />
         <FilterSelect label="Supplier shipment" testId="po-filter-shipped" value={shipped} onChange={(v) => { setShipped(v); setPage(0); }}
           options={[['false', 'Not shipped'], ['true', 'Shipped or confirmed']]} />
-        <div style={{ flex: 1 }} />
-        {mayManage ? <Button variant="primary" size="page-header" onClick={() => navigate('/purchasing/purchases/new')} testId="new-po">New purchase order</Button> : null}
       </Toolbar>
 
       {list.loading ? <Card><EmptyState title="Loading purchase orders…" guidance="Fetching the current list from the server." /></Card>

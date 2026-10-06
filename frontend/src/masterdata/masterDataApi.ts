@@ -41,6 +41,8 @@ export type Supplier = {
   readonly email: string | null; readonly address: string | null; readonly currency: string; readonly externalReference: string | null;
   readonly activeFrom: string | null; readonly activeUntil: string | null; readonly recordStatus: RecordStatus;
   readonly createdAt: string; readonly updatedAt: string; readonly version: number;
+  /** Derived from purchase orders (`PRC-009`); live orders only, in the supplier's currency. */
+  readonly orders?: number; readonly totalPurchaseValue?: string;
 };
 export type SupplierKpis = { readonly suppliers: number; readonly active: number; readonly archived: number };
 

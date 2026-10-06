@@ -2,11 +2,13 @@ package com.trioloo.erp.procurement.application;
 
 import com.trioloo.erp.access.application.CurrentActor;
 import com.trioloo.erp.access.domain.Actor;
+import com.trioloo.erp.platform.money.MonetaryAmount;
 import com.trioloo.erp.product.application.AccessDeniedByPermissionException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -42,7 +44,8 @@ public class SupplierService {
 
     public record Row(UUID id, String name, String contactName, String phone, String email, String address, String currency,
                       String externalReference, LocalDate activeFrom, LocalDate activeUntil, String recordStatus,
-                      Instant createdAt, Instant updatedAt, long version) {
+                      Instant createdAt, Instant updatedAt, long version,
+                      long orders, @MonetaryAmount BigDecimal totalPurchaseValue) {
     }
 
     public record Kpis(long suppliers, long active, long archived) {
@@ -83,14 +86,18 @@ public class SupplierService {
         paged[filters.length + 1] = (long) current * pageSize;
         List<Row> rows = jdbc.query("""
                 SELECT s.id, s.name, s.contact_name, s.phone, s.email, s.address, s.currency, s.external_reference,
-                       s.active_from, s.active_until, s.record_status, s.created_at, s.updated_at, s.version
+                       s.active_from, s.active_until, s.record_status, s.created_at, s.updated_at, s.version,
+                       -- PRC-067.b - derived from purchase orders (PRC-009): this supplier's live orders in the supplier's own currency.
+                       (SELECT count(*) FROM purchase_order p WHERE p.supplier_id = s.id AND p.status <> 'CANCELLED') AS orders,
+                       coalesce((SELECT sum(i.quantity_ordered * i.unit_cost) FROM purchase_order p JOIN purchase_order_item i ON i.purchase_order_id = p.id
+                                  WHERE p.supplier_id = s.id AND p.status <> 'CANCELLED' AND i.currency = s.currency), 0) AS purchase_value
                   FROM supplier s
                 """ + where + " ORDER BY lower(s.name) LIMIT ? OFFSET ?",
                 (rs, n) -> new Row((UUID) rs.getObject("id"), rs.getString("name"), rs.getString("contact_name"), rs.getString("phone"),
                         rs.getString("email"), rs.getString("address"), rs.getString("currency"), rs.getString("external_reference"),
                         rs.getObject("active_from", LocalDate.class), rs.getObject("active_until", LocalDate.class),
                         rs.getString("record_status"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
-                        rs.getLong("version")), paged);
+                        rs.getLong("version"), rs.getLong("orders"), rs.getBigDecimal("purchase_value")), paged);
         long count = total == null ? 0 : total;
         Kpis kpis = jdbc.queryForObject("""
                 SELECT count(*), count(*) FILTER (WHERE record_status = 'ACTIVE'), count(*) FILTER (WHERE record_status = 'ARCHIVED') FROM supplier

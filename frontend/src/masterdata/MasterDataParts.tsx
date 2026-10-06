@@ -77,6 +77,9 @@ const STATE_TONE: Record<string, { bg: string; fg: string; label: string }> = {
   DRAFT: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'DRAFT' },
   SUSPENDED: { bg: 'var(--color-status-pending-bg)', fg: 'var(--color-status-pending-fg)', label: 'SUSPENDED' },
   ARCHIVED: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'ARCHIVED' },
+  // Stock position (derived, never stored).
+  IN_STOCK: { bg: 'var(--color-status-confirmed-bg)', fg: 'var(--color-status-confirmed-fg)', label: 'IN STOCK' },
+  OUT_OF_STOCK: { bg: 'var(--color-status-pending-bg)', fg: 'var(--color-status-pending-fg)', label: 'OUT OF STOCK' },
   // Purchase-order lifecycle (E-029).
   AWAITING: { bg: 'var(--color-status-pending-bg)', fg: 'var(--color-status-pending-fg)', label: 'AWAITING APPROVAL' },
   APPROVED: { bg: 'var(--color-status-confirmed-bg)', fg: 'var(--color-status-confirmed-fg)', label: 'APPROVED' },

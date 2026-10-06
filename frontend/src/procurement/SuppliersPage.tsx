@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { FilterSelect, FormBox, KpiStrip, Pager, RecordCard, SearchBox, Toolbar, messageOf, useDebounced, useRemoteList } from '../masterdata/MasterDataParts';
 import { listSuppliers, saveSupplier } from '../masterdata/masterDataApi';
 import type { RecordStatus, Supplier } from '../masterdata/masterDataApi';
+import { displayMoney } from '../product/stockItemApi';
 import { PageHeader } from '../shell/AppShell';
 import { ConfirmDialog } from '../ui/Overlay';
 import type { MenuAction } from '../ui/Overlay';
@@ -119,8 +120,8 @@ export default function SuppliersPage(): React.JSX.Element {
               columns={[
                 { label: 'CONTACT', value: [s.contactName, s.phone].filter(Boolean).join(' · ') || '—' },
                 { label: 'EMAIL', value: s.email ?? '—' },
-                { label: 'CURRENCY', value: s.currency },
-                { label: 'REFERENCE', value: s.externalReference ?? '—' },
+                { label: 'TOTAL PURCHASE ORDERS', value: `${s.currency} ${displayMoney(s.totalPurchaseValue ?? '0')}` },
+                { label: 'SUPPLIER DUE', value: '—' },
               ]}
               state={s.recordStatus}
               stateNote={s.recordStatus === 'ARCHIVED' ? 'Archived, never deleted' : undefined}

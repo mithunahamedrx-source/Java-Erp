@@ -74,10 +74,11 @@ describe('Suppliers', () => {
     const card = screen.getByTestId('supplier-card-Star Tech Ltd');
     expect(card.textContent).toContain('Ashraful Alam · 01711-204488');
     expect(card.textContent).toContain('BDT');
-    expect(card.textContent).toContain('REF-1');
+    expect(card.textContent).toContain('TOTAL PURCHASE ORDERS');
+    expect(card.textContent).toContain('SUPPLIER DUE');
     expect(screen.getByTestId('master-kpi-suppliers').textContent).toContain('48');
     // Derived figures that cannot exist yet are left out, never shown as zero (UX-080, PRC-009).
-    expect(card.textContent).not.toMatch(/OUTSTANDING|ADVANCE|PURCHASE HISTORY/);
+    expect(card.textContent).not.toMatch(/ADVANCE|PURCHASE HISTORY/);
   });
 
   it('hides every way to change a supplier from someone who may only view', async () => {

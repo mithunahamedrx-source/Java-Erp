@@ -10,6 +10,7 @@ import StockItemsPage from './product/StockItemsPage';
 import NotificationCenterPage from './notification/NotificationCenterPage';
 import WarehousesPage from './warehouse/WarehousesPage';
 import SuppliersPage from './procurement/SuppliersPage';
+import StockControlPage from './inventory/StockControlPage';
 import PurchasingPage from './procurement/PurchasingPage';
 import PurchaseOrderFormPage from './procurement/PurchaseOrderFormPage';
 import PurchaseOrderDetailPage from './procurement/PurchaseOrderDetailPage';
@@ -76,6 +77,7 @@ export default function App(): React.JSX.Element {
         {/* The Notification Center is a header-utility destination, never a sidebar one (UX-017). */}
         <Route path="/notifications" element={<NotificationCenterPage />} />
         {/* Master data the Inventory and Procurement modules stand on (E-004, E-005, E-025). */}
+        <Route path="/inventory/stock" element={<StockControlPage />} />
         <Route path="/inventory/warehouses" element={<WarehousesPage tab="warehouses" />} />
         <Route path="/inventory/warehouses/locations" element={<WarehousesPage tab="locations" />} />
         <Route path="/purchasing/suppliers" element={<SuppliersPage />} />

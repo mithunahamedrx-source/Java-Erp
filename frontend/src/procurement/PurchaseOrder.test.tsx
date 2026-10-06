@@ -76,7 +76,9 @@ describe('Purchase Orders list', () => {
     stub(['procurement.purchase-order.view', 'procurement.purchase-order.manage'], ORDER());
     renderAt('/purchasing/purchases');
     expect(await screen.findByTestId('po-card-PO-2026-0001')).toBeTruthy();
-    expect(screen.getByTestId('new-po')).toBeTruthy();
+    expect(await screen.findByTestId('new-po')).toBeTruthy();
+    // It is a page-header action (UX-045), not a toolbar control.
+    expect(screen.getByTestId('new-po').closest('[data-testid="master-toolbar"]')).toBeNull();
   });
 
   it('hides New purchase order without the manage capability', async () => {
