@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { UTILITY_ICON, UTILITY_ICON_SIZE, UTILITY_ICON_STROKE } from '../shell/icons';
-import { fetchNotifications, fetchSummary, markViewed, timeAgo } from './notificationApi';
+import { fetchNotifications, fetchSummary, markAllViewed, markViewed, timeAgo } from './notificationApi';
 import type { NotificationItem, NotificationSummary } from './notificationApi';
+import { toneFor } from './notificationPresentation';
 
 /**
- * The header bell: an unread count and a short list, with the Notification Center one click away.
+ * The header bell and its panel - drawn from the owner's design reference: a 380px panel under the bell, "Notifications"
+ * with a dark "View all" and a light "Mark read", then rows of dot - title / note - time.
  *
- * <p>🔴 The bell is a DOORWAY, never the record (`NOT-001`): dismissing, history and conditions live in the Center. It
- * refreshes every 30 seconds while the ERP is open (V1 "live" is bounded by what the application can know, `SYS-100`).
- * A failed read shows nothing rather than a wrong number - and never breaks the header.
+ * <p>🔴 The bell is a DOORWAY, never the record (`NOT-001`): history, dismissal and live conditions live in the Center.
+ * It refreshes every 30 seconds while the ERP is open (V1 "live" is bounded by what the application can know,
+ * `SYS-100`). A failed read shows nothing rather than a wrong number, and never breaks the header.
  */
 const POLL_MS = 30_000;
 
@@ -30,6 +32,15 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
     }
   }, []);
 
+  const loadRecent = useCallback(async (): Promise<void> => {
+    try {
+      const list = await fetchNotifications(false, 6);
+      setRecent(Array.isArray(list) ? list : []);
+    } catch {
+      setRecent([]);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), POLL_MS);
@@ -38,14 +49,7 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
 
   useEffect(() => {
     if (!open) return undefined;
-    void (async () => {
-      try {
-        const list = await fetchNotifications(false, 6);
-        setRecent(Array.isArray(list) ? list : []);
-      } catch {
-        setRecent([]);
-      }
-    })();
+    void loadRecent();
     const outside = (event: PointerEvent): void => {
       if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
       setOpen(false);
@@ -59,7 +63,7 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
       document.removeEventListener('pointerdown', outside);
       document.removeEventListener('keydown', escape);
     };
-  }, [open]);
+  }, [open, loadRecent]);
 
   const unread = summary?.unread ?? 0;
   const attention = (summary?.conditions ?? []).reduce((sum, c) => sum + c.count, 0);
@@ -68,6 +72,17 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
     void markViewed(item.id).finally(() => void refresh());
     setOpen(false);
     if (item.orderId) navigate(`/sales/orders/${item.orderId}`);
+  };
+
+  const readAll = (): void => {
+    void markAllViewed().finally(() => {
+      void refresh();
+      void loadRecent();
+    });
+  };
+
+  const small: React.CSSProperties = {
+    height: '28px', padding: '0 9px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
   };
 
   return (
@@ -89,9 +104,8 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
             aria-hidden="true"
             style={{
               position: 'absolute', top: '-4px', right: '-4px', minWidth: '17px', height: '17px', padding: '0 4px',
-              borderRadius: '999px', background: 'var(--color-ink)', color: 'var(--color-surface)',
-              fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxSizing: 'border-box',
+              borderRadius: '999px', background: 'var(--color-destructive)', color: '#FFFFFF', border: '1.5px solid #FFFFFF',
+              fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
             }}
           >
             {unread > 99 ? '99+' : unread}
@@ -100,7 +114,7 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
           <span
             data-testid="notification-dot"
             aria-hidden="true"
-            style={{ position: 'absolute', top: '-1px', right: '-1px', width: '9px', height: '9px', borderRadius: '50%', background: 'var(--color-ink)' }}
+            style={{ position: 'absolute', top: '7px', right: '8px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--color-destructive)', border: '1.5px solid #FFFFFF' }}
           />
         ) : null}
       </button>
@@ -110,48 +124,65 @@ export default function NotificationBell({ buttonStyle }: { readonly buttonStyle
           role="menu"
           data-testid="notification-popover"
           style={{
-            position: 'absolute', right: 0, top: '42px', width: '340px', zIndex: 50, background: 'var(--color-surface)',
-            border: '1px solid var(--color-border-card)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--elevation-card)',
-            overflow: 'hidden',
+            position: 'absolute', right: 0, top: '44px', width: '380px', zIndex: 50, background: '#FFFFFF', padding: '12px',
+            border: '1px solid var(--color-border-card)', borderRadius: '12px', boxShadow: '0 18px 45px oklch(0 0 0 / 0.14)',
+            boxSizing: 'border-box',
           }}
         >
-          <div style={{ padding: '12px 14px', fontSize: '13px', fontWeight: 700, borderBottom: '1px solid var(--color-border-card)' }}>
-            Notifications{unread > 0 ? ` · ${unread} unread` : ''}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 850 }}>Notifications{unread > 0 ? ` · ${unread} unread` : ''}</div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                data-testid="notification-open-center"
+                onClick={() => { setOpen(false); navigate('/notifications'); }}
+                style={{ ...small, background: 'var(--color-ink)', border: 'none', color: '#FFFFFF' }}
+              >
+                View all
+              </button>
+              <button
+                type="button"
+                data-testid="notification-mark-read"
+                onClick={readAll}
+                disabled={unread === 0}
+                style={{ ...small, background: '#FFFFFF', border: '1px solid var(--color-border-control)', color: 'var(--color-text-primary)', opacity: unread === 0 ? 0.5 : 1 }}
+              >
+                Mark read
+              </button>
+            </div>
           </div>
           {recent.length === 0 ? (
-            <div style={{ padding: '18px 14px', fontSize: '12.5px', color: 'var(--color-text-secondary)' }} data-testid="notification-empty">
-              Nothing new.{attention > 0 ? ` ${attention} item${attention === 1 ? '' : 's'} need attention - open the Notification Center.` : ''}
+            <div style={{ padding: '14px 4px', fontSize: '12.5px', color: 'var(--color-text-secondary)' }} data-testid="notification-empty">
+              Nothing new.{attention > 0 ? ` ${attention} item${attention === 1 ? '' : 's'} need attention - open View all.` : ''}
             </div>
           ) : (
-            <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
-              {recent.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="menuitem"
-                  data-testid="notification-popover-item"
-                  onClick={() => openItem(item)}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none',
-                    borderBottom: '1px solid var(--color-border-card)', cursor: 'pointer', fontFamily: 'inherit',
-                    background: item.viewedAt ? 'var(--color-surface)' : 'var(--color-status-neutral-bg)',
-                  }}
-                >
-                  <div style={{ fontSize: '13px', fontWeight: item.viewedAt ? 500 : 700, color: 'var(--color-text-primary)' }}>{item.title}</div>
-                  {item.body ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{item.body}</div> : null}
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-demoted)', marginTop: '3px' }}>{timeAgo(item.createdAt)}</div>
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '380px', overflowY: 'auto' }}>
+              {recent.map((item) => {
+                const tone = toneFor(item.typeCode);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    data-testid="notification-popover-item"
+                    onClick={() => openItem(item)}
+                    style={{
+                      display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', width: '100%', minHeight: '50px',
+                      padding: '10px', borderRadius: '10px', border: '1px solid var(--color-border-card)', textAlign: 'left', cursor: 'pointer',
+                      fontFamily: 'inherit', background: item.viewedAt ? '#FFFFFF' : 'var(--color-status-neutral-bg)',
+                    }}
+                  >
+                    <span aria-hidden="true" style={{ width: '8px', height: '8px', borderRadius: '50%', background: tone.dot }} />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: '12.5px', fontWeight: item.viewedAt ? 600 : 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+                      {item.body ? <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.body}</span> : null}
+                    </span>
+                    <span style={{ fontSize: '10.5px', color: 'var(--color-text-demoted)', whiteSpace: 'nowrap' }}>{timeAgo(item.createdAt)}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
-          <Link
-            to="/notifications"
-            data-testid="notification-open-center"
-            onClick={() => setOpen(false)}
-            style={{ display: 'block', padding: '11px 14px', fontSize: '12.5px', fontWeight: 700, color: 'var(--color-text-primary)', textDecoration: 'none', textAlign: 'center' }}
-          >
-            Open Notification Center
-          </Link>
         </div>
       ) : null}
     </div>

@@ -89,7 +89,8 @@ describe('the bell', () => {
     fireEvent.click(screen.getByTestId('utility-notifications'));
     await waitFor(() => expect(screen.getByTestId('notification-popover-item')).toBeTruthy());
     expect(screen.getByTestId('notification-popover').textContent).toContain('New order TR0300');
-    expect(screen.getByTestId('notification-open-center').getAttribute('href')).toBe('/notifications');
+    expect(screen.getByTestId('notification-open-center').textContent).toBe('View all');
+    expect(screen.getByTestId('notification-mark-read')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('notification-popover-item'));
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST') && c.endsWith('/api/notifications/n1/view'))).toBe(true));
@@ -120,7 +121,7 @@ describe('the Notification Center', () => {
     expect(condition.textContent).toContain('2');
     expect(condition.textContent).toContain('TR0201');
     expect(condition.querySelector('button')).toBeNull(); // nobody dismisses a condition (NOT-013)
-    expect(screen.getByTestId('notification-list').textContent).toContain('High');
+    expect(screen.getByTestId('notification-list').textContent).toContain('Delivery');
   });
 
   it('marks read, dismisses, and opens the order - each by its own call', async () => {
@@ -142,6 +143,31 @@ describe('the Notification Center', () => {
     renderCenter();
     await waitFor(() => expect(screen.getByTestId('notification-row')).toBeTruthy());
     expect(screen.queryByTestId('notification-dismiss')).toBeNull();
+  });
+
+  it('draws four summary cards, filters and searches the list, and pages ten at a time', async () => {
+    const many = Array.from({ length: 23 }, (_, i) => ITEM({
+      id: 'n' + i, title: i === 5 ? 'Delivery failed - order TR0555' : 'New order TR' + (1000 + i),
+      typeCode: i === 5 ? 'DELIVERY_FAILED' : 'NEW_ORDER', priority: i === 5 ? 'HIGH' : 'NORMAL',
+      viewedAt: i % 2 === 0 ? '2026-10-06T00:00:00Z' : null,
+    }));
+    stub({ unread: 11, conditions: [CONDITION] }, many);
+    renderCenter();
+    await waitFor(() => expect(screen.getAllByTestId('notification-row')).toHaveLength(10));
+    expect(screen.getByTestId('notification-kpi-unread').textContent).toContain('11');
+    expect(screen.getByTestId('notification-kpi-high').textContent).toContain('1');
+    expect(screen.getByTestId('notification-pagination').textContent).toContain('1–10 of 23');
+
+    fireEvent.click(screen.getByTestId('notification-page-3'));
+    await waitFor(() => expect(screen.getAllByTestId('notification-row')).toHaveLength(3));
+
+    fireEvent.click(screen.getByTestId('notification-filter-high'));
+    await waitFor(() => expect(screen.getAllByTestId('notification-row')).toHaveLength(1));
+    expect(screen.getByTestId('notification-list').textContent).toContain('TR0555');
+
+    fireEvent.click(screen.getByTestId('notification-filter-all'));
+    fireEvent.change(screen.getByTestId('notification-search'), { target: { value: 'tr1007' } });
+    await waitFor(() => expect(screen.getAllByTestId('notification-row')).toHaveLength(1));
   });
 
   it('says so, truthfully, when there is nothing', async () => {
