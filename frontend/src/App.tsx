@@ -10,6 +10,9 @@ import StockItemsPage from './product/StockItemsPage';
 import NotificationCenterPage from './notification/NotificationCenterPage';
 import WarehousesPage from './warehouse/WarehousesPage';
 import SuppliersPage from './procurement/SuppliersPage';
+import PurchasingPage from './procurement/PurchasingPage';
+import PurchaseOrderFormPage from './procurement/PurchaseOrderFormPage';
+import PurchaseOrderDetailPage from './procurement/PurchaseOrderDetailPage';
 import StockItemFormPage from './product/StockItemFormPage';
 import StockItemImportPage from './product/StockItemImportPage';
 import SellableProductsPage from './product/SellableProductsPage';
@@ -76,6 +79,11 @@ export default function App(): React.JSX.Element {
         <Route path="/inventory/warehouses" element={<WarehousesPage tab="warehouses" />} />
         <Route path="/inventory/warehouses/locations" element={<WarehousesPage tab="locations" />} />
         <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
+        <Route path="/purchasing/purchases" element={<PurchasingPage tab="orders" />} />
+        <Route path="/purchasing/purchases/new" element={<PurchaseOrderFormPage mode="create" />} />
+        <Route path="/purchasing/purchases/:id" element={<PurchaseOrderDetailPage />} />
+        <Route path="/purchasing/purchases/:id/edit" element={<PurchaseOrderFormPage mode="edit" />} />
+        <Route path="/purchasing/receipts" element={<PurchasingPage tab="receipts" />} />
 
         {/*
           The Products workspace - ONE sidebar destination carrying three entity-class tabs at

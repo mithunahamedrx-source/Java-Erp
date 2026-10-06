@@ -1,7 +1,7 @@
 # Procurement Architecture
 
 **Owner:** Trioloo Technology · **Module:** Procurement · **Status:** Canonical
-**Version:** 1.2.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
+**Version:** 1.3.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**`PRC-068`/`PRC-069` — Purchase Order implemented**) · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
 
 ---
 
@@ -157,6 +157,17 @@ The business drew this boundary itself, and §18 contains **both sides of it**:
 > **b.** ✅ Purchase history, outstanding balance and advance held are DERIVED from purchase orders, receipts and payables (`PRC-009`); none exists yet, so none is shown - not even as zero.
 > **c.** 🔴 **Nothing is deleted** (`PRC-011`): archive and restore only. Names are unique regardless of case.
 > **d.** 🔴 `PRC-010` stands: `procurement.supplier.manage` and approving payment to a supplier are never held by one actor. Payment approval does not exist yet; the pair is guarded by keeping the two capabilities apart in role design. Capabilities: `procurement.supplier.view` / `.manage` (`PRM-099`).
+
+> **PRC-068 — ✅ THE PURCHASE ORDER IS IMPLEMENTED AS A COMMITMENT, NOT STOCK AND NOT A LIABILITY. Ratified 2026-10-06 on explicit business decision.** It applies `PRC-017`, `PRC-018`, `PRC-023`, `PRC-024` and `PRC-026` - nothing more.
+>
+> **a.** ✅ An order carries a supplier, an order date, an expected date, a currency (the supplier's by default, carried on each line), the supplier's own order reference, and lines of Stock Items (Product Variants - never sellable products) with a quantity and a unit cost. Its number is `PO-YYYY-NNNN`, issued from a counter and **never reused**, a cancelled order's number included.
+> **b.** ✅ Statuses: **Awaiting approval** (stored `DRAFT`), **Approved**, **Sent**, then `PARTIALLY_RECEIVED`, `RECEIVED`, `CLOSED` (reached only by receipts, which do not exist yet) and **Cancelled**. Approval records who and when.
+> **c.** ✅ The supplier's shipment is a fact a PERSON RECORDS (`PRC-024`). Before it, a draft is edited freely; an approved order is amended or cancelled only with a **reason** and the **supplier's agreement**. After it, neither is possible here.
+> **d.** ✅ Every act - created, amended, approved, sent, supplier shipped, cancelled - is appended to an immutable history with actor, time and reason (`PRC-026`).
+> **e.** 🔴 An order writes **no stock and no payable**. The received quantity is DERIVED from receipts and reads zero until they exist. Unit cost is stored at four decimals and never rounded for the person (`DB-079`). No upper bound on a quantity or an order value is enforced (`PRMU-8` stays open).
+> **f.** Capabilities: `procurement.purchase-order.view` / `.manage` / `.approve` (`PRM-100`).
+
+> **PRC-069 — ✅ THE OWNER MAY APPROVE AN ORDER THEY CREATED. Ratified 2026-10-06 on explicit business decision.** Everyone else may not: the creator of an order is never its approver (`INV-29.1`, `PRM-006`). This is a recorded exception for the Owner alone, as `PRM-072` permits; both acts are logged with their actors, so the history shows when one person did both.
 
 ## 4.1 ⚠ Per-supplier commercial terms — `GAP-079`
 
@@ -617,6 +628,7 @@ Three of the eleven confirmed V1 reports read procurement-owned facts (`SYS-087`
 
 | Version | Date | Change |
 |---|---|---|
+| **1.3.0** | **2026-10-06** | ✅ **PURCHASE ORDER — `PRC-068`, `PRC-069`, on explicit business decision.** The order is a commitment with an approval, a recorded supplier shipment and an immutable history; the Owner may approve their own order. 🔴 No existing rule amended. Migration `V45`. |
 | **1.2.0** | **2026-10-06** | ✅ **SUPPLIER MASTER DATA — `§4.0`, `PRC-067`, on explicit business decision.** A simple party record with archive-only lifecycle; no payment terms or lead times (`GAP-079` carried unchanged). 🔴 No existing rule amended. Migration `V44`. |
 | **1.1.0** | **2026-08-09** | **Warranty-claim consumer contracts propagated — `PRC-063` – `PRC-066` added; no existing rule changed.** §13 described the supplier warranty claim only as it enters from a **return-QC `Supplier Claim` disposition**. `BD-427` confirmed a **second entry path from a warranty case**, and a reaction this document did not carry: **Procurement makes the claim visible against the supplier and accumulates that supplier's warranty/claim history.** §13.1 records that, plus the three negatives — **submission moves no money, posting, stock or inventory; acceptance creates no assumed recovery; actual recovery is a separate later fact recorded by its owning module.** **`PRC-058` – `PRC-062` are untouched.** **No state machine, purchase, payable, receivable, posting, movement, scoring or penalty was created**, and the claim remains part of the warranty case — **not `SM-14`** (`EVA-023`) |
 | **1.0.0** | **2026-08-08** | **Initial ratification.** Consolidates `BUSINESS_DISCOVERY.md` §18 Purchase & Supplier (`BD-293` – `BD-303`) with the reconciliations at `OM §9.9` (`BR-105` – `BR-115`), `PRD §29` (`PRD-121` – `PRD-124`), `SMA §19.5` (`SMA-032` – `SMA-034`, `SMA-036`) and `DOMAIN_MODEL.md` `DM-045` – `DM-050`. **63 rules (`PRC-000` – `PRC-062`), all traceable; no business rule, entity, state machine or lifecycle introduced.** `PRC-000` records the ownership boundary; **`PRC-036` records the goods-receipt split with Warehouse — Procurement owns the record and the acceptance decision, Warehouse owns the physical act.** **`PRC-001` records that multi-level approval, tendering, RFQ comparison and supplier scoring were excluded from §18 by the business and are not reconstructed.** **`GAP-080`'s referral loop between `SMA-032` and `RET §2.2` is recorded, not resolved.** Ten open items carried; none closed |

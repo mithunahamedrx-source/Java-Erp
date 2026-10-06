@@ -77,7 +77,17 @@ const STATE_TONE: Record<string, { bg: string; fg: string; label: string }> = {
   DRAFT: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'DRAFT' },
   SUSPENDED: { bg: 'var(--color-status-pending-bg)', fg: 'var(--color-status-pending-fg)', label: 'SUSPENDED' },
   ARCHIVED: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'ARCHIVED' },
+  // Purchase-order lifecycle (E-029).
+  AWAITING: { bg: 'var(--color-status-pending-bg)', fg: 'var(--color-status-pending-fg)', label: 'AWAITING APPROVAL' },
+  APPROVED: { bg: 'var(--color-status-confirmed-bg)', fg: 'var(--color-status-confirmed-fg)', label: 'APPROVED' },
+  SENT: { bg: 'var(--color-status-dispatched-bg)', fg: 'var(--color-status-dispatched-fg)', label: 'SENT' },
+  PARTIALLY_RECEIVED: { bg: 'var(--color-status-dispatched-bg)', fg: 'var(--color-status-dispatched-fg)', label: 'PARTIALLY RECEIVED' },
+  RECEIVED: { bg: 'var(--color-status-confirmed-bg)', fg: 'var(--color-status-confirmed-fg)', label: 'RECEIVED' },
+  CLOSED: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'CLOSED' },
+  CANCELLED: { bg: 'var(--color-status-neutral-bg)', fg: 'var(--color-status-neutral-fg)', label: 'CANCELLED' },
 };
+
+export const stateTone = (state: string): { bg: string; fg: string; label: string } => STATE_TONE[state] ?? STATE_TONE['DRAFT']!;
 
 export type Column = { readonly label: string; readonly value: React.ReactNode };
 
