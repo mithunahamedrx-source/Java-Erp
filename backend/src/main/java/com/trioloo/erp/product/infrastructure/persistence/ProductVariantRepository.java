@@ -76,4 +76,17 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariantEn
                                          @Param("brand") String brand,
                                          @Param("serialization") com.trioloo.erp.product.domain.SerializationPolicy serialization,
                                          @Param("componentClass") String componentClass);
+
+    /**
+     * The inventory categories in use, with how many Stock Items each holds - the data the category filter offers.
+     * 🔴 Read from the records themselves: a category nobody uses is not offered, and one is never invented.
+     */
+    @Query("""
+            SELECT v.inventoryCategory, COUNT(v)
+              FROM ProductVariantEntity v
+             WHERE v.inventoryCategory IS NOT NULL
+             GROUP BY v.inventoryCategory
+             ORDER BY v.inventoryCategory
+            """)
+    java.util.List<Object[]> categoryCounts();
 }

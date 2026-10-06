@@ -89,6 +89,9 @@ function stubApi(options: {
         status: options.status, headers: { 'Content-Type': 'application/json' },
       });
     }
+    if (url.includes('/categories')) {
+      return new Response(JSON.stringify([{ name: 'Motherboard', count: 109 }, { name: 'SSD', count: 162 }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     if (url.includes('/summary')) {
       return new Response(JSON.stringify(summary), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -252,6 +255,22 @@ describe('Stock Items results — cards, never a table', () => {
     expect(screen.getByTestId('export-csv').querySelector('svg')).toBeTruthy();
     expect(screen.getByTestId('import-csv').querySelector('svg')).toBeTruthy();
     expect(screen.getByTestId('create-stock-item').textContent?.trim().startsWith('+')).toBe(true);
+  });
+
+  it('filters by inventory category, offering only the categories in use with their counts', async () => {
+    stubApi();
+    renderWorkspace('/inventory/products/stock');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'SSD (162)' })).toBeTruthy());
+    expect(screen.getByRole('option', { name: 'Motherboard (109)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Category: all' })).toBeTruthy();
+    expect(screen.queryByTestId('filter-serialization')).toBeNull();
+
+    fireEvent.change(screen.getByTestId('filter-category'), { target: { value: 'SSD' } });
+    await waitFor(() => {
+      const urls = vi.mocked(fetch).mock.calls.map((call) => String(call[0]));
+      expect(urls.some((u) => u.includes('/stock-items?') && u.includes('category=SSD'))).toBe(true);
+      expect(urls.some((u) => u.includes('/summary') && u.includes('category=SSD'))).toBe(true);
+    });
   });
 
   it('paginates on the server and shows the range', async () => {
@@ -511,7 +530,7 @@ describe('page-header action region (UX-016, UX-045)', () => {
 
     const toolbar = screen.getByTestId('stock-items-toolbar');
     const region = screen.getByTestId('page-header-actions');
-    for (const control of ['stock-search', 'filter-status', 'filter-serialization', 'filter-out-of-stock']) {
+    for (const control of ['stock-search', 'filter-status', 'filter-category', 'filter-out-of-stock']) {
       expect(toolbar.contains(screen.getByTestId(control))).toBe(true);
       expect(region.contains(screen.getByTestId(control))).toBe(false);
     }

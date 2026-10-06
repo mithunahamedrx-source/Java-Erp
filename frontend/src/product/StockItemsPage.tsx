@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { StockItemCard, StockItemSummaryStrip } from './StockItemCard';
 import type { StockItemCardActions } from './StockItemCard';
 import StockItemEditDialog from './StockItemEditDialog';
-import { exportUrl, fetchSummary, listStockItems, updateStockItem } from './stockItemApi';
+import { exportUrl, fetchCategories, fetchSummary, listStockItems, updateStockItem } from './stockItemApi';
+import type { CategoryCount } from './stockItemApi';
 import type { StockItem, StockItemFilters, StockItemSummary } from './stockItemApi';
 import { ApiError } from '../platform/api';
 import { useAuth } from '../auth/AuthContext';
@@ -52,6 +53,7 @@ export default function StockItemsPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [editing, setEditing] = useState<StockItem | null>(null);
+  const [categories, setCategories] = useState<readonly CategoryCount[]>([]);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -85,6 +87,19 @@ export default function StockItemsPage(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The category options come from the records themselves; a failed read just leaves the filter on "all".
+  const loadCategories = useCallback(async (): Promise<void> => {
+    try {
+      const list = await fetchCategories();
+      setCategories(Array.isArray(list) ? list : []);
+    } catch {
+      setCategories([]);
+    }
+  }, []);
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories, items.length]);
 
   /**
    * A quick action sends the item's CURRENT fields with the one change, so nothing else on the record is
@@ -220,9 +235,10 @@ export default function StockItemsPage(): React.JSX.Element {
           onChange={(v) => applyFilter({ status: v as StockItemFilters['status'] })}
           options={['', 'DRAFT', 'ACTIVE', 'SUSPENDED', 'ARCHIVED']} />
 
-        <Select label="Serialization" testId="filter-serialization" value={filters.serializationPolicy ?? ''}
-          onChange={(v) => applyFilter({ serializationPolicy: v as StockItemFilters['serializationPolicy'] })}
-          options={['', 'NOT_SERIALIZED', 'SERIALIZED']} />
+        <Select label="Category" testId="filter-category" value={filters.category ?? ''}
+          onChange={(v) => applyFilter({ category: v })}
+          options={['', ...categories.map((c) => c.name)]}
+          labels={Object.fromEntries(categories.map((c) => [c.name, `${c.name} (${c.count})`]))} />
 
         <label data-testid="filter-out-of-stock" style={checkLabel}>
           <input type="checkbox" checked={filters.outOfStockOnly ?? false}
@@ -242,14 +258,6 @@ export default function StockItemsPage(): React.JSX.Element {
           options={['', 'only', 'hide']}
           labels={{ only: 'Discontinued only', hide: 'Hide discontinued' }} />
 
-        <input
-          data-testid="filter-category"
-          defaultValue={filters.category ?? ''}
-          onChange={(event) => applyFilter({ category: event.target.value })}
-          placeholder="Category"
-          aria-label="Category"
-          style={smallInput}
-        />
         <input
           data-testid="filter-brand"
           defaultValue={filters.brand ?? ''}

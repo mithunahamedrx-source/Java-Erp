@@ -185,3 +185,10 @@ export function displayMoney(value: string | null | undefined): string {
   const trimmed = fraction.replace(/0+$/, '');
   return `${whole}.${trimmed.length <= 2 ? trimmed.padEnd(2, '0') : trimmed}`;
 }
+
+export type CategoryCount = { readonly name: string; readonly count: number };
+
+/** The inventory categories in use, with how many Stock Items each holds - what the category filter offers. */
+export async function fetchCategories(): Promise<readonly CategoryCount[]> {
+  return apiRequest<readonly CategoryCount[]>('/api/product/stock-items/categories');
+}

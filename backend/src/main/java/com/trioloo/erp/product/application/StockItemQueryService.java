@@ -93,6 +93,18 @@ public class StockItemQueryService {
                 .toList();
     }
 
+    public record CategoryCount(String name, long count) {
+    }
+
+    /** Inventory categories in use, for the category filter ({@code UX-039.a}). */
+    @Transactional(readOnly = true)
+    public List<CategoryCount> categories() {
+        requireViewer();
+        return variants.categoryCounts().stream()
+                .map(row -> new CategoryCount((String) row[0], ((Number) row[1]).longValue()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public StockItemView detail(UUID id) {
         requireViewer();

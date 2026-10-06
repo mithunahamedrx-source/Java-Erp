@@ -89,6 +89,12 @@ public class StockItemController {
         return queries.summary(query.toFilter());
     }
 
+    /** The categories in use, with counts - the options of the category filter. */
+    @GetMapping("/categories")
+    public List<StockItemQueryService.CategoryCount> categories() {
+        return queries.categories();
+    }
+
     @GetMapping("/{id}")
     public StockItemView detail(@PathVariable UUID id) {
         return queries.detail(id);

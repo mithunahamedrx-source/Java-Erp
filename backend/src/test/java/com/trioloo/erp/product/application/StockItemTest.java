@@ -453,6 +453,24 @@ class StockItemTest {
                 .extracting(StockItemView::inventorySku).containsExactlyInAnyOrder("ORD-A", "ORD-B");
     }
 
+    @Test
+    @DisplayName("The category filter offers only categories in use, with counts, and narrows the list and the summary alike")
+    void categoriesInUseAndTheirFilter() {
+        actingWith(ProductPermissions.STOCK_ITEM_VIEW, ProductPermissions.STOCK_ITEM_MANAGE);
+        for (String[] row : new String[][] {{"CAT-1", "SSD"}, {"CAT-2", "SSD"}, {"CAT-3", "Monitor"}, {"CAT-4", null}}) {
+            commands.create(new StockItemCommandService.StockItemInput(row[0], "Item " + row[0], null, row[1], "pcs",
+                    null, null, null, RecordStatus.ACTIVE));
+        }
+
+        assertThat(queries.categories()).extracting(StockItemQueryService.CategoryCount::name, StockItemQueryService.CategoryCount::count)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Monitor", 1L), org.assertj.core.groups.Tuple.tuple("SSD", 2L));
+
+        StockItemFilter ssd = new StockItemFilter(null, null, "ssd", null, null, null, false);
+        assertThat(queries.list(ssd, PageRequest.of(0, 10)).getContent()).extracting(StockItemView::inventorySku)
+                .containsExactlyInAnyOrder("CAT-1", "CAT-2");
+        assertThat(queries.summary(ssd).totalStockItems()).isEqualTo(2);
+    }
+
     // ================================================================= CSV
 
     @Test
