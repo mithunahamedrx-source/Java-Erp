@@ -489,7 +489,7 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
         }}>
           Thank you for your purchase.
         </div>
-        <div style={{ fontSize: '13px', fontWeight: 600 }}>www.trioloo.com.bd</div>
+        <div data-testid="invoice-footer-websites" style={{ fontSize: '13px', fontWeight: 600, textAlign: 'right' }}>www.trioloo.com.bd &nbsp;·&nbsp; www.zeontechbd.com</div>
       </div>
       {/* Owner, 2026-10-05: once booked with Steadfast, the Parcel ID has a block of its own UNDER that row - the label on
           one line, then just the number on the next, large. */}

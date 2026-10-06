@@ -225,6 +225,7 @@ describe('Sales invoice printable', () => {
     const footer = screen.getByTestId('invoice-footer-parcel');
     expect(footer.textContent).toBe('Steadfast Parcel ID287650820');
     expect(screen.getByTestId('invoice-footer-parcel-number').textContent).toBe('287650820');
+    expect(screen.getByTestId('invoice-footer-websites').textContent).toContain('www.zeontechbd.com');
     // It sits under the thank-you line, not beside it.
     expect(footer.parentElement?.textContent).toContain('Thank you for your purchase.');
     expect(footer.textContent).not.toContain('Thank you');
