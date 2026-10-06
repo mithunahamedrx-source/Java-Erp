@@ -42,6 +42,15 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      # Owner decision, 2026-10-06: a signed-in session lasts until the person signs out. The cookie is a
+      # persistent one (survives closing the browser) and sessions are written to disk on a graceful stop and
+      # reloaded on start, so a deployment restart no longer signs everyone out. An authenticated session is made
+      # non-expiring at sign-in (AuthController); anonymous ones keep Tomcat's default and expire.
+      persistent: true
+      cookie:
+        max-age: 3650d
   error:
     # PRJ-200 - no stack traces reach an end user.
     include-stacktrace: never

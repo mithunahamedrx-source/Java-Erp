@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.session.SessionFixationProtectionStrategy;
 import org.springframework.http.HttpMethod;
@@ -56,7 +57,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, ActiveAccountFilter activeAccount) throws Exception {
         // CSRF token in a cookie the SPA can read and echo back as X-XSRF-TOKEN.
         // CSRF stays ENABLED for every state-changing request - it is not disabled to make
         // React convenient.
@@ -68,6 +69,8 @@ public class SecurityConfig {
             // constructor parameter would clash with Spring MVC's own
             // mvcHandlerMappingIntrospector, which also implements the type.
             .cors(Customizer.withDefaults())
+            // A session never times out, so a suspended or disabled account must end it (owner decision 2026-10-06).
+            .addFilterAfter(activeAccount, SecurityContextHolderFilter.class)
             .csrf(c -> c.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfHandler))
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)

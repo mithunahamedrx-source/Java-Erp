@@ -130,6 +130,15 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         contextRepository.saveContext(context, httpRequest, httpResponse);
 
+        // Owner decision, 2026-10-06: once signed in, a person stays signed in until THEY sign out - no idle timeout.
+        // Only an AUTHENTICATED session is made permanent; an anonymous one (every unauthenticated visit mints one)
+        // keeps the container default and expires. ActiveAccountFilter still ends the session if the account stops
+        // being ACTIVE.
+        var session = httpRequest.getSession(false);
+        if (session != null) {
+            session.setMaxInactiveInterval(-1);
+        }
+
         if (authentication.getPrincipal() instanceof AccessUserDetails details) {
             return ResponseEntity.ok(CurrentUserResponse.of(details.toActor()));
         }
