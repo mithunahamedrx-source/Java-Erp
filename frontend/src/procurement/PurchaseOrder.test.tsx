@@ -145,4 +145,13 @@ describe('Purchase Order form', () => {
     expect(screen.getByTestId('po-sum-lines').textContent).toBe('1');
     expect(screen.getByTestId('po-sum-units').textContent).toBe('4');
   });
+  it('lists products from the dropdown arrow without typing, and follows the order date with the expected delivery', async () => {
+    stub(['procurement.purchase-order.manage'], ORDER());
+    renderAt('/purchasing/purchases/new');
+    fireEvent.click(await screen.findByTestId('po-product-toggle'));
+    expect(await screen.findByTestId('po-product-result')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('po-order-date'), { target: { value: '2026-10-20' } });
+    expect((screen.getByTestId('po-expected-date') as HTMLInputElement).value).toBe('2026-10-20');
+    expect(screen.getByTestId('po-back').textContent).toBe('Back to Purchasing');
+  });
 });

@@ -67,6 +67,12 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
     }).catch((cause) => setError(messageOf(cause, 'The order could not be loaded.'))).finally(() => setLoading(false));
   }, [id, mode]);
 
+  // The expected delivery follows the order date until the person sets a different one themselves.
+  const changeOrderDate = (value: string): void => {
+    if (expectedDate === '' || expectedDate === orderDate) setExpectedDate(value);
+    setOrderDate(value);
+  };
+
   const approved = loaded != null && loaded.order.status !== 'DRAFT';
   const supplier = suppliers.find((s) => s.id === supplierId) ?? null;
 
@@ -136,6 +142,7 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
         title={mode === 'create' ? 'New purchase order' : `Amend ${loaded?.order.poNumber ?? 'purchase order'}`}
         breadcrumb={<><span>Inventory</span><span>/</span><Link to="/purchasing/purchases" style={{ color: 'inherit' }}>Purchasing</Link><span>/</span><span style={{ fontWeight: 600 }}>{mode === 'create' ? 'New' : 'Amend'}</span></>}
         subtitle="Procurement buys Stock Items - physical things - never sellable products"
+        actions={<Button variant="secondary" size="page-header" onClick={() => navigate(mode === 'edit' && id ? `/purchasing/purchases/${id}` : '/purchasing/purchases')} testId="po-back">{mode === 'edit' ? 'Back to order' : 'Back to Purchasing'}</Button>}
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
         {/* ------------------------------------------------------------------ main column */}
@@ -143,15 +150,15 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
           <Card>
             {section('Order details', 'Who you are buying from and when')}
             <div style={{ padding: '0 22px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
-              <FormBox label="Supplier" testId="po-supplier" value={supplierId} onChange={setSupplierId} required wide>
+              <FormBox label="Supplier" testId="po-supplier" value={supplierId} onChange={setSupplierId} required>
                 <select data-testid="po-supplier" value={supplierId} onChange={(event) => setSupplierId(event.target.value)} style={selectStyle}>
                   <option value="">Choose a supplier</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </FormBox>
-              <FormBox label="Order date" testId="po-order-date" value={orderDate} onChange={setOrderDate} type="date" hint="Today if left empty" />
+              <FormBox label="Supplier’s own reference" testId="po-reference" value={reference} onChange={setReference} hint="Their quotation or invoice number" />
+              <FormBox label="Order date" testId="po-order-date" value={orderDate} onChange={changeOrderDate} type="date" hint="Today if left empty; the expected delivery follows it" />
               <FormBox label="Expected delivery" testId="po-expected-date" value={expectedDate} onChange={setExpectedDate} type="date" hint="When you expect the goods" />
-              <FormBox label="Supplier’s own reference" testId="po-reference" value={reference} onChange={setReference} wide hint="Their quotation or invoice number, if they gave one" />
             </div>
           </Card>
 
@@ -303,29 +310,37 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
   const query = useDebounced(text);
   const [results, setResults] = useState<readonly StockItem[]>([]);
   const [searched, setSearched] = useState(false);
+  const [closest, setClosest] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    // Any typing searches; the arrow lists the first products without typing.
+    if (query.trim().length < 1 && !open) {
       setResults([]);
       setSearched(false);
       return;
     }
     let live = true;
-    void listStockItems({ search: query, status: 'ACTIVE', discontinued: 'hide' }, 0, 8, 'technicalName', 'ASC').then((page) => {
-      // The "closest items" the search recommends when nothing matches exactly are not what the person typed - not offered here.
-      if (live) { setResults(page.recommended ? [] : page.content.filter((i) => !i.discontinued && i.recordStatus === 'ACTIVE')); setSearched(true); }
+    void listStockItems({ search: query.trim(), status: 'ACTIVE', discontinued: 'hide' }, 0, 12, 'technicalName', 'ASC').then((page) => {
+      // When nothing matches exactly the server offers the closest items; they are shown, labelled, so the person can still find what they mean.
+      if (live) { setResults(page.content.filter((i) => !i.discontinued && i.recordStatus === 'ACTIVE')); setClosest(page.recommended === true); setSearched(true); }
     }).catch(() => { if (live) { setResults([]); setSearched(true); } });
     return () => { live = false; };
-  }, [query]);
+  }, [query, open]);
 
   return (
     <div style={{ position: 'relative' }}>
-      <input data-testid="po-product-search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search a product by name, SKU or barcode" aria-label="Search a product"
-        style={{ width: '100%', height: '40px', borderRadius: '10px', padding: '0 14px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--color-surface)' }} />
+      <input data-testid="po-product-search" value={text} onChange={(event) => { setText(event.target.value); setOpen(false); }} placeholder="Search a product by name, SKU or barcode" aria-label="Search a product"
+        style={{ width: '100%', height: '40px', borderRadius: '10px', padding: '0 40px 0 14px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--color-surface)' }} />
+      <button type="button" data-testid="po-product-toggle" aria-label="Show products" aria-expanded={open} onClick={() => { setText(''); setOpen((v) => !v); }}
+        style={{ position: 'absolute', right: '4px', top: '4px', width: '32px', height: '32px', border: 'none', background: 'transparent', cursor: 'pointer', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }}><path d="m6 9 6 6 6-6" /></svg>
+      </button>
       {results.length > 0 ? (
         <div data-testid="po-product-results" style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, top: '44px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: '10px', boxShadow: '0 12px 30px oklch(0 0 0 / 0.12)', overflow: 'hidden' }}>
+          {closest ? <div data-testid="po-product-closest" style={{ padding: '8px 14px', fontSize: '11.5px', fontWeight: 700, background: 'var(--color-tab-container)', color: 'var(--color-text-secondary)' }}>No exact match - closest products</div> : null}
           {results.map((item) => (
-            <button key={item.id} type="button" data-testid="po-product-result" onClick={() => { onPick(item); setText(''); setResults([]); }}
+            <button key={item.id} type="button" data-testid="po-product-result" onClick={() => { onPick(item); setText(''); setResults([]); setOpen(false); }}
               style={{ display: 'flex', width: '100%', gap: '12px', alignItems: 'center', padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--color-border-card)', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               <span style={{ fontFamily: 'var(--font-family-mono)', fontSize: '11.5px', fontWeight: 700, width: '90px', flexShrink: 0 }}>{item.inventorySku}</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.technicalName}</span>
@@ -336,7 +351,7 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
           ))}
         </div>
       ) : null}
-      {searched && results.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>No active product matches. Discontinued items are not offered.</div> : null}
+      {searched && results.length === 0 && (query.trim().length >= 1) ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>Nothing close to that. Discontinued items are not offered.</div> : null}
     </div>
   );
 }
