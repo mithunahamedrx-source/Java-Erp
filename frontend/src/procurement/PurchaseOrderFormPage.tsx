@@ -321,9 +321,9 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
       return;
     }
     let live = true;
-    void listStockItems({ search: query.trim(), status: 'ACTIVE', discontinued: 'hide' }, 0, 12, 'technicalName', 'ASC').then((page) => {
+    void listStockItems({ search: query.trim(), discontinued: 'hide' }, 0, 12, 'technicalName', 'ASC').then((page) => {
       // When nothing matches exactly the server offers the closest items; they are shown, labelled, so the person can still find what they mean.
-      if (live) { setResults(page.content.filter((i) => !i.discontinued && i.recordStatus === 'ACTIVE')); setClosest(page.recommended === true); setSearched(true); }
+      if (live) { setResults(page.content.filter((i) => !i.discontinued && i.recordStatus !== 'ARCHIVED')); setClosest(page.recommended === true); setSearched(true); }
     }).catch(() => { if (live) { setResults([]); setSearched(true); } });
     return () => { live = false; };
   }, [query, open]);
