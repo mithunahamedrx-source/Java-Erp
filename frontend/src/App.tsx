@@ -11,6 +11,7 @@ import NotificationCenterPage from './notification/NotificationCenterPage';
 import WarehousesPage from './warehouse/WarehousesPage';
 import SuppliersPage from './procurement/SuppliersPage';
 import PurchasingPage from './procurement/PurchasingPage';
+import SupplierLedgerPage from './procurement/SupplierLedgerPage';
 import PurchaseOrderFormPage from './procurement/PurchaseOrderFormPage';
 import PurchaseOrderDetailPage from './procurement/PurchaseOrderDetailPage';
 import PurchaseOrderPrintPage from './procurement/PurchaseOrderPrintPage';
@@ -79,6 +80,7 @@ export default function App(): React.JSX.Element {
         {/* Master data the Inventory and Procurement modules stand on (E-004, E-005, E-025). */}
         <Route path="/inventory/warehouses" element={<WarehousesPage tab="warehouses" />} />
         <Route path="/inventory/warehouses/locations" element={<WarehousesPage tab="locations" />} />
+        <Route path="/purchasing/suppliers/:id/ledger" element={<SupplierLedgerPage />} />
         <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
         <Route path="/purchasing/purchases" element={<PurchasingPage tab="orders" />} />
         <Route path="/purchasing/purchases/new" element={<PurchaseOrderFormPage mode="create" />} />

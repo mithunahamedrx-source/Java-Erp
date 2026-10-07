@@ -33,6 +33,7 @@ class WarehouseSupplierTest {
     @Autowired private WarehouseService warehouses;
     @Autowired private StockLocationService locations;
     @Autowired private SupplierService suppliers;
+    @Autowired private com.trioloo.erp.procurement.application.SupplierLedgerService ledgers;
 
     private UUID actorId;
 
@@ -158,6 +159,21 @@ class WarehouseSupplierTest {
         warehouses.update(wh, new WarehouseService.Input(null, "Main Warehouse", null, "ARCHIVED", whVersion));
         assertThatThrownBy(() -> locations.create(new StockLocationService.Input(wh, "Q-2", null, "QUARANTINE", null, null)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("not active");
+    }
+
+    @Test
+    @DisplayName("The supplier ledger is a view: no money line exists before receipts and payments, and the balance is withheld, not zero")
+    void supplierLedgerIsAView() {
+        actingWith(ALL);
+        UUID id = suppliers.create(supplier("Ledger Supplier"));
+        var ledger = ledgers.ledger(id, null, null, null);
+        assertThat(ledger.supplier().name()).isEqualTo("Ledger Supplier");
+        assertThat(ledger.entries()).isEmpty();
+        assertThat(ledger.outstandingBalance()).isNull();
+        assertThat(ledgers.ledger(id, java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 1, 31), "PURCHASE_ORDER").entries()).isEmpty();
+        assertThatThrownBy(() -> ledgers.ledger(UUID.randomUUID(), null, null, null)).isInstanceOf(IllegalArgumentException.class);
+        actingWith();
+        assertThatThrownBy(() -> ledgers.ledger(id, null, null, null)).isInstanceOf(AccessDeniedByPermissionException.class);
     }
 
     private static SupplierService.Input supplier(String name) {

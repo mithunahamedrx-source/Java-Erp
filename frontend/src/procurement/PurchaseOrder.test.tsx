@@ -8,6 +8,7 @@ import PurchaseOrderDetailPage from './PurchaseOrderDetailPage';
 import PurchaseOrderFormPage from './PurchaseOrderFormPage';
 import PurchaseOrderPrintPage from './PurchaseOrderPrintPage';
 import { whatsAppNumber } from './purchaseOrderPdf';
+import SupplierLedgerPage from './SupplierLedgerPage';
 import { lineTotal, sumTotals } from './purchaseApi';
 
 /** Purchase Orders - exact money arithmetic, the list, the lifecycle actions and the capability gates. */
@@ -35,6 +36,8 @@ function stub(permissions: string[], order: Record<string, unknown>, calls: stri
     if (url.includes('/api/auth/csrf')) return new Response(null, { status: 204 });
     if (init?.method === 'POST') return new Response(null, { status: 204 });
     if (url.includes('/api/product/stock-items')) return json({ content: [{ id: 'v1', inventorySku: 'SKU-1', technicalName: 'SSD 512GB', inventoryCategory: 'SSD', physicalStock: '3', availableQuantity: '3', outOfStock: false, discontinued: false, recordStatus: 'DRAFT', referenceCost: '700.0000' }], totalElements: 1, page: 0, size: 8, totalPages: 1 });
+    if (/suppliers\/s1\/ledger/.test(url)) return json({ supplier: { id: 's1', name: 'Star Tech Ltd', contactName: 'Ashraful', phone: '01711-204488', email: null, address: 'Dhaka', currency: 'BDT' }, from: null, to: null, orders: 1, totalOrdered: '7000.0000', outstandingBalance: null,
+      entries: [{ date: '2026-10-06', type: 'PURCHASE_ORDER', reference: 'PO-2026-0001', documentId: 'p1', description: 'Purchase order - commitment, not yet owed', status: 'APPROVED', memo: true, debit: null, credit: null, ordered: '7000.0000' }] });
     if (url.includes('/api/procurement/suppliers')) return json({ content: [], totalElements: 0, page: 0, size: 100, totalPages: 1, kpis: {} });
     if (/purchase-orders\/p1/.test(url)) return json(DETAIL(order));
     if (url.includes('/api/procurement/purchase-orders'))
@@ -53,6 +56,7 @@ function renderAt(path: string): void {
             <Route path="/purchasing/purchases/new" element={<PurchaseOrderFormPage mode="create" />} />
             <Route path="/purchasing/purchases/:id" element={<PurchaseOrderDetailPage />} />
             <Route path="/purchasing/purchases/:id/print" element={<PurchaseOrderPrintPage />} />
+            <Route path="/purchasing/suppliers/:id/ledger" element={<SupplierLedgerPage />} />
             <Route path="/purchasing/receipts" element={<PurchasingPage tab="receipts" />} />
           </Routes>
         </MemoryRouter>
@@ -172,5 +176,17 @@ describe('Purchase Order form', () => {
     expect(whatsAppNumber('+880 1711 204488')).toBe('8801711204488');
     expect(whatsAppNumber(null)).toBeNull();
     expect(whatsAppNumber('12')).toBeNull();
+  });
+  it('shows the supplier ledger with a withheld balance, refetches on a filter and prints what the filters select', async () => {
+    const calls: string[] = [];
+    stub(['procurement.supplier.view'], ORDER(), calls);
+    renderAt('/purchasing/suppliers/s1/ledger');
+    expect(await screen.findByTestId('ledger-row')).toBeTruthy();
+    expect(screen.getByTestId('master-kpi-balance').textContent).toContain('—');
+    expect(screen.getByTestId('ledger-print')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('ledger-from'), { target: { value: '2026-10-01' } });
+    await waitFor(() => expect(calls.some((c) => c.includes('/ledger?') && c.includes('from=2026-10-01'))).toBe(true));
+    await waitFor(() => expect(screen.getByTestId('ledger-sheet-filters').textContent).toContain('2026-10-01'));
+    expect(screen.getAllByTestId('ledger-sheet-row')).toHaveLength(1);
   });
 });

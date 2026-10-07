@@ -86,7 +86,11 @@ describe('Suppliers', () => {
     renderAt('/purchasing/suppliers');
     await waitFor(() => expect(screen.getByTestId('supplier-card-Star Tech Ltd')).toBeTruthy());
     expect(screen.queryByTestId('new-supplier')).toBeNull();
-    expect(screen.queryByTestId('record-actions')).toBeNull();
+    // The only thing in the menu is the read-only ledger.
+    fireEvent.click(screen.getByTestId('record-actions'));
+    expect(screen.getByTestId('supplier-menu-ledger')).toBeTruthy();
+    expect(screen.queryByTestId('supplier-menu-edit')).toBeNull();
+    expect(screen.queryByTestId('supplier-menu-archive')).toBeNull();
   });
 
   it('refuses plainly when the viewer lacks the capability', async () => {

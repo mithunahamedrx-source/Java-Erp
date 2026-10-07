@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { FilterSelect, FormBox, KpiStrip, Pager, RecordCard, SearchBox, Toolbar, messageOf, useDebounced, useRemoteList } from '../masterdata/MasterDataParts';
 import { listSuppliers, saveSupplier } from '../masterdata/masterDataApi';
@@ -22,6 +23,7 @@ import { Button, Card, EmptyState } from '../ui/primitives';
 const PAGE_SIZE = 10;
 
 export default function SuppliersPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const { session } = useAuth();
   const permissions = session.status === 'authenticated' ? session.user.permissions : [];
   const mayManage = permissions.includes('procurement.supplier.manage');
@@ -52,9 +54,12 @@ export default function SuppliersPage(): React.JSX.Element {
   };
 
   const menuFor = (s: Supplier): readonly MenuAction[] => {
-    if (!mayManage) return [];
+    // The ledger is a read: whoever may see suppliers may open it (PRC-052).
+    const ledger: MenuAction = { label: 'Supplier ledger', testId: 'supplier-menu-ledger', onSelect: () => navigate(`/purchasing/suppliers/${s.id}/ledger`) };
+    if (!mayManage) return [ledger];
     return [
-      { label: 'Edit', testId: 'supplier-menu-edit', onSelect: () => setEditing(s) },
+      ledger,
+      { label: 'Edit', testId: 'supplier-menu-edit', onSelect: () => setEditing(s), separatorBefore: true },
       s.recordStatus === 'ARCHIVED'
         ? { label: 'Restore', testId: 'supplier-menu-restore', onSelect: () => void setRecordStatus(s, 'ACTIVE') }
         : { label: 'Archive', testId: 'supplier-menu-archive', destructive: true, separatorBefore: true, onSelect: () => void setRecordStatus(s, 'ARCHIVED') },

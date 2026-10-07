@@ -1,7 +1,7 @@
 # Procurement Architecture
 
 **Owner:** Trioloo Technology · **Module:** Procurement · **Status:** Canonical
-**Version:** 1.3.1 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-06 (**`PRC-067.e` — supplier purchase figures**) · **Amended:** 2026-10-06 (**`PRC-068`/`PRC-069` — Purchase Order implemented**) · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
+**Version:** 1.4.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-07 (**`PRC-070` — Supplier Ledger first slice**) · **Amended:** 2026-10-06 (**`PRC-067.e` — supplier purchase figures**) · **Amended:** 2026-10-06 (**`PRC-068`/`PRC-069` — Purchase Order implemented**) · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
 
 ---
 
@@ -170,6 +170,12 @@ The business drew this boundary itself, and §18 contains **both sides of it**:
 > **PRC-069 — ✅ THE OWNER MAY APPROVE AN ORDER THEY CREATED. Ratified 2026-10-06 on explicit business decision.** Everyone else may not: the creator of an order is never its approver (`INV-29.1`, `PRM-006`). This is a recorded exception for the Owner alone, as `PRM-072` permits; both acts are logged with their actors, so the history shows when one person did both.
 
 > **PRC-067.e — ✅ The Suppliers list shows TOTAL PURCHASE and TOTAL DUE. Ratified 2026-10-06 on explicit business decision.** Total purchase is DERIVED from the supplier's live (not cancelled) purchase orders, in the supplier's own currency, and can be scoped to today, this week (from Monday) or this month; it is never stored (`PRC-009`). **Total due is a payable** (accepted receipts less payments) and is shown as "—" until payables exist - never as zero. The summary strip follows the list's filters and adds up one currency only (the chosen one, else taka).
+
+> **PRC-070 — ✅ THE SUPPLIER LEDGER IS OPENED FROM THE SUPPLIER AND PRINTS ON A4. Ratified 2026-10-07 on explicit business decision.** It applies `PRC-052`, `SYS-090`, `DB-067` and `PRN-010` - nothing more.
+>
+> **a.** ✅ It is reached from the supplier's row menu (`Supplier ledger`) at `/purchasing/suppliers/{id}/ledger`, needs only `procurement.supplier.view`, and is a READ: it stores nothing and changes nothing.
+> **b.** ✅ It can be filtered by **date range** (with quick today / this week / this month) and by **transaction type** (the seven of `PRC-052` plus the purchase-order memo). **Print ledger** prints exactly the entries the filters select, on an A4 sheet that states the filters applied.
+> **c.** 🔴 **A purchase order is a commitment and never moves the balance** (`PRC-068.e`). Until goods receipts and supplier payments exist, orders appear only as MEMO lines ("Ordered"), the debit, credit and balance columns stay empty, and the **outstanding balance is withheld ("—"), never shown as zero** (`PRC-067.b`). When those records exist they feed this same view.
 
 ## 4.1 ⚠ Per-supplier commercial terms — `GAP-079`
 
@@ -630,6 +636,7 @@ Three of the eleven confirmed V1 reports read procurement-owned facts (`SYS-087`
 
 | Version | Date | Change |
 |---|---|---|
+| **1.4.0** | **2026-10-07** | ✅ **`PRC-070`** - Supplier Ledger first slice: opened from the supplier, filtered by date and type, printed on A4; purchase orders are memo lines only. No migration. |
 | **1.3.1** | **2026-10-06** | ✅ **`PRC-067.e`** - supplier total purchase and total due on the Suppliers list; period and further filters. No migration. |
 | **1.3.0** | **2026-10-06** | ✅ **PURCHASE ORDER — `PRC-068`, `PRC-069`, on explicit business decision.** The order is a commitment with an approval, a recorded supplier shipment and an immutable history; the Owner may approve their own order. 🔴 No existing rule amended. Migration `V45`. |
 | **1.2.0** | **2026-10-06** | ✅ **SUPPLIER MASTER DATA — `§4.0`, `PRC-067`, on explicit business decision.** A simple party record with archive-only lifecycle; no payment terms or lead times (`GAP-079` carried unchanged). 🔴 No existing rule amended. Migration `V44`. |
