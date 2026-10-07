@@ -5,6 +5,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +30,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * ({@code PRM-021}) takes effect on the next request instead: the session is invalidated and the request proceeds
  * unauthenticated, which every protected endpoint answers {@code 401}.
  *
+ * <p>🔴 IT ALSO KEEPS AUTHORITY CURRENT. For the same reason, what a person may DO is re-read from the account (roles,
+ * overrides, and the whole catalogue for an Owner - {@code AGV-037}) at most every {@link #CACHE_MS}, and the signed-in
+ * session is updated to it. Otherwise a capability added by a later release would never reach someone who stays signed in
+ * (an Owner would not see it), and one that was revoked would never leave them. It re-reads; it grants nothing of its own.
+ *
  * <p>The check is one indexed read per person, cached for {@link #CACHE_MS} so it does not run on every request of a
  * busy screen. It never keeps a session alive and never grants anything; it can only end one.
  */
@@ -39,10 +48,13 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
     }
 
     private final JdbcTemplate jdbc;
+    private final AccessUserDetailsService userDetails;
     private final Map<UUID, Checked> recent = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> refreshed = new ConcurrentHashMap<>();
 
-    public ActiveAccountFilter(JdbcTemplate jdbc) {
+    public ActiveAccountFilter(JdbcTemplate jdbc, AccessUserDetailsService userDetails) {
         this.jdbc = jdbc;
+        this.userDetails = userDetails;
     }
 
     @Override
@@ -56,8 +68,38 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
                 session.invalidate();
             }
             SecurityContextHolder.clearContext();
+        } else if (authentication != null && authentication.getPrincipal() instanceof AccessUserDetails details) {
+            refreshAuthority(request, authentication, details);
         }
         chain.doFilter(request, response);
+    }
+
+    /** Re-reads what the person may do and, if it changed, replaces it in this request and in the session. */
+    private void refreshAuthority(HttpServletRequest request, Authentication authentication, AccessUserDetails details) {
+        long now = System.currentTimeMillis();
+        Long last = refreshed.get(details.getProfileId());
+        if (last != null && now - last < CACHE_MS) {
+            return;
+        }
+        refreshed.put(details.getProfileId(), now);
+        UserDetails fresh;
+        try {
+            fresh = userDetails.loadUserByUsername(details.getUsername());
+        } catch (RuntimeException e) {
+            return; // never ends a session by itself: the account-state check above is what does that
+        }
+        if (fresh.getAuthorities().equals(details.getAuthorities()) || java.util.Set.copyOf(fresh.getAuthorities()).equals(java.util.Set.copyOf(details.getAuthorities()))) {
+            return;
+        }
+        UsernamePasswordAuthenticationToken updated = UsernamePasswordAuthenticationToken.authenticated(fresh, null, fresh.getAuthorities());
+        updated.setDetails(authentication.getDetails());
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(updated);
+        SecurityContextHolder.setContext(context);
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        }
     }
 
     private boolean isActive(UUID profileId) {
@@ -76,5 +118,6 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
     /** Forgets cached answers - used by tests, and harmless anywhere else. */
     void forget() {
         recent.clear();
+        refreshed.clear();
     }
 }

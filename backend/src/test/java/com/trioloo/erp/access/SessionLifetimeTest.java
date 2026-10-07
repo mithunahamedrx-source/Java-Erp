@@ -103,6 +103,27 @@ class SessionLifetimeTest {
     }
 
     @Test
+    @DisplayName("🔴 What a signed-in person may do stays current: an Owner sees a capability added after they signed in, without signing in again")
+    void authorityIsReReadForALongLivedSession() throws Exception {
+        UUID id = fixtures.createProfile("long-lived-owner", "correct-horse", AccountLifecycleState.ACTIVE);
+        jdbc.update("UPDATE operational_user_profile SET owner_designated_at = now(), owner_designation_origin = 'INITIAL_BOOTSTRAP' WHERE id = ?", id);
+        MockHttpSession session = login("long-lived-owner", "correct-horse");
+        String before = mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(before).doesNotContain("test.later.capability");
+
+        jdbc.update("INSERT INTO permission (id, code, description) VALUES (gen_random_uuid(), 'test.later.capability', 'Added after sign-in')");
+        try {
+            java.lang.reflect.Method forget = activeAccount.getClass().getDeclaredMethod("forget");
+            forget.setAccessible(true);
+            forget.invoke(activeAccount);
+            String after = mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertThat(after).contains("test.later.capability");
+        } finally {
+            jdbc.update("DELETE FROM permission WHERE code = 'test.later.capability'");
+        }
+    }
+
+    @Test
     @DisplayName("The authenticated context can be written to disk and read back, so a restart keeps people signed in")
     void authenticatedContextSurvivesSerialisation() throws Exception {
         var principal = new AccessUserDetails(UUID.randomUUID(), "serial", "Serial User", "{noop}x",

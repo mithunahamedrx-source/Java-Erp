@@ -38,6 +38,11 @@ public class PurchaseOrderController {
         return orders.list(search, status, supplierId, shipped, page, size);
     }
 
+    @GetMapping("/popular-products")
+    public java.util.List<PurchaseOrderService.PopularProduct> popularProducts(@RequestParam(defaultValue = "50") int limit) {
+        return orders.popularProducts(limit);
+    }
+
     @GetMapping("/{id}")
     public PurchaseOrderService.Detail detail(@PathVariable UUID id) {
         return orders.detail(id);

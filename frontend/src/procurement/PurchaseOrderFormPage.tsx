@@ -7,8 +7,8 @@ import { PageHeader } from '../shell/AppShell';
 import { Button, Card, EmptyState } from '../ui/primitives';
 import { displayMoney, listStockItems } from '../product/stockItemApi';
 import type { StockItem } from '../product/stockItemApi';
-import { createPurchaseOrder, displayQuantity, fetchPurchaseOrder, lineTotal, sumTotals, updatePurchaseOrder } from './purchaseApi';
-import type { PurchaseOrderDetail } from './purchaseApi';
+import { createPurchaseOrder, displayQuantity, fetchPopularProducts, fetchPurchaseOrder, lineTotal, sumTotals, updatePurchaseOrder } from './purchaseApi';
+import type { PopularProduct, PurchaseOrderDetail } from './purchaseApi';
 
 /**
  * Create or amend a Purchase Order. A PAGE, never a modal: it is a multi-line workflow (`UX-151`).
@@ -163,7 +163,7 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
           </Card>
 
           <Card>
-            {section('Products', 'Search a Stock Item to add it. Discontinued and archived items are not offered.')}
+            {section('Products', 'Search a Stock Item to add it - the ones you buy most come first. Discontinued and archived items are not offered.')}
             <div style={{ padding: '0 22px 18px' }}>
               <ProductPicker onPick={addProduct} />
               {lines.length === 0 ? (
@@ -312,21 +312,36 @@ export function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) =
   const [searched, setSearched] = useState(false);
   const [closest, setClosest] = useState(false);
   const [open, setOpen] = useState(false);
+  // How often each product has been bought, so the ones the business buys most are suggested first.
+  const [popular, setPopular] = useState<ReadonlyMap<string, PopularProduct>>(new Map());
 
   useEffect(() => {
-    // Any typing searches; the arrow lists the first products without typing.
+    void fetchPopularProducts(50).then((rows) => setPopular(new Map(rows.map((r) => [r.id, r])))).catch(() => setPopular(new Map()));
+  }, []);
+
+  useEffect(() => {
+    // Any typing searches; the arrow lists what is bought most, with no typing.
     if (query.trim().length < 1 && !open) {
       setResults([]);
       setSearched(false);
       return;
     }
     let live = true;
-    void listStockItems({ search: query.trim(), discontinued: 'hide' }, 0, 10, 'cost', 'ASC').then((page) => {
-      // When nothing matches exactly the server offers the closest items; they are shown, labelled, so the person can still find what they mean.
-      if (live) { setResults(page.content.filter((i) => !i.discontinued && i.recordStatus !== 'ARCHIVED')); setClosest(page.recommended === true); setSearched(true); }
+    if (query.trim().length < 1) {
+      // Opened with the arrow: the most-purchased products themselves.
+      const top = [...popular.values()].slice(0, 10).map((p) => ({ id: p.id, inventorySku: p.inventorySku, technicalName: p.technicalName, inventoryCategory: p.inventoryCategory,
+        physicalStock: p.physicalStock, referenceCost: p.referenceCost, discontinued: false, recordStatus: 'ACTIVE' }) as unknown as StockItem);
+      if (top.length > 0) { setResults(top); setClosest(false); setSearched(true); return; }
+    }
+    void listStockItems({ search: query.trim(), discontinued: 'hide' }, 0, 30, 'cost', 'ASC').then((page) => {
+      if (!live) return;
+      // Most-purchased first, then by price; when nothing matches exactly the server offers the closest items, shown and labelled.
+      const usable = page.content.filter((i) => !i.discontinued && i.recordStatus !== 'ARCHIVED');
+      const ranked = [...usable].sort((a, b) => (popular.get(b.id)?.purchases ?? 0) - (popular.get(a.id)?.purchases ?? 0));
+      setResults(ranked.slice(0, 10)); setClosest(page.recommended === true); setSearched(true);
     }).catch(() => { if (live) { setResults([]); setSearched(true); } });
     return () => { live = false; };
-  }, [query, open]);
+  }, [query, open, popular]);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -344,6 +359,8 @@ export function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) =
               style={{ display: 'flex', width: '100%', gap: '12px', alignItems: 'center', padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--color-border-card)', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               <span style={{ fontFamily: 'var(--font-family-mono)', fontSize: '11.5px', fontWeight: 700, width: '90px', flexShrink: 0 }}>{item.inventorySku}</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.technicalName}</span>
+              {popular.has(item.id) ? <span data-testid="po-product-popular" title={`Bought ${popular.get(item.id)?.purchases} time${popular.get(item.id)?.purchases === 1 ? '' : 's'}`}
+                style={{ fontSize: '10px', fontWeight: 750, padding: '2px 7px', borderRadius: '999px', background: 'var(--color-status-confirmed-bg)', color: 'var(--color-status-confirmed-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>Most purchased</span> : null}
               <span className="tabular-nums" style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', flexShrink: 0 }}>
                 {displayQuantity(item.physicalStock)} on hand{item.referenceCost ? ` · ৳ ${displayMoney(item.referenceCost)}` : ''}
               </span>

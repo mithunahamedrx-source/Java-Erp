@@ -43,6 +43,12 @@ const query = (params: Record<string, string | number | undefined | null>): stri
 const base = '/api/procurement/purchase-orders';
 export const listPurchaseOrders = (p: { search?: string; status?: string; supplierId?: string; shipped?: string; page: number; size: number }) =>
   apiRequest<Paged<PurchaseOrder, PurchaseOrderKpis>>(`${base}?${query(p)}`);
+/** A product the business buys often (derived from purchases). */
+export type PopularProduct = {
+  readonly id: string; readonly inventorySku: string; readonly technicalName: string; readonly inventoryCategory: string | null;
+  readonly referenceCost: string | null; readonly physicalStock: string; readonly purchases: number; readonly units: string;
+};
+export const fetchPopularProducts = (limit = 50) => apiRequest<PopularProduct[]>(`${base}/popular-products?limit=${limit}`);
 export const fetchPurchaseOrder = (id: string) => apiRequest<PurchaseOrderDetail>(`${base}/${id}`);
 export const createPurchaseOrder = (body: OrderBody) => apiRequest<{ id: string }>(base, { method: 'POST', body: JSON.stringify(body) });
 export const updatePurchaseOrder = (id: string, body: OrderBody) => apiRequest<void>(`${base}/${id}`, { method: 'PUT', body: JSON.stringify(body) });

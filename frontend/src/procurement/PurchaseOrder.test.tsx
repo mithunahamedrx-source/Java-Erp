@@ -35,6 +35,7 @@ function stub(permissions: string[], order: Record<string, unknown>, calls: stri
     if (url.includes('/api/auth/me')) return json({ id: 'u', username: 'm', fullName: 'M', roles: [], permissions });
     if (url.includes('/api/auth/csrf')) return new Response(null, { status: 204 });
     if (init?.method === 'POST') return new Response(null, { status: 204 });
+    if (url.includes('/purchase-orders/popular-products')) return json([{ id: 'v9', inventorySku: 'SKU-9', technicalName: 'Often Bought SSD', inventoryCategory: 'SSD', referenceCost: '650.0000', physicalStock: '2', purchases: 5, units: '40' }]);
     if (url.includes('/api/product/stock-items')) return json({ content: [{ id: 'v1', inventorySku: 'SKU-1', technicalName: 'SSD 512GB', inventoryCategory: 'SSD', physicalStock: '3', availableQuantity: '3', outOfStock: false, discontinued: false, recordStatus: 'DRAFT', referenceCost: '700.0000' }], totalElements: 1, page: 0, size: 8, totalPages: 1 });
     if (/suppliers\/s1\/ledger/.test(url)) return json({ supplier: { id: 's1', name: 'Star Tech Ltd', contactName: 'Ashraful', phone: '01711-204488', email: null, address: 'Dhaka', currency: 'BDT' }, from: null, to: null, orders: 1, totalOrdered: '7000.0000', outstandingBalance: null,
       entries: [{ date: '2026-10-06', type: 'PURCHASE_ORDER', reference: 'PO-2026-0001', documentId: 'p1', description: 'Purchase order - commitment, not yet owed', status: 'APPROVED', memo: true, debit: null, credit: null, ordered: '7000.0000' }] });
@@ -183,5 +184,13 @@ describe('Purchase Order form', () => {
     await waitFor(() => expect(calls.some((c) => c.includes('/ledger?') && c.includes('from=2026-10-01'))).toBe(true));
     await waitFor(() => expect(screen.getByTestId('ledger-sheet-filters').textContent).toContain('2026-10-01'));
     expect(screen.getAllByTestId('ledger-sheet-row')).toHaveLength(1);
+  });
+  it('suggests the most purchased products first, marked, when the arrow is opened', async () => {
+    stub(['procurement.purchase-order.manage'], ORDER());
+    renderAt('/purchasing/purchases/new');
+    fireEvent.click(await screen.findByTestId('po-product-toggle'));
+    const first = await screen.findByTestId('po-product-result');
+    expect(first.textContent).toContain('Often Bought SSD');
+    expect(first.textContent).toContain('Most purchased');
   });
 });

@@ -178,6 +178,41 @@ public class PurchaseOrderService {
         return new Page(rows, count, current, pageSize, (int) Math.max(1, Math.ceil(count / (double) pageSize)), kpis);
     }
 
+    /** A product the business buys often, as the purchase search suggests it. Derived from purchases; nothing is stored (DB-001). */
+    public record PopularProduct(UUID id, String inventorySku, String technicalName, String inventoryCategory, @MonetaryAmount BigDecimal referenceCost,
+                                 @MonetaryAmount BigDecimal physicalStock, long purchases, @MonetaryAmount BigDecimal units) {
+    }
+
+    /**
+     * The Stock Items bought most often, most frequent first (then most units): each live purchase-order line and each direct
+     * receipt line counts once. Discontinued and archived items are never suggested (PRD-207). Needs the order's view or the
+     * receiving capability, since both pick products.
+     */
+    @Transactional(readOnly = true)
+    public List<PopularProduct> popularProducts(int limit) {
+        Actor actor = currentActor.require();
+        if (!actor.hasPermission(VIEW) && !actor.hasPermission(GoodsReceiptService.RECORD)) {
+            throw new AccessDeniedByPermissionException(VIEW);
+        }
+        return jdbc.query("""
+                SELECT v.id, v.inventory_sku, v.technical_name, v.inventory_category, v.reference_cost,
+                       coalesce((SELECT sum(m.quantity) FROM inventory_movement m WHERE m.product_variant_id = v.id), 0) AS stock,
+                       count(*) AS purchases, sum(u.quantity) AS units
+                  FROM (SELECT i.product_variant_id AS variant_id, i.quantity_ordered AS quantity
+                          FROM purchase_order_item i JOIN purchase_order p ON p.id = i.purchase_order_id WHERE p.status <> 'CANCELLED'
+                        UNION ALL
+                        SELECT g.product_variant_id, g.quantity_accepted FROM goods_receipt_item g
+                         WHERE g.purchase_order_item_id IS NULL AND g.quantity_accepted > 0) u
+                  JOIN product_variant v ON v.id = u.variant_id
+                 WHERE v.record_status <> 'ARCHIVED' AND v.discontinued_at IS NULL
+                 GROUP BY v.id
+                 ORDER BY count(*) DESC, sum(u.quantity) DESC, v.inventory_sku
+                 LIMIT ?
+                """, (rs, n) -> new PopularProduct((UUID) rs.getObject("id"), rs.getString("inventory_sku"), rs.getString("technical_name"),
+                        rs.getString("inventory_category"), rs.getBigDecimal("reference_cost"), rs.getBigDecimal("stock"),
+                        rs.getLong("purchases"), rs.getBigDecimal("units")), Math.min(Math.max(limit, 1), 100));
+    }
+
     @Transactional(readOnly = true)
     public Detail detail(UUID id) {
         require(VIEW);

@@ -170,6 +170,28 @@ class GoodsReceiptTest {
     }
 
     @Test
+    @DisplayName("The purchase search suggests what is bought most: live orders and direct receipts count, cancelled orders do not")
+    void popularProducts() {
+        UUID kept = approvedOrder();
+        actingAs(creator, MAKER);
+        UUID cancelled = approvedOrder();
+        actingAs(creator, MAKER);
+        orders.cancel(cancelled, new PurchaseOrderService.CancelInput("Not needed", true, null));
+        actingAs(creator, RECEIVER);
+        var popular = orders.popularProducts(10);
+        assertThat(popular).hasSize(1);
+        assertThat(popular.getFirst().id()).isEqualTo(itemA);
+        assertThat(popular.getFirst().purchases()).isEqualTo(1);
+        assertThat(popular.getFirst().units()).isEqualByComparingTo("10");
+        receipts.record(new GoodsReceiptService.Input(supplierId, null, null, LocalDate.now(), null, null, List.of(
+                new GoodsReceiptService.ItemInput(null, itemA, new BigDecimal("3"), new BigDecimal("3"), new BigDecimal("650"), null, null))));
+        assertThat(orders.popularProducts(10).getFirst().purchases()).isEqualTo(2);
+        actingAs(creator, "procurement.supplier.view");
+        assertThatThrownBy(() -> orders.popularProducts(10)).isInstanceOf(AccessDeniedByPermissionException.class);
+        assertThat(kept).isNotNull();
+    }
+
+    @Test
     @DisplayName("PRC-071.f - an order can be cancelled until goods are received, even after the supplier shipped, and never after")
     void cancelUntilReceived() {
         UUID shipped = approvedOrder();
