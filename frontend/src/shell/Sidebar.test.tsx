@@ -341,20 +341,19 @@ describe('inventory navigation consolidation (UX-024 amended, UX-025)', () => {
     expect(NAVIGATION.some((item) => item.label === 'Purchasing')).toBe(false);
   });
 
-  it('gives Inventory exactly five children in the ratified order', () => {
+  it('gives Inventory exactly four children in the ratified order', () => {
     const inventory = NAVIGATION.find((item) => item.label === 'Inventory');
     expect(inventory && isGroup(inventory)).toBe(true);
     const children = (inventory as { children: readonly { label: string }[] }).children;
     expect(children.map((c) => c.label)).toEqual([
       'Products',
-      'Stock Control',
       'Purchasing',
       'Suppliers',
       'Warehouses',
     ]);
   });
 
-  it('renders the five Inventory children in that order in the DOM', () => {
+  it('renders the four Inventory children in that order in the DOM', () => {
     renderSidebar('/inventory/products');
     const region = screen.getByTestId('nav-disclosure-Inventory');
     const rendered = Array.from(region.querySelectorAll('[data-testid^="nav-child-"]')).map((node) =>
@@ -362,7 +361,6 @@ describe('inventory navigation consolidation (UX-024 amended, UX-025)', () => {
     );
     expect(rendered).toEqual([
       'nav-child-Products',
-      'nav-child-Stock Control',
       'nav-child-Purchasing',
       'nav-child-Suppliers',
       'nav-child-Warehouses',
@@ -470,30 +468,12 @@ describe('inventory navigation consolidation (UX-024 amended, UX-025)', () => {
     },
   );
 
-  /** 🔴 `Products` and `Stock` are different destinations; neither absorbs the other. */
-  it('keeps Products and Stock Control as separate destinations', () => {
-    renderSidebar('/inventory/products');
-    const products = screen.getByTestId('nav-child-Products');
-    const stock = screen.getByTestId('nav-child-Stock Control');
-    expect(products.getAttribute('href')).toBe('/inventory/products');
-    expect(stock.getAttribute('href')).toBe('/inventory/stock');
-    expect(products).not.toBe(stock);
-  });
-
   it.each(['/inventory/products', '/inventory/products/stock', '/inventory/products/sellable', '/inventory/products/listings'])(
-    'keeps Products active and Stock Control inactive on %s',
+    'keeps Products active on %s',
     (path) => {
       renderSidebar(path);
       expect(screen.getByTestId('nav-child-Products').getAttribute('aria-current')).toBe('page');
-      expect(screen.getByTestId('nav-child-Stock Control').getAttribute('aria-current')).toBeNull();
       expect(screen.getByTestId('nav-group-Inventory').getAttribute('data-active')).toBe('true');
     },
   );
-
-  it('makes Stock Control active and Products inactive on the Stock Control destination', () => {
-    renderSidebar('/inventory/stock');
-    expect(screen.getByTestId('nav-child-Stock Control').getAttribute('aria-current')).toBe('page');
-    expect(screen.getByTestId('nav-child-Products').getAttribute('aria-current')).toBeNull();
-    expect(screen.getByTestId('nav-group-Inventory').getAttribute('data-active')).toBe('true');
-  });
 });

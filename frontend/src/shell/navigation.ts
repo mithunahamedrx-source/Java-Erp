@@ -73,10 +73,7 @@ export const NAVIGATION: readonly NavItem[] = [
     children: [
       // UX-035 - ONE destination carrying three entity-class tabs. It is NOT `Stock Control`.
       { label: 'Products', path: '/inventory/products', permission: null },
-      // The Inventory-owned operational destination. 🔴 Never merged with `Products`: a
-      // Stock Item card DISPLAYING a derived inventory figure transfers no ownership
-      // (UX-036, IVN-000).
-      { label: 'Stock Control', path: '/inventory/stock', permission: null },
+      // UX-274 - `Stock Control` was removed from the sidebar on the owner's decision (2026-10-07).
       // UX-033 - one workspace exposing Purchase Orders and Goods Receipts, which remain
       // canonically separate records. Procurement-owned (UX-033.a).
       { label: 'Purchasing', path: '/purchasing/purchases', permission: null },
