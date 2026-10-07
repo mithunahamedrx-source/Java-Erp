@@ -73,6 +73,7 @@ export default function PurchaseOrderDetailPage(): React.JSX.Element {
         badge={<span data-testid="po-status" style={{ fontSize: '12px', fontWeight: 650, padding: '3px 10px', borderRadius: '999px', background: tone.bg, color: tone.fg }}>{tone.label}</span>}
         actions={
           <>
+            <Button variant="secondary" size="page-header" onClick={() => navigate(`/purchasing/purchases/${o.id}/print`)} testId="po-print-open">Print / PDF</Button>
             {mayApprove && o.status === 'DRAFT' ? <Button variant="primary" size="page-header" onClick={() => void act(() => approvePurchaseOrder(o.id), 'Approved.')} testId="po-approve">Approve</Button> : null}
             {mayManage && o.status === 'APPROVED' ? <Button variant="primary" size="page-header" onClick={() => void act(() => sendPurchaseOrder(o.id), 'Marked as sent to the supplier.')} testId="po-send">Mark as sent</Button> : null}
             {mayManage && o.amendable ? <Button variant="secondary" size="page-header" onClick={() => navigate(`/purchasing/purchases/${o.id}/edit`)} testId="po-edit">{o.status === 'DRAFT' ? 'Edit' : 'Amend'}</Button> : null}

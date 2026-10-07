@@ -1,7 +1,7 @@
 # Document / Printable — Business Architecture
 
 **Owner:** Trioloo Technology · **Module:** Cross-cutting · **Status:** Canonical
-**Version:** 1.0.1 · **Ratified:** 2026-08-10 · **Amended:** 2026-08-10 (`PRN-029` — Leave blocker resolved) · **Rule prefix:** `PRN-`
+**Version:** 1.1.0 · **Ratified:** 2026-08-10 · **Amended:** 2026-10-07 (**`PRN-031` — the Purchase Order printable**) · **Amended:** 2026-08-10 (`PRN-029` — Leave blocker resolved) · **Rule prefix:** `PRN-`
 
 ---
 
@@ -293,6 +293,14 @@
 
 # 13. State Machines and Events
 
+> **PRN-031 — ✅ THE PURCHASE ORDER HAS A PRINTABLE, A PDF AND A WHATSAPP SHARE. Ratified 2026-10-07 on explicit business decision.** It supplies the one document `PRN-015` listed as undefined, and applies `PRN-001`, `PRN-010` and `PRN-022` - nothing more.
+>
+> **a.** ✅ **Class B - it renders** the purchase order (`PRC-068`) as it stands, with its supplier's contact details, lines and total in taka, who prepared it and who approved it. No figure is recomputed. Its identity is the order's own number `PO-YYYY-NNNN`; no second number exists.
+> **b.** ✅ **Three actions, none a business event** (`PRN-010`): **Print** (A4); **Download PDF**, made in the person's browser and saved on their own device - nothing is stored or sent; **Share on WhatsApp**, which opens WhatsApp to the supplier's SAVED phone number with a short message and the PDF (offered as a file where the device allows it, otherwise saved for the person to attach).
+> **c.** 🔴 **The ERP holds no WhatsApp account for this and sends nothing by itself** (`DM-074`, `NOT-021`): WhatsApp is only opened by the person, and the supplier receives it only if they press send there.
+> **d.** ⚠ **Permission:** the printable is reached with `procurement.purchase-order.view` (`PRM-100`). No new capability is created; whether download and share are to be separate from view (`PRN-018`) is left for a later decision.
+> **e.** Third-party libraries used only in the browser to make the PDF: `jspdf` and `html2canvas`, loaded when a PDF is asked for (the platform has no way to write a PDF file directly).
+
 > **PRN-030 — No document defines a state machine and no document publishes an event.**
 >
 > ✅ **`PRN-001` settles both**: **a printable represents an occurrence that already happened, so it has no lifecycle of its own and nothing can react to its rendering.** ⚠ **`E-039` Invoice's *issued → cancelled/credited* lifecycle is the INVOICE's, owned by Accounting, and predates this document.**
@@ -305,6 +313,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| **1.1.0** | **2026-10-07** | ✅ **`PRN-031`** - the Purchase Order printable, PDF download and WhatsApp share. No migration. |
 | **1.0.0** | **2026-08-10** | **Initial ratification. `PRN-000` – `PRN-030`.** Consolidates `BD-006B` and §39 (`BD-443` – `BD-447`) with the document-bearing rules of Accounting, Payment, Delivery, Procurement, Warranty, HR & Payroll and Reporting. **No business rule, entity, numbering scheme or lifecycle is invented.** 🔴 **`GAP-128` registered — Quotation and Proforma cannot be architected while `BD-134` is unanswered.** ✅ **Warranty Card determined NOT required.** **No machine, no event.** |
 
 **Amendment procedure.** Proposals state the business problem, the affected sections and rules, the proposed change, alternatives considered, and the operational impact. **Business rules are never silently altered.**

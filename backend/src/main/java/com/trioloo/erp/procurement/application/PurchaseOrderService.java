@@ -70,7 +70,11 @@ public class PurchaseOrderService {
                       Instant updatedAt, long version) {
     }
 
-    public record Detail(Row order, List<Item> items, List<HistoryEntry> history) {
+    /** The supplier's contact details as the printable and the WhatsApp message need them; read-only. */
+    public record SupplierContact(String name, String contactName, String phone, String email, String address) {
+    }
+
+    public record Detail(Row order, List<Item> items, List<HistoryEntry> history, SupplierContact supplier) {
     }
 
     public record Kpis(long orders, long open, long awaitingApproval, long amendable, long cancelled) {
@@ -183,7 +187,10 @@ public class PurchaseOrderService {
                  WHERE h.purchase_order_id = ? ORDER BY h.acted_at, h.id
                 """, (rs, n) -> new HistoryEntry(rs.getString("action"), rs.getString("reason"), rs.getString("detail"),
                         rs.getString("full_name"), rs.getTimestamp("acted_at").toInstant()), id);
-        return new Detail(found.getFirst(), items, history);
+        SupplierContact supplier = jdbc.queryForObject("SELECT name, contact_name, phone, email, address FROM supplier WHERE id = ?",
+                (rs, n) -> new SupplierContact(rs.getString("name"), rs.getString("contact_name"), rs.getString("phone"), rs.getString("email"),
+                        rs.getString("address")), found.getFirst().supplierId());
+        return new Detail(found.getFirst(), items, history, supplier);
     }
 
     // ------------------------------------------------------------------ writes

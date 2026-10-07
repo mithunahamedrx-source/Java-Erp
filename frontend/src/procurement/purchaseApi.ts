@@ -23,7 +23,8 @@ export type PurchaseOrderItem = {
   readonly currency: string; readonly expectedDate: string | null;
 };
 export type HistoryEntry = { readonly action: string; readonly reason: string | null; readonly detail: string | null; readonly actedBy: string | null; readonly actedAt: string };
-export type PurchaseOrderDetail = { readonly order: PurchaseOrder; readonly items: readonly PurchaseOrderItem[]; readonly history: readonly HistoryEntry[] };
+export type SupplierContact = { readonly name: string; readonly contactName: string | null; readonly phone: string | null; readonly email: string | null; readonly address: string | null };
+export type PurchaseOrderDetail = { readonly order: PurchaseOrder; readonly items: readonly PurchaseOrderItem[]; readonly history: readonly HistoryEntry[]; readonly supplier: SupplierContact };
 
 export type ItemBody = { productVariantId: string; quantity: string; unitCost: string; expectedDate?: string | null };
 export type OrderBody = {

@@ -6,6 +6,8 @@ import { PageActionsProvider } from '../shell/PageActions';
 import PurchasingPage from './PurchasingPage';
 import PurchaseOrderDetailPage from './PurchaseOrderDetailPage';
 import PurchaseOrderFormPage from './PurchaseOrderFormPage';
+import PurchaseOrderPrintPage from './PurchaseOrderPrintPage';
+import { whatsAppNumber } from './purchaseOrderPdf';
 import { lineTotal, sumTotals } from './purchaseApi';
 
 /** Purchase Orders - exact money arithmetic, the list, the lifecycle actions and the capability gates. */
@@ -21,6 +23,7 @@ const DETAIL = (order: Record<string, unknown>) => ({
   order,
   items: [{ id: 'i1', lineNumber: 1, productVariantId: 'v1', sku: 'SKU-1', name: 'SSD 512GB', quantityOrdered: '10.0000', quantityReceived: '0.0000',
     unitCost: '700.0000', lineTotal: '7000.0000', currency: 'BDT', expectedDate: null }],
+  supplier: { name: 'Star Tech Ltd', contactName: 'Ashraful', phone: '01711-204488', email: null, address: 'Dhaka' },
   history: [{ action: 'CREATED', reason: null, detail: null, actedBy: 'mithun', actedAt: '2026-10-06T00:00:00Z' }],
 });
 
@@ -49,6 +52,7 @@ function renderAt(path: string): void {
             <Route path="/purchasing/purchases" element={<PurchasingPage tab="orders" />} />
             <Route path="/purchasing/purchases/new" element={<PurchaseOrderFormPage mode="create" />} />
             <Route path="/purchasing/purchases/:id" element={<PurchaseOrderDetailPage />} />
+            <Route path="/purchasing/purchases/:id/print" element={<PurchaseOrderPrintPage />} />
             <Route path="/purchasing/receipts" element={<PurchasingPage tab="receipts" />} />
           </Routes>
         </MemoryRouter>
@@ -153,5 +157,20 @@ describe('Purchase Order form', () => {
     fireEvent.change(screen.getByTestId('po-order-date'), { target: { value: '2026-10-20' } });
     expect((screen.getByTestId('po-expected-date') as HTMLInputElement).value).toBe('2026-10-20');
     expect(screen.getByTestId('po-back').textContent).toBe('Back to Purchasing');
+  });
+  it('renders the printable with its supplier and total, and offers print, PDF and WhatsApp', async () => {
+    stub(['procurement.purchase-order.view'], ORDER());
+    renderAt('/purchasing/purchases/p1/print');
+    expect((await screen.findByTestId('po-sheet-number')).textContent).toBe('PO-2026-0001');
+    expect(screen.getByTestId('po-sheet').textContent).toContain('Star Tech Ltd');
+    expect(screen.getByTestId('po-sheet').textContent).toContain('7000.00');
+    for (const id of ['po-print', 'po-download-pdf', 'po-share-whatsapp']) expect(screen.getByTestId(id)).toBeTruthy();
+  });
+
+  it('turns a saved Bangladeshi number into a WhatsApp number', () => {
+    expect(whatsAppNumber('01711-204488')).toBe('8801711204488');
+    expect(whatsAppNumber('+880 1711 204488')).toBe('8801711204488');
+    expect(whatsAppNumber(null)).toBeNull();
+    expect(whatsAppNumber('12')).toBeNull();
   });
 });

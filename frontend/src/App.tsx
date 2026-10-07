@@ -13,6 +13,7 @@ import SuppliersPage from './procurement/SuppliersPage';
 import PurchasingPage from './procurement/PurchasingPage';
 import PurchaseOrderFormPage from './procurement/PurchaseOrderFormPage';
 import PurchaseOrderDetailPage from './procurement/PurchaseOrderDetailPage';
+import PurchaseOrderPrintPage from './procurement/PurchaseOrderPrintPage';
 import StockItemFormPage from './product/StockItemFormPage';
 import StockItemImportPage from './product/StockItemImportPage';
 import SellableProductsPage from './product/SellableProductsPage';
@@ -82,6 +83,7 @@ export default function App(): React.JSX.Element {
         <Route path="/purchasing/purchases" element={<PurchasingPage tab="orders" />} />
         <Route path="/purchasing/purchases/new" element={<PurchaseOrderFormPage mode="create" />} />
         <Route path="/purchasing/purchases/:id" element={<PurchaseOrderDetailPage />} />
+        <Route path="/purchasing/purchases/:id/print" element={<PurchaseOrderPrintPage />} />
         <Route path="/purchasing/purchases/:id/edit" element={<PurchaseOrderFormPage mode="edit" />} />
         <Route path="/purchasing/receipts" element={<PurchasingPage tab="receipts" />} />
 
