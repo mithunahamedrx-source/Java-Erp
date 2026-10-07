@@ -31,6 +31,7 @@ function stub(permissions: string[], order: Record<string, unknown>, calls: stri
     if (url.includes('/api/auth/me')) return json({ id: 'u', username: 'm', fullName: 'M', roles: [], permissions });
     if (url.includes('/api/auth/csrf')) return new Response(null, { status: 204 });
     if (init?.method === 'POST') return new Response(null, { status: 204 });
+    if (url.includes('/api/product/stock-items')) return json({ content: [{ id: 'v1', inventorySku: 'SKU-1', technicalName: 'SSD 512GB', inventoryCategory: 'SSD', physicalStock: '3', availableQuantity: '3', outOfStock: false, discontinued: false, recordStatus: 'ACTIVE', referenceCost: '700.0000' }], totalElements: 1, page: 0, size: 8, totalPages: 1 });
     if (url.includes('/api/procurement/suppliers')) return json({ content: [], totalElements: 0, page: 0, size: 100, totalPages: 1, kpis: {} });
     if (/purchase-orders\/p1/.test(url)) return json(DETAIL(order));
     if (url.includes('/api/procurement/purchase-orders'))
@@ -130,5 +131,18 @@ describe('Purchase Order form', () => {
     const save = (await screen.findByTestId('po-save')) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
     expect(screen.getByTestId('po-problem').textContent).toContain('supplier');
+  });
+  it('never offers discontinued items, shows the taka summary and has no currency choice', async () => {
+    const calls: string[] = [];
+    stub(['procurement.purchase-order.manage'], ORDER(), calls);
+    renderAt('/purchasing/purchases/new');
+    expect(screen.queryByTestId('po-currency')).toBeNull();
+    fireEvent.change(await screen.findByTestId('po-product-search'), { target: { value: 'ssd' } });
+    fireEvent.click(await screen.findByTestId('po-product-result'));
+    expect(calls.some((x) => x.includes('/api/product/stock-items') && x.includes('discontinued=false') && x.includes('status=ACTIVE'))).toBe(true);
+    fireEvent.change(screen.getByTestId('po-qty-0'), { target: { value: '4' } });
+    expect(screen.getByTestId('po-total').textContent).toContain('2800.00');
+    expect(screen.getByTestId('po-sum-lines').textContent).toBe('1');
+    expect(screen.getByTestId('po-sum-units').textContent).toBe('4');
   });
 });

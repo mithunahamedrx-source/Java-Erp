@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FormBox, messageOf, useDebounced } from '../masterdata/MasterDataParts';
 import { listSuppliers } from '../masterdata/masterDataApi';
@@ -13,16 +13,24 @@ import type { PurchaseOrderDetail } from './purchaseApi';
 /**
  * Create or amend a Purchase Order. A PAGE, never a modal: it is a multi-line workflow (`UX-151`).
  *
- * <p>Lines are Product Variants - Stock Items - never sellable products (`PRC-032`, `INV-66.1`). Quantity and unit cost
- * are typed as TEXT and sent as text; totals shown while typing are exact (`BigInt`), and the server recomputes
- * (`TEC-015`). A unit cost is never rounded for the person (`DB-079`).
+ * <p>Lines are Product Variants - Stock Items - never sellable products (`PRC-032`, `INV-66.1`). Quantity and unit cost are
+ * typed as TEXT and sent as text; totals shown while typing are exact (`BigInt`) and the server recomputes (`TEC-015`).
+ * A unit cost is never rounded for the person (`DB-079`). Every order is in taka: the business buys in BDT only, so there is
+ * no currency to choose.
  *
- * <p>Once an order is approved, an amendment needs a reason and the supplier's agreement (`PRC-023`, `PRC-026`); a draft
- * is edited freely. The supplier's currency is the default and each line carries it (`INV-66.3`).
+ * <p>The search never offers a DISCONTINUED or archived Stock Item (`PRD-207`): buying something the business has stopped
+ * selling is almost always a mistake. The right-hand summary only restates what has been typed; it decides nothing.
+ *
+ * <p>Once an order is approved, an amendment needs a reason and the supplier's agreement (`PRC-023`, `PRC-026`).
  */
-type Line = { key: number; productVariantId: string; sku: string; name: string; quantity: string; unitCost: string };
+type Line = { key: number; productVariantId: string; sku: string; name: string; category: string | null; onHand: string; quantity: string; unitCost: string };
 
+const CURRENCY = 'BDT';
 let nextKey = 1;
+
+const label: React.CSSProperties = { fontSize: '10.5px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--color-text-secondary)' };
+const selectStyle: React.CSSProperties = { height: '36px', borderRadius: '9px', padding: '0 12px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', background: 'var(--color-surface)', width: '100%', boxSizing: 'border-box' };
+const numberInput: React.CSSProperties = { height: '36px', borderRadius: '9px', padding: '0 10px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', textAlign: 'right', boxSizing: 'border-box', background: 'var(--color-surface)' };
 
 export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create' | 'edit' }): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +42,6 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
   const [supplierId, setSupplierId] = useState('');
   const [orderDate, setOrderDate] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
-  const [currency, setCurrency] = useState('');
   const [reference, setReference] = useState('');
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [reason, setReason] = useState('');
@@ -54,18 +61,18 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
       setSupplierId(detail.order.supplierId);
       setOrderDate(detail.order.orderDate);
       setExpectedDate(detail.order.expectedDate ?? '');
-      setCurrency(detail.order.currency);
       setReference(detail.order.supplierOrderReference ?? '');
-      setLines(detail.items.map((i) => ({ key: nextKey++, productVariantId: i.productVariantId, sku: i.sku, name: i.name,
+      setLines(detail.items.map((i) => ({ key: nextKey++, productVariantId: i.productVariantId, sku: i.sku, name: i.name, category: null, onHand: '',
         quantity: displayQuantity(i.quantityOrdered), unitCost: displayMoney(i.unitCost) })));
     }).catch((cause) => setError(messageOf(cause, 'The order could not be loaded.'))).finally(() => setLoading(false));
   }, [id, mode]);
 
   const approved = loaded != null && loaded.order.status !== 'DRAFT';
-  const supplierCurrency = suppliers.find((s) => s.id === supplierId)?.currency;
+  const supplier = suppliers.find((s) => s.id === supplierId) ?? null;
 
   const totals = lines.map((l) => lineTotal(l.quantity, l.unitCost));
   const orderTotal = lines.length > 0 ? sumTotals(totals) : '0';
+  const units = sumUnits(lines);
 
   const addProduct = (item: StockItem): void => {
     if (lines.some((l) => l.productVariantId === item.id)) {
@@ -74,7 +81,7 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
     }
     setError(null);
     setLines((current) => [...current, { key: nextKey++, productVariantId: item.id, sku: item.inventorySku, name: item.technicalName,
-      quantity: '1', unitCost: item.referenceCost ? displayMoney(item.referenceCost) : '' }]);
+      category: item.inventoryCategory, onHand: item.physicalStock, quantity: '1', unitCost: item.referenceCost ? displayMoney(item.referenceCost) : '' }]);
   };
   const change = (key: number, patch: Partial<Line>): void => setLines((current) => current.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
@@ -92,7 +99,7 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
     setError(null);
     try {
       const body = {
-        supplierId, orderDate: orderDate || null, expectedDate: expectedDate || null, currency: currency || null,
+        supplierId, orderDate: orderDate || null, expectedDate: expectedDate || null, currency: CURRENCY,
         supplierOrderReference: reference || null,
         items: lines.map((l) => ({ productVariantId: l.productVariantId, quantity: l.quantity.trim(), unitCost: l.unitCost.trim() })),
         reason: approved ? reason : null, supplierAgreed: approved ? agreed : null, version: loaded?.order.version ?? null,
@@ -116,6 +123,13 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
     return <Card><EmptyState title="This order can no longer be amended" guidance="Once the supplier has shipped, or the order is closed or cancelled, it is resolved by agreement with the supplier and the outcome recorded." /></Card>;
   }
 
+  const section = (title: string, hint?: string): React.JSX.Element => (
+    <div style={{ padding: '18px 22px 10px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 750 }}>{title}</div>
+      {hint ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{hint}</div> : null}
+    </div>
+  );
+
   return (
     <>
       <PageHeader
@@ -123,81 +137,167 @@ export default function PurchaseOrderFormPage({ mode }: { readonly mode: 'create
         breadcrumb={<><span>Inventory</span><span>/</span><Link to="/purchasing/purchases" style={{ color: 'inherit' }}>Purchasing</Link><span>/</span><span style={{ fontWeight: 600 }}>{mode === 'create' ? 'New' : 'Amend'}</span></>}
         subtitle="Procurement buys Stock Items - physical things - never sellable products"
       />
-      <Card>
-        <div style={{ padding: '22px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px 24px' }}>
-          <FormBox label="Supplier" testId="po-supplier" value={supplierId} onChange={setSupplierId} required>
-            <select data-testid="po-supplier" value={supplierId} onChange={(event) => { setSupplierId(event.target.value); setCurrency(''); }} style={selectStyle}>
-              <option value="">Choose a supplier</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </FormBox>
-          <FormBox label="Order date" testId="po-order-date" value={orderDate} onChange={setOrderDate} type="date" hint="Today if left empty" />
-          <FormBox label="Expected date" testId="po-expected-date" value={expectedDate} onChange={setExpectedDate} type="date" />
-          <FormBox label="Currency" testId="po-currency" value={currency} onChange={setCurrency} hint={`Each line carries it - ${supplierCurrency ? `${supplierCurrency} if left empty` : 'the supplier’s if left empty'}`} />
-          <FormBox label="Supplier order reference" testId="po-reference" value={reference} onChange={setReference} wide={false} />
-        </div>
-
-        <div style={{ padding: '0 22px 6px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--color-text-secondary)' }}>LINES</div>
-        <div style={{ padding: '0 22px' }}>
-          <ProductPicker onPick={addProduct} />
-          {lines.length === 0 ? (
-            <div data-testid="po-no-lines" style={{ padding: '18px 4px', fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>No lines yet - search a product above to add it.</div>
-          ) : (
-            <div data-testid="po-lines" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-              {lines.map((l, index) => (
-                <div key={l.key} data-testid="po-line" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-border-card)', flexWrap: 'nowrap' }}>
-                  <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
-                    <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-family-mono)' }}>{l.sku}</div>
-                  </div>
-                  <label style={smallLabel}>Quantity
-                    <input data-testid={`po-qty-${index}`} value={l.quantity} onChange={(event) => change(l.key, { quantity: event.target.value })} style={{ ...numberInput, width: '90px' }} inputMode="decimal" />
-                  </label>
-                  <label style={smallLabel}>Unit cost
-                    <input data-testid={`po-cost-${index}`} value={l.unitCost} onChange={(event) => change(l.key, { unitCost: event.target.value })} style={{ ...numberInput, width: '120px' }} inputMode="decimal" />
-                  </label>
-                  <div style={{ width: '120px', textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: '10px', color: 'var(--color-text-demoted)' }}>Line total</div>
-                    <div className="tabular-nums" data-testid={`po-line-total-${index}`} style={{ fontSize: '13px', fontWeight: 700 }}>{totals[index] ? displayMoney(totals[index]) : '—'}</div>
-                  </div>
-                  <button type="button" aria-label={`Remove ${l.sku}`} data-testid={`po-remove-${index}`} onClick={() => setLines((current) => current.filter((x) => x.key !== l.key))}
-                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '18px', color: 'var(--color-text-secondary)' }}>×</button>
-                </div>
-              ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '20px', alignItems: 'start' }}>
+        {/* ------------------------------------------------------------------ main column */}
+        <div style={{ display: 'grid', gap: '16px', minWidth: 0 }}>
+          <Card>
+            {section('Order details', 'Who you are buying from and when')}
+            <div style={{ padding: '0 22px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
+              <FormBox label="Supplier" testId="po-supplier" value={supplierId} onChange={setSupplierId} required wide>
+                <select data-testid="po-supplier" value={supplierId} onChange={(event) => setSupplierId(event.target.value)} style={selectStyle}>
+                  <option value="">Choose a supplier</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </FormBox>
+              <FormBox label="Order date" testId="po-order-date" value={orderDate} onChange={setOrderDate} type="date" hint="Today if left empty" />
+              <FormBox label="Expected delivery" testId="po-expected-date" value={expectedDate} onChange={setExpectedDate} type="date" hint="When you expect the goods" />
+              <FormBox label="Supplier’s own reference" testId="po-reference" value={reference} onChange={setReference} wide hint="Their quotation or invoice number, if they gave one" />
             </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px', fontSize: '14px' }}>
-          <span style={{ fontWeight: 600, marginRight: '12px' }}>Order value</span>
-          <span className="tabular-nums" data-testid="po-total" style={{ fontWeight: 850 }}>{currency || supplierCurrency || 'BDT'} {orderTotal ? displayMoney(orderTotal) : '—'}</span>
+          </Card>
+
+          <Card>
+            {section('Products', 'Search a Stock Item to add it. Discontinued and archived items are not offered.')}
+            <div style={{ padding: '0 22px 18px' }}>
+              <ProductPicker onPick={addProduct} />
+              {lines.length === 0 ? (
+                <div data-testid="po-no-lines" style={{ margin: '14px 0 4px', padding: '28px 16px', borderRadius: '12px', border: '1px dashed var(--color-border-control)', textAlign: 'center', fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>
+                  No lines yet - search a product above to add it.
+                </div>
+              ) : (
+                <div data-testid="po-lines" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                  {lines.map((l, index) => (
+                    <div key={l.key} data-testid="po-line" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--color-border-card)', background: 'var(--color-surface)', flexWrap: 'nowrap' }}>
+                      <span aria-hidden="true" style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--color-tab-container)', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{index + 1}</span>
+                      <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ fontFamily: 'var(--font-family-mono)' }}>{l.sku}</span>{l.category ? ` · ${l.category}` : ''}{l.onHand !== '' ? ` · ${displayQuantity(l.onHand)} on hand` : ''}
+                        </div>
+                      </div>
+                      <label style={{ display: 'grid', gap: '2px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-text-demoted)' }}>QUANTITY</span>
+                        <input data-testid={`po-qty-${index}`} aria-label={`Quantity of ${l.sku}`} value={l.quantity} onChange={(event) => change(l.key, { quantity: event.target.value })} style={{ ...numberInput, width: '88px' }} inputMode="decimal" />
+                      </label>
+                      <label style={{ display: 'grid', gap: '2px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-text-demoted)' }}>UNIT COST (৳)</span>
+                        <input data-testid={`po-cost-${index}`} aria-label={`Unit cost of ${l.sku}`} value={l.unitCost} onChange={(event) => change(l.key, { unitCost: event.target.value })} style={{ ...numberInput, width: '120px' }} inputMode="decimal" />
+                      </label>
+                      <div style={{ width: '124px', textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-text-demoted)' }}>LINE TOTAL</div>
+                        <div className="tabular-nums" data-testid={`po-line-total-${index}`} style={{ fontSize: '14px', fontWeight: 750, marginTop: '6px' }}>{totals[index] ? displayMoney(totals[index]) : '—'}</div>
+                      </div>
+                      <button type="button" aria-label={`Remove ${l.sku}`} data-testid={`po-remove-${index}`} onClick={() => setLines((current) => current.filter((x) => x.key !== l.key))}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '20px', lineHeight: 1, color: 'var(--color-text-secondary)', flexShrink: 0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {approved ? (
+            <Card>
+              {section('Changing an approved order', 'The supplier has to agree, and the reason is kept in the order’s history')}
+              <div style={{ padding: '0 22px 20px', display: 'grid', gap: '12px' }}>
+                <FormBox label="Reason for the change" testId="po-reason" value={reason} onChange={setReason} required wide />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
+                  <input type="checkbox" data-testid="po-agreed" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
+                  The supplier agreed to this change
+                </label>
+              </div>
+            </Card>
+          ) : null}
         </div>
 
-        {approved ? (
-          <div style={{ padding: '0 22px 16px', display: 'grid', gap: '12px' }}>
-            <FormBox label="Reason for the change" testId="po-reason" value={reason} onChange={setReason} required wide />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
-              <input type="checkbox" data-testid="po-agreed" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
-              The supplier agreed to this change
-            </label>
+        {/* ------------------------------------------------------------------ summary sidebar */}
+        <aside data-testid="po-summary" style={{ position: 'sticky', top: '16px', display: 'grid', gap: '14px' }}>
+          <Card>
+            <div style={{ padding: '18px 20px', display: 'grid', gap: '14px' }}>
+              <div style={label}>ORDER SUMMARY</div>
+              <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+                <Row k="Lines" v={String(lines.length)} testId="po-sum-lines" />
+                <Row k="Total units" v={units ?? '—'} testId="po-sum-units" />
+                <Row k="Currency" v={`${CURRENCY} (taka)`} />
+              </div>
+              <div style={{ borderTop: '1px solid var(--color-border-card)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontSize: '13px', fontWeight: 650 }}>Order value</span>
+                <span className="tabular-nums" data-testid="po-total" style={{ fontSize: '20px', fontWeight: 850 }}>৳ {orderTotal ? displayMoney(orderTotal) : '—'}</span>
+              </div>
+              {lines.length > 0 ? (
+                <div data-testid="po-sum-lines-list" style={{ display: 'grid', gap: '6px', borderTop: '1px solid var(--color-border-card)', paddingTop: '12px' }}>
+                  {lines.map((l, i) => (
+                    <div key={l.key} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px' }}>
+                      <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-text-secondary)' }}>{l.quantity || '0'} × {l.sku}</span>
+                      <span className="tabular-nums" style={{ fontWeight: 650, flexShrink: 0 }}>{totals[i] ? displayMoney(totals[i]) : '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ padding: '18px 20px', display: 'grid', gap: '10px' }}>
+              <div style={label}>SUPPLIER</div>
+              {supplier ? (
+                <div data-testid="po-sum-supplier" style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{supplier.name}</div>
+                  {supplier.contactName ? <Row k="Contact" v={supplier.contactName} /> : null}
+                  {supplier.phone ? <Row k="Phone" v={supplier.phone} /> : null}
+                  {supplier.email ? <Row k="Email" v={supplier.email} /> : null}
+                  {supplier.address ? <Row k="Address" v={supplier.address} /> : null}
+                </div>
+              ) : <div style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>No supplier chosen yet.</div>}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ padding: '18px 20px', display: 'grid', gap: '8px', fontSize: '13px' }}>
+              <div style={label}>DATES &amp; APPROVAL</div>
+              <Row k="Order date" v={orderDate || 'Today'} />
+              <Row k="Expected" v={expectedDate || 'Not set'} />
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>
+                {approved ? 'This order is approved. A change needs the supplier’s agreement and is recorded with its reason.'
+                  : 'A new order waits for approval. Someone other than its creator approves it - the Owner may approve their own. It writes no stock and no payable.'}
+              </div>
+            </div>
+          </Card>
+
+          {error ? <div role="alert" data-testid="po-error" style={{ color: 'var(--color-destructive)', fontSize: '12.5px', fontWeight: 600 }}>{error}</div> : null}
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <Button variant="primary" size="button" onClick={() => void save()} disabled={busy || problem !== null} testId="po-save">{busy ? 'Saving…' : mode === 'create' ? 'Create order' : 'Save changes'}</Button>
+            {problem ? <span data-testid="po-problem" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{problem}</span> : null}
+            <Link to={mode === 'edit' && id ? `/purchasing/purchases/${id}` : '/purchasing/purchases'} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)', textAlign: 'center' }}>Cancel</Link>
           </div>
-        ) : null}
-
-        {error ? <div role="alert" data-testid="po-error" style={{ padding: '0 22px 14px', color: 'var(--color-destructive)', fontSize: '12.5px', fontWeight: 600 }}>{error}</div> : null}
-        <div style={{ display: 'flex', gap: 'var(--space-3)', padding: '0 22px 22px', alignItems: 'center' }}>
-          <Button variant="primary" size="button" onClick={() => void save()} disabled={busy || problem !== null} testId="po-save">{busy ? 'Saving…' : mode === 'create' ? 'Create order' : 'Save changes'}</Button>
-          <Link to={mode === 'edit' && id ? `/purchasing/purchases/${id}` : '/purchasing/purchases'} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Cancel</Link>
-          {problem ? <span data-testid="po-problem" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{problem}</span> : null}
-        </div>
-      </Card>
+        </aside>
+      </div>
     </>
   );
 }
 
-const selectStyle: React.CSSProperties = { height: '36px', borderRadius: '9px', padding: '0 12px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', background: 'var(--color-surface)', width: '100%' };
-const numberInput: React.CSSProperties = { height: '34px', borderRadius: '9px', padding: '0 10px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', textAlign: 'right', boxSizing: 'border-box' };
-const smallLabel: React.CSSProperties = { display: 'grid', gap: '2px', fontSize: '10px', color: 'var(--color-text-demoted)', flexShrink: 0 };
+function Row({ k, v, testId }: { readonly k: string; readonly v: string; readonly testId?: string }): React.JSX.Element {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+      <span style={{ color: 'var(--color-text-secondary)' }}>{k}</span>
+      <span data-testid={testId} className="tabular-nums" style={{ fontWeight: 650, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{v}</span>
+    </div>
+  );
+}
 
-/** Searches the Stock Items by word and offers the matches; choosing one adds it as a line. */
+/** Sum of the quantities typed, exactly; `null` while any is not a number. */
+function sumUnits(lines: readonly Line[]): string | null {
+  let sum = 0n;
+  for (const l of lines) {
+    const m = /^(\d+)(?:\.(\d{1,4}))?$/.exec(l.quantity.trim());
+    if (!m) return null;
+    sum += BigInt((m[1] ?? '0') + (m[2] ?? '').padEnd(4, '0'));
+  }
+  const digits = sum.toString().padStart(5, '0');
+  const fraction = digits.slice(-4).replace(/0+$/, '');
+  return fraction ? `${digits.slice(0, -4)}.${fraction}` : digits.slice(0, -4);
+}
+
+/** Searches the Stock Items by word and offers the matches; choosing one adds it as a line. Discontinued items are never offered. */
 function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void }): React.JSX.Element {
   const [text, setText] = useState('');
   const query = useDebounced(text);
@@ -211,30 +311,32 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
       return;
     }
     let live = true;
-    void listStockItems({ search: query }, 0, 8, 'technicalName', 'ASC').then((page) => {
-      if (live) { setResults(page.content.filter((i) => i.recordStatus !== 'ARCHIVED')); setSearched(true); }
+    void listStockItems({ search: query, status: 'ACTIVE', discontinued: 'hide' }, 0, 8, 'technicalName', 'ASC').then((page) => {
+      // The "closest items" the search recommends when nothing matches exactly are not what the person typed - not offered here.
+      if (live) { setResults(page.recommended ? [] : page.content.filter((i) => !i.discontinued && i.recordStatus === 'ACTIVE')); setSearched(true); }
     }).catch(() => { if (live) { setResults([]); setSearched(true); } });
     return () => { live = false; };
   }, [query]);
 
-  const hint = useMemo(() => (searched && results.length === 0 ? 'No product matches. Stock Items are created under Products.' : null), [searched, results]);
-
   return (
     <div style={{ position: 'relative' }}>
-      <input data-testid="po-product-search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search a product by name or SKU to add a line" aria-label="Search a product"
-        style={{ width: '100%', height: '38px', borderRadius: '10px', padding: '0 12px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+      <input data-testid="po-product-search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Search a product by name, SKU or barcode" aria-label="Search a product"
+        style={{ width: '100%', height: '40px', borderRadius: '10px', padding: '0 14px', border: '1px solid var(--color-border-control)', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--color-surface)' }} />
       {results.length > 0 ? (
-        <div data-testid="po-product-results" style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, top: '42px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: '10px', boxShadow: '0 12px 30px oklch(0 0 0 / 0.12)', overflow: 'hidden' }}>
+        <div data-testid="po-product-results" style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, top: '44px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: '10px', boxShadow: '0 12px 30px oklch(0 0 0 / 0.12)', overflow: 'hidden' }}>
           {results.map((item) => (
             <button key={item.id} type="button" data-testid="po-product-result" onClick={() => { onPick(item); setText(''); setResults([]); }}
-              style={{ display: 'flex', width: '100%', gap: '12px', alignItems: 'center', padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--color-border-card)', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              style={{ display: 'flex', width: '100%', gap: '12px', alignItems: 'center', padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--color-border-card)', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               <span style={{ fontFamily: 'var(--font-family-mono)', fontSize: '11.5px', fontWeight: 700, width: '90px', flexShrink: 0 }}>{item.inventorySku}</span>
-              <span style={{ flex: 1, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.technicalName}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.technicalName}</span>
+              <span className="tabular-nums" style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', flexShrink: 0 }}>
+                {displayQuantity(item.physicalStock)} on hand{item.referenceCost ? ` · ৳ ${displayMoney(item.referenceCost)}` : ''}
+              </span>
             </button>
           ))}
         </div>
       ) : null}
-      {hint ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>{hint}</div> : null}
+      {searched && results.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>No active product matches. Discontinued items are not offered.</div> : null}
     </div>
   );
 }
