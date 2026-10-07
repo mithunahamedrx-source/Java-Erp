@@ -321,7 +321,7 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
       return;
     }
     let live = true;
-    void listStockItems({ search: query.trim(), discontinued: 'hide' }, 0, 12, 'technicalName', 'ASC').then((page) => {
+    void listStockItems({ search: query.trim(), discontinued: 'hide' }, 0, 10, 'cost', 'ASC').then((page) => {
       // When nothing matches exactly the server offers the closest items; they are shown, labelled, so the person can still find what they mean.
       if (live) { setResults(page.content.filter((i) => !i.discontinued && i.recordStatus !== 'ARCHIVED')); setClosest(page.recommended === true); setSearched(true); }
     }).catch(() => { if (live) { setResults([]); setSearched(true); } });
@@ -337,7 +337,7 @@ function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void 
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }}><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {results.length > 0 ? (
-        <div data-testid="po-product-results" style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, top: '44px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: '10px', boxShadow: '0 12px 30px oklch(0 0 0 / 0.12)', overflow: 'hidden' }}>
+        <div data-testid="po-product-results" style={{ marginTop: '6px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', borderRadius: '10px', overflow: 'hidden' }}>
           {closest ? <div data-testid="po-product-closest" style={{ padding: '8px 14px', fontSize: '11.5px', fontWeight: 700, background: 'var(--color-tab-container)', color: 'var(--color-text-secondary)' }}>No exact match - closest products</div> : null}
           {results.map((item) => (
             <button key={item.id} type="button" data-testid="po-product-result" onClick={() => { onPick(item); setText(''); setResults([]); setOpen(false); }}
