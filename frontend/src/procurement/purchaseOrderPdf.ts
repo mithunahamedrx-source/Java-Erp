@@ -6,7 +6,33 @@
  */
 export async function sheetToPdf(sheet: HTMLElement): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
-  const canvas = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  // The sheet is photographed in a bare frame of its own. The application's styles use colours (oklch) that the photographing
+  // library cannot read; the sheet itself is styled inline in plain colours, so it needs nothing from them.
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:900px;height:1400px;border:0;';
+  document.body.appendChild(frame);
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) throw new Error('The PDF could not be prepared.');
+    doc.open();
+    doc.write('<!doctype html><html><head><meta charset="utf-8">'
+      + '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">'
+      + '</head><body style="margin:0;background:#ffffff"></body></html>');
+    doc.close();
+    const copy = doc.importNode(sheet, true) as HTMLElement;
+    copy.style.boxShadow = 'none';
+    doc.body.appendChild(copy);
+    await Promise.race([doc.fonts.ready, new Promise((resolve) => setTimeout(resolve, 2500))]);
+    await Promise.all(Array.from(copy.querySelectorAll('img')).map((img) => (img.complete ? Promise.resolve() : new Promise((resolve) => { img.onload = img.onerror = () => resolve(null); }))));
+    const canvas = await html2canvas(copy, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 900 });
+    return toPdf(canvas, jsPDF);
+  } finally {
+    frame.remove();
+  }
+}
+
+function toPdf(canvas: HTMLCanvasElement, jsPDF: typeof import('jspdf').jsPDF): Blob {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const pageWidth = 210;
   const pageHeight = 297;
