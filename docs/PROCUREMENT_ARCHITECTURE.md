@@ -1,7 +1,7 @@
 # Procurement Architecture
 
 **Owner:** Trioloo Technology · **Module:** Procurement · **Status:** Canonical
-**Version:** 1.4.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-07 (**`PRC-070` — Supplier Ledger first slice**) · **Amended:** 2026-10-06 (**`PRC-067.e` — supplier purchase figures**) · **Amended:** 2026-10-06 (**`PRC-068`/`PRC-069` — Purchase Order implemented**) · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
+**Version:** 1.5.0 · **Ratified:** 2026-08-08 · **Amended:** 2026-10-07 (**`PRC-071` — Goods Receipt first slice; cancel until received**) · **Amended:** 2026-10-07 (**`PRC-070` — Supplier Ledger first slice**) · **Amended:** 2026-10-06 (**`PRC-067.e` — supplier purchase figures**) · **Amended:** 2026-10-06 (**`PRC-068`/`PRC-069` — Purchase Order implemented**) · **Amended:** 2026-10-06 (**`PRC-067` — Supplier master data implemented**) · **Rule prefix:** `PRC-`
 
 ---
 
@@ -176,6 +176,16 @@ The business drew this boundary itself, and §18 contains **both sides of it**:
 > **a.** ✅ It is reached from the supplier's row menu (`Supplier ledger`) at `/purchasing/suppliers/{id}/ledger`, needs only `procurement.supplier.view`, and is a READ: it stores nothing and changes nothing.
 > **b.** ✅ It can be filtered by **date range** (with quick today / this week / this month) and by **transaction type** (the seven of `PRC-052` plus the purchase-order memo). **Print ledger** prints exactly the entries the filters select, on an A4 sheet that states the filters applied.
 > **c.** 🔴 **A purchase order is a commitment and never moves the balance** (`PRC-068.e`). Until goods receipts and supplier payments exist, orders appear only as MEMO lines ("Ordered"), the debit, credit and balance columns stay empty, and the **outstanding balance is withheld ("—"), never shown as zero** (`PRC-067.b`). When those records exist they feed this same view.
+
+> **PRC-071 — ✅ THE GOODS RECEIPT IS IMPLEMENTED: ACCEPTED GOODS ENTER STOCK AT THEIR COST, AND NO PAYABLE IS CREATED YET. Ratified 2026-10-07 on explicit business decision.** It applies `PRC-003`, `PRC-018`, `PRC-030`, `PRC-031`, `PRC-034`, `PRC-036`, `PRC-037`, `PRC-038`, `PRC-040`, `PRC-044`–`PRC-046` - nothing more.
+>
+> **a.** ✅ A receipt carries a supplier, an optional purchase order (a direct purchase is first-class), an optional warehouse, the received date, the supplier's invoice or challan reference (evidence only), a note and lines. Its number is `GR-YYYY-NNNN`, issued from a counter and never reused. Every figure is in taka.
+> **b.** ✅ **Receiving is line-level and partial** (`PRC-030`). Each line records the quantity RECEIVED and the quantity ACCEPTED, at a unit cost (prefilled from the order). Goods not accepted need one of the four discrepancy types - **Shortage · Wrong item · Damaged · Excess** (`PRC-038`) - are held, are not sellable and enter no stock and no cost (`PRC-034`).
+> **c.** 🔴 **Accepting writes an `inventory_movement` of type `GOODS_RECEIPT_ACCEPTED` carrying the unit cost**; that movement alone moves stock and feeds the weighted average (`IVN-038`, `ICO-001`, `ICO-033`, `PRC-046`). No stock level or cost is stored on the receipt (`DB-001`).
+> **d.** ✅ **Recording and accepting are separate capabilities** (`PRC-036`, `PRM-101`): `procurement.goods-receipt.record` records what arrived; accepting any quantity into stock also needs `procurement.goods-receipt.accept`. Who recorded and who accepted are captured when each happens.
+> **e.** ✅ Against a purchase order, accepted quantity never exceeds what is still to come on that line (`PRC-040`): the extra is an EXCESS discrepancy (accepting excess by agreement is not built). The order moves to Partially received and then Received from what has been accepted, and its history records each receipt. An order can receive goods only once it is approved.
+> **f.** ✅ **Cancelling an order is open until goods are received.** This NARROWS `PRC-023` for cancellation only (owner decision 2026-10-07): the supplier having shipped no longer stops a cancellation - an approved order is still cancelled only with a reason and the supplier's agreement - but once any goods are received against the order it can no longer be cancelled. **Amending still closes when the supplier ships.**
+> **g.** 🔴 A receipt has no state and no edit (`PRC-037`); a wrong one is corrected by a linked adjustment (`PRC-006`), which is not built. **No supplier payable is created, and nothing is posted to accounts** (`PRC-047`): the payable, supplier payments and the ledger's debit, credit and balance follow later.
 
 ## 4.1 ⚠ Per-supplier commercial terms — `GAP-079`
 
@@ -636,6 +646,7 @@ Three of the eleven confirmed V1 reports read procurement-owned facts (`SYS-087`
 
 | Version | Date | Change |
 |---|---|---|
+| **1.5.0** | **2026-10-07** | ✅ **`PRC-071`** - Goods Receipt first slice (line-level, partial, accept-writes-stock-at-cost, no payable yet); a purchase order may be cancelled until goods are received. Migration `V46`. |
 | **1.4.0** | **2026-10-07** | ✅ **`PRC-070`** - Supplier Ledger first slice: opened from the supplier, filtered by date and type, printed on A4; purchase orders are memo lines only. No migration. |
 | **1.3.1** | **2026-10-06** | ✅ **`PRC-067.e`** - supplier total purchase and total due on the Suppliers list; period and further filters. No migration. |
 | **1.3.0** | **2026-10-06** | ✅ **PURCHASE ORDER — `PRC-068`, `PRC-069`, on explicit business decision.** The order is a commitment with an approval, a recorded supplier shipment and an immutable history; the Owner may approve their own order. 🔴 No existing rule amended. Migration `V45`. |

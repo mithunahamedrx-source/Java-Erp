@@ -28,6 +28,7 @@ export default function PurchaseOrderDetailPage(): React.JSX.Element {
   const permissions = session.status === 'authenticated' ? session.user.permissions : [];
   const mayManage = permissions.includes('procurement.purchase-order.manage');
   const mayApprove = permissions.includes('procurement.purchase-order.approve');
+  const mayReceive = permissions.includes('procurement.goods-receipt.record');
 
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,11 +75,12 @@ export default function PurchaseOrderDetailPage(): React.JSX.Element {
         actions={
           <>
             <Button variant="secondary" size="page-header" onClick={() => navigate(`/purchasing/purchases/${o.id}/print`)} testId="po-print-open">Print / PDF</Button>
+            {mayReceive && ['APPROVED', 'SENT', 'PARTIALLY_RECEIVED'].includes(o.status) ? <Button variant="primary" size="page-header" onClick={() => navigate(`/purchasing/receipts/new?order=${o.id}`)} testId="po-receive">Record goods received</Button> : null}
             {mayApprove && o.status === 'DRAFT' ? <Button variant="primary" size="page-header" onClick={() => void act(() => approvePurchaseOrder(o.id), 'Approved.')} testId="po-approve">Approve</Button> : null}
             {mayManage && o.status === 'APPROVED' ? <Button variant="primary" size="page-header" onClick={() => void act(() => sendPurchaseOrder(o.id), 'Marked as sent to the supplier.')} testId="po-send">Mark as sent</Button> : null}
             {mayManage && o.amendable ? <Button variant="secondary" size="page-header" onClick={() => navigate(`/purchasing/purchases/${o.id}/edit`)} testId="po-edit">{o.status === 'DRAFT' ? 'Edit' : 'Amend'}</Button> : null}
             {mayManage && (o.status === 'APPROVED' || o.status === 'SENT') && !o.supplierShipped ? <Button variant="secondary" size="page-header" onClick={() => setDialog('shipped')} testId="po-shipped">Record supplier shipment</Button> : null}
-            {mayManage && o.amendable ? <Button variant="secondary" size="page-header" onClick={() => setDialog('cancel')} testId="po-cancel">Cancel order</Button> : null}
+            {mayManage && o.cancellable ? <Button variant="secondary" size="page-header" onClick={() => setDialog('cancel')} testId="po-cancel">Cancel order</Button> : null}
           </>
         }
       />
@@ -97,7 +99,7 @@ export default function PurchaseOrderDetailPage(): React.JSX.Element {
           ['SUPPLIER', o.supplierName], ['ORDER VALUE', `${o.currency} ${displayMoney(o.total)}`],
           ['EXPECTED', o.expectedDate ?? '—'], ['SUPPLIER REFERENCE', o.supplierOrderReference ?? '—'],
           ['CREATED BY', o.createdBy ?? '—'], ['APPROVED BY', o.approvedBy ?? 'Not yet approved'],
-          ['SUPPLIER SHIPMENT', o.supplierShipped ? 'Shipped or confirmed - locked' : 'Not shipped'], ['RECEIVED', `0 of ${o.lines} line${o.lines === 1 ? '' : 's'}`],
+          ['SUPPLIER SHIPMENT', o.supplierShipped ? 'Shipped or confirmed - cannot be amended' : 'Not shipped'], ['RECEIVED', `${o.linesReceived} of ${o.lines} line${o.lines === 1 ? '' : 's'}`],
         ].map(([label, value]) => (
           <div key={label} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--color-surface)', border: '1px solid var(--color-border-card)', boxShadow: 'var(--elevation-card)', minWidth: 0 }}>
             <div style={{ fontSize: '10.5px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--color-text-secondary)' }}>{label}</div>
@@ -139,7 +141,7 @@ export default function PurchaseOrderDetailPage(): React.JSX.Element {
       </div>
 
       {dialog === 'shipped' ? (
-        <ConfirmDialog title="Record supplier shipment" consequence="Record that the supplier has shipped or confirmed shipment. From then on this order can no longer be amended or cancelled here - changes are resolved by agreement with the supplier."
+        <ConfirmDialog title="Record supplier shipment" consequence="Record that the supplier has shipped or confirmed shipment. From then on this order can no longer be amended here - changes are resolved by agreement with the supplier. It can still be cancelled until goods are received."
           confirmLabel="Record shipment" testId="po-shipped-dialog" onCancel={() => setDialog(null)}
           onConfirm={() => { setDialog(null); void act(() => recordSupplierShipment(o.id), 'The supplier’s shipment is recorded.'); }} />
       ) : null}
@@ -172,7 +174,7 @@ function CancelDialog({ order, onClose, onDone }: { readonly order: PurchaseOrde
     }
   };
   return (
-    <ConfirmDialog title={`Cancel ${order.order.poNumber}`} consequence="The order number is kept and the cancellation is recorded with who and why. An approved order is cancelled only with the supplier’s agreement."
+    <ConfirmDialog title={`Cancel ${order.order.poNumber}`} consequence="The order number is kept and the cancellation is recorded with who and why. An approved order is cancelled only with the supplier’s agreement, and only until goods are received."
       confirmLabel="Cancel order" cancelLabel="Keep order" destructive busy={busy} error={error} testId="po-cancel-dialog"
       confirmDisabled={reason.trim() === '' || (!draft && !agreed)} confirmDisabledReason={reason.trim() === '' ? 'Say why - a cancellation records a reason.' : 'Confirm the supplier agreed.'}
       onConfirm={() => void submit()} onCancel={onClose}>

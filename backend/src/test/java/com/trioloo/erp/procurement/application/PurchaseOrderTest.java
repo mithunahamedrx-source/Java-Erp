@@ -64,6 +64,9 @@ class PurchaseOrderTest {
     }
 
     private void wipe() {
+        jdbc.update("DELETE FROM goods_receipt_item");
+        jdbc.update("DELETE FROM goods_receipt");
+        jdbc.update("DELETE FROM inventory_movement WHERE movement_type = 'GOODS_RECEIPT_ACCEPTED'");
         jdbc.update("DELETE FROM purchase_order_history");
         jdbc.update("DELETE FROM purchase_order_item");
         jdbc.update("DELETE FROM purchase_order");
@@ -214,7 +217,7 @@ class PurchaseOrderTest {
     }
 
     @Test
-    @DisplayName("PRC-023/024 — once the supplier has shipped (as a person records it) the order can be neither amended nor cancelled here")
+    @DisplayName("PRC-023/024 — once the supplier has shipped (as a person records it) the order can no longer be amended, but it can still be cancelled until goods arrive")
     void changeWindowClosesWhenGoodsMove() {
         UUID id = approvedOrder();
         orders.send(id);
@@ -225,12 +228,14 @@ class PurchaseOrderTest {
         var shipped = orders.detail(id);
         assertThat(shipped.order().supplierShipped()).isTrue();
         assertThat(shipped.order().amendable()).isFalse();
-        assertThatThrownBy(() -> orders.cancel(id, new PurchaseOrderService.CancelInput("Changed mind", true, null)))
-                .hasMessageContaining("shipped or confirmed shipment");
         assertThatThrownBy(() -> orders.update(id, new PurchaseOrderService.Input(supplierId, null, null, null, null, draft(itemA).items(), "x", true, null)))
                 .hasMessageContaining("no longer be amended");
         assertThatThrownBy(() -> orders.recordSupplierShipment(id)).hasMessageContaining("already recorded");
         assertThat(shipped.history()).extracting(PurchaseOrderService.HistoryEntry::action).containsExactly("CREATED", "APPROVED", "SENT", "SUPPLIER_SHIPPED");
+        // PRC-071.f (owner decision 2026-10-07): cancelling stays open until goods are RECEIVED, whether or not the supplier shipped.
+        assertThat(shipped.order().cancellable()).isTrue();
+        orders.cancel(id, new PurchaseOrderService.CancelInput("Changed mind", true, null));
+        assertThat(orders.detail(id).order().status()).isEqualTo("CANCELLED");
     }
 
     @Test

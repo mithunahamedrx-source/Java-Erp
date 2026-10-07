@@ -67,7 +67,7 @@ public class PurchaseOrderService {
     public record Row(UUID id, String poNumber, UUID supplierId, String supplierName, LocalDate orderDate, LocalDate expectedDate,
                       String currency, String supplierOrderReference, String status, long lines, @MonetaryAmount BigDecimal total,
                       boolean supplierShipped, boolean amendable, String createdBy, String approvedBy, Instant createdAt,
-                      Instant updatedAt, long version) {
+                      Instant updatedAt, long version, boolean cancellable, long linesReceived) {
     }
 
     /** The supplier's contact details as the printable and the WhatsApp message need them; read-only. */
@@ -108,6 +108,9 @@ public class PurchaseOrderService {
                    p.supplier_order_reference, p.status, p.supplier_shipped_at, p.created_at, p.updated_at, p.version,
                    (SELECT count(*) FROM purchase_order_item i WHERE i.purchase_order_id = p.id) AS lines,
                    coalesce((SELECT sum(i.quantity_ordered * i.unit_cost) FROM purchase_order_item i WHERE i.purchase_order_id = p.id), 0) AS total,
+                   EXISTS (SELECT 1 FROM goods_receipt g WHERE g.purchase_order_id = p.id) AS has_receipt,
+                   (SELECT count(*) FROM purchase_order_item i WHERE i.purchase_order_id = p.id
+                       AND coalesce((SELECT sum(g.quantity_accepted) FROM goods_receipt_item g WHERE g.purchase_order_item_id = i.id), 0) >= i.quantity_ordered) AS lines_received,
                    cu.full_name AS created_by, au.full_name AS approved_by
               FROM purchase_order p
               JOIN supplier s ON s.id = p.supplier_id
@@ -118,14 +121,24 @@ public class PurchaseOrderService {
     private static Row row(java.sql.ResultSet rs) throws java.sql.SQLException {
         String status = rs.getString("status");
         boolean shipped = rs.getTimestamp("supplier_shipped_at") != null;
+        boolean hasReceipt = rs.getBoolean("has_receipt");
         return new Row((UUID) rs.getObject("id"), rs.getString("po_number"), (UUID) rs.getObject("supplier_id"), rs.getString("supplier_name"),
                 rs.getObject("order_date", LocalDate.class), rs.getObject("expected_date", LocalDate.class), rs.getString("currency"),
                 rs.getString("supplier_order_reference"), status, rs.getLong("lines"), rs.getBigDecimal("total"), shipped,
-                isAmendable(status, shipped), rs.getString("created_by"), rs.getString("approved_by"),
-                rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(), rs.getLong("version"));
+                isAmendable(status, shipped) && !hasReceipt, rs.getString("created_by"), rs.getString("approved_by"),
+                rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(), rs.getLong("version"),
+                isCancellable(status) && !hasReceipt, rs.getLong("lines_received"));
     }
 
     /** {@code PRC-023}: amendable or cancellable only until the supplier ships or confirms shipment, and while no goods came in. */
+    /**
+     * {@code PRC-071.f} (owner decision 2026-10-07, narrowing {@code PRC-023} for cancellation only): an order may be CANCELLED any time
+     * before goods are received - the supplier having shipped does not stop it - and never after.
+     */
+    static boolean isCancellable(String status) {
+        return Set.of("DRAFT", "APPROVED", "SENT").contains(status);
+    }
+
     static boolean isAmendable(String status, boolean shipped) {
         return !shipped && Set.of("DRAFT", "APPROVED", "SENT").contains(status);
     }
@@ -174,11 +187,12 @@ public class PurchaseOrderService {
         }
         List<Item> items = jdbc.query("""
                 SELECT i.id, i.line_number, i.product_variant_id, v.inventory_sku, v.technical_name, i.quantity_ordered, i.unit_cost,
-                       i.currency, i.expected_date
+                       i.currency, i.expected_date,
+                       coalesce((SELECT sum(g.quantity_accepted) FROM goods_receipt_item g WHERE g.purchase_order_item_id = i.id), 0) AS accepted
                   FROM purchase_order_item i JOIN product_variant v ON v.id = i.product_variant_id
                  WHERE i.purchase_order_id = ? ORDER BY i.line_number
                 """, (rs, n) -> new Item((UUID) rs.getObject("id"), rs.getInt("line_number"), (UUID) rs.getObject("product_variant_id"),
-                        rs.getString("inventory_sku"), rs.getString("technical_name"), rs.getBigDecimal("quantity_ordered"), BigDecimal.ZERO,
+                        rs.getString("inventory_sku"), rs.getString("technical_name"), rs.getBigDecimal("quantity_ordered"), rs.getBigDecimal("accepted"),
                         rs.getBigDecimal("unit_cost"), rs.getBigDecimal("quantity_ordered").multiply(rs.getBigDecimal("unit_cost")),
                         rs.getString("currency"), rs.getObject("expected_date", LocalDate.class)), id);
         List<HistoryEntry> history = jdbc.query("""
@@ -224,6 +238,7 @@ public class PurchaseOrderService {
         PoState state = lockedState(id);
         requireVersion(state, input.version());
         requireChangeWindow(state, "amended");
+        requireNoReceipt(id);
         String currency = currencyFor(input);
         validateHeader(input);
         List<ItemInput> items = validatedItems(input.items());
@@ -299,7 +314,7 @@ public class PurchaseOrderService {
         }
         jdbc.update("UPDATE purchase_order SET supplier_shipped_at = now(), supplier_shipped_by = ?, updated_at = now(), updated_by = ?, version = version + 1 WHERE id = ?",
                 actor.id(), actor.id(), id);
-        log(id, "SUPPLIER_SHIPPED", null, "The order can no longer be amended or cancelled here (PRC-023)", actor.id());
+        log(id, "SUPPLIER_SHIPPED", null, "The order can no longer be amended here (PRC-023); it can be cancelled until goods are received (PRC-071.f)", actor.id());
     }
 
     @Transactional
@@ -307,7 +322,7 @@ public class PurchaseOrderService {
         Actor actor = require(MANAGE);
         PoState state = lockedState(id);
         requireVersion(state, input.version());
-        requireChangeWindow(state, "cancelled");
+        requireCancelWindow(id, state);
         String reason = blank(input.reason());
         if (reason == null) {
             throw new IllegalArgumentException("A cancellation records why (PRC-026).");
@@ -348,6 +363,23 @@ public class PurchaseOrderService {
         if (state.shipped()) {
             throw new IllegalStateException("The supplier has shipped or confirmed shipment, so this order can no longer be " + verb
                     + " here. It is resolved by agreement with the supplier, and the outcome recorded (PRC-023).");
+        }
+    }
+
+    /** PRC-071.f - cancellable until goods are received, whether or not the supplier has shipped. */
+    private void requireCancelWindow(UUID id, PoState state) {
+        if (!isCancellable(state.status())) {
+            throw new IllegalStateException("This order is " + state.status().toLowerCase(Locale.ROOT).replace('_', ' ') + " and cannot be cancelled.");
+        }
+        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM goods_receipt WHERE purchase_order_id = ?)", Boolean.class, id))) {
+            throw new IllegalStateException("Goods have already been received against this order, so it can no longer be cancelled. "
+                    + "What was received stays; the rest is resolved with the supplier.");
+        }
+    }
+
+    private void requireNoReceipt(UUID id) {
+        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM goods_receipt WHERE purchase_order_id = ?)", Boolean.class, id))) {
+            throw new IllegalStateException("Goods have already been received against this order, so it can no longer be amended here.");
         }
     }
 

@@ -166,7 +166,7 @@ class ApplicationFoundationSmokeTest {
                 // E-004 / E-005 / E-025 - master data only; no stock figure, no balance.
                 "warehouse", "stock_location", "supplier",
                 // E-029 / E-066 - a commitment, never stock or a liability; history is append-only by code.
-                "purchase_order", "purchase_order_item", "purchase_order_history", "document_number_counter",
+                "purchase_order", "purchase_order_item", "purchase_order_history", "document_number_counter", "goods_receipt", "goods_receipt_item",
                 // E-039 Sales Invoice — the SNAPSHOT PRN-023 sources the printable from.
                 // 🔴 It holds a business position and is meant to: INV-39.2 requires the content
                 // preserved so the document reproduces years later, and PRN-022 makes it the

@@ -305,7 +305,7 @@ function sumUnits(lines: readonly Line[]): string | null {
 }
 
 /** Searches the Stock Items by word and offers the matches; choosing one adds it as a line. Discontinued items are never offered. */
-function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void }): React.JSX.Element {
+export function ProductPicker({ onPick }: { readonly onPick: (item: StockItem) => void }): React.JSX.Element {
   const [text, setText] = useState('');
   const query = useDebounced(text);
   const [results, setResults] = useState<readonly StockItem[]>([]);

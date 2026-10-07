@@ -94,12 +94,14 @@ export const stateTone = (state: string): { bg: string; fg: string; label: strin
 
 export type Column = { readonly label: string; readonly value: React.ReactNode };
 
-export function RecordCard({ testId, title, meta, columns, state, stateNote, actions, faded = false }: {
+export function RecordCard({ testId, title, meta, columns, state, stateLabel, stateNote, actions, faded = false }: {
   readonly testId: string;
   readonly title: string;
   readonly meta?: string | null;
   readonly columns: readonly Column[];
   readonly state: string;
+  /** Words for the pill when the tone is shared but the meaning differs. */
+  readonly stateLabel?: string;
   readonly stateNote?: string;
   readonly actions?: readonly MenuAction[];
   /** An archived record stays on the list but is visibly set back; its state and menu stay at full strength. */
@@ -124,7 +126,7 @@ export function RecordCard({ testId, title, meta, columns, state, stateNote, act
         </div>
       ))}
       <div style={{ width: '110px', flexShrink: 0, textAlign: 'right' }}>
-        <span data-testid="record-state" style={{ display: 'inline-flex', fontSize: '11.5px', fontWeight: 650, padding: '3px 10px', borderRadius: '999px', background: tone.bg, color: tone.fg }}>{tone.label}</span>
+        <span data-testid="record-state" style={{ display: 'inline-flex', fontSize: '11.5px', fontWeight: 650, padding: '3px 10px', borderRadius: '999px', background: tone.bg, color: tone.fg }}>{stateLabel ?? tone.label}</span>
         {stateNote ? <div style={{ fontSize: '10.5px', color: 'var(--color-text-demoted)', marginTop: '3px' }}>{stateNote}</div> : null}
       </div>
       {actions && actions.length > 0 ? (

@@ -14,6 +14,8 @@ export type PurchaseOrder = {
   readonly supplierOrderReference: string | null; readonly status: PurchaseOrderStatus; readonly lines: number; readonly total: string;
   readonly supplierShipped: boolean; readonly amendable: boolean; readonly createdBy: string | null; readonly approvedBy: string | null;
   readonly createdAt: string; readonly updatedAt: string; readonly version: number;
+  /** `PRC-071.f` - cancellable until goods are received, whether or not the supplier shipped. */
+  readonly cancellable: boolean; readonly linesReceived: number;
 };
 export type PurchaseOrderKpis = { readonly orders: number; readonly open: number; readonly awaitingApproval: number; readonly amendable: number; readonly cancelled: number };
 

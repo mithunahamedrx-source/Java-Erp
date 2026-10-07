@@ -18,7 +18,7 @@ const json = (body: unknown, status = 200): Response =>
 const ORDER = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: 'p1', poNumber: 'PO-2026-0001', supplierId: 's1', supplierName: 'Star Tech Ltd', orderDate: '2026-10-06', expectedDate: null,
   currency: 'BDT', supplierOrderReference: null, status: 'DRAFT', lines: 1, total: '7000.0000', supplierShipped: false, amendable: true,
-  createdBy: 'mithun', approvedBy: null, createdAt: '2026-10-06T00:00:00Z', updatedAt: '2026-10-06T00:00:00Z', version: 1, ...over,
+  createdBy: 'mithun', approvedBy: null, cancellable: true, linesReceived: 0, createdAt: '2026-10-06T00:00:00Z', updatedAt: '2026-10-06T00:00:00Z', version: 1, ...over,
 });
 const DETAIL = (order: Record<string, unknown>) => ({
   order,
@@ -97,11 +97,6 @@ describe('Purchase Orders list', () => {
     expect(screen.queryByTestId('new-po')).toBeNull();
   });
 
-  it('says plainly that goods receipts are not built yet', async () => {
-    stub(['procurement.purchase-order.view'], ORDER());
-    renderAt('/purchasing/receipts');
-    expect(await screen.findByText('Goods receipts are not built yet')).toBeTruthy();
-  });
 });
 
 describe('Purchase Order detail', () => {
@@ -122,12 +117,12 @@ describe('Purchase Order detail', () => {
     expect(screen.getByTestId('po-edit')).toBeTruthy();
   });
 
-  it('offers no change once the supplier has shipped', async () => {
+  it('offers no amendment once the supplier has shipped, but cancelling stays open until goods arrive', async () => {
     stub(['procurement.purchase-order.view', 'procurement.purchase-order.manage'], ORDER({ status: 'APPROVED', supplierShipped: true, amendable: false }));
     renderAt('/purchasing/purchases/p1');
     await screen.findByTestId('po-items');
     expect(screen.queryByTestId('po-edit')).toBeNull();
-    expect(screen.queryByTestId('po-cancel')).toBeNull();
+    expect(screen.getByTestId('po-cancel')).toBeTruthy();
     expect(screen.queryByTestId('po-shipped')).toBeNull();
   });
 });

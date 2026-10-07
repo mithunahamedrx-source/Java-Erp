@@ -15,6 +15,8 @@ import SupplierLedgerPage from './procurement/SupplierLedgerPage';
 import PurchaseOrderFormPage from './procurement/PurchaseOrderFormPage';
 import PurchaseOrderDetailPage from './procurement/PurchaseOrderDetailPage';
 import PurchaseOrderPrintPage from './procurement/PurchaseOrderPrintPage';
+import GoodsReceiptFormPage from './procurement/GoodsReceiptFormPage';
+import GoodsReceiptDetailPage from './procurement/GoodsReceiptDetailPage';
 import StockItemFormPage from './product/StockItemFormPage';
 import StockItemImportPage from './product/StockItemImportPage';
 import SellableProductsPage from './product/SellableProductsPage';
@@ -87,6 +89,8 @@ export default function App(): React.JSX.Element {
         <Route path="/purchasing/purchases/:id" element={<PurchaseOrderDetailPage />} />
         <Route path="/purchasing/purchases/:id/print" element={<PurchaseOrderPrintPage />} />
         <Route path="/purchasing/purchases/:id/edit" element={<PurchaseOrderFormPage mode="edit" />} />
+        <Route path="/purchasing/receipts/new" element={<GoodsReceiptFormPage />} />
+        <Route path="/purchasing/receipts/:id" element={<GoodsReceiptDetailPage />} />
         <Route path="/purchasing/receipts" element={<PurchasingPage tab="receipts" />} />
 
         {/*
