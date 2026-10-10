@@ -93,7 +93,16 @@ public class SalesInvoiceService {
           delivery charge, and the design's `charges = 800` is sample data.
         */
         BigDecimal deliveryCharge = order.shippingFee();
-        BigDecimal taxable = subtotal.add(deliveryCharge == null ? BigDecimal.ZERO : deliveryCharge);
+        /*
+          The DISCOUNT is the seller voucher the channel reported, less whatever the line prices already carry.
+          A marketplace that reports a net price per line (Daraz's paid price) has already taken its voucher off the
+          lines, so taking it off again would charge the customer's saving twice; a channel that reports the unit
+          prices as the customer saw them (the Zeon Tech website) has not. Either way the lines are never altered.
+        */
+        BigDecimal discount = order.voucherSeller() == null ? BigDecimal.ZERO
+                : order.voucherSeller().subtract(alreadyInLines(channelOrderId)).max(BigDecimal.ZERO);
+        boolean discounted = discount.signum() > 0;
+        BigDecimal taxable = subtotal.subtract(discount).add(deliveryCharge == null ? BigDecimal.ZERO : deliveryCharge);
 
         BigDecimal taxAmount = taxRatePercent == null
                 ? null
@@ -120,14 +129,15 @@ public class SalesInvoiceService {
                         customer_name, customer_phone, customer_address,
                         external_order_reference, consignment_reference,
                         subtotal, delivery_charge, tax_rate_percent, tax_amount, total,
-                        advance_received, balance_due, lines_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
+                        advance_received, balance_due, lines_json, discount, discount_code)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?)
                     """,
                     id, channelOrderId, order.invoiceNumber(), Timestamp.from(now), actor,
                     order.customerName(), order.customerPhone(), order.customerAddress(),
                     order.externalOrderId(), order.consignmentId(),
                     subtotal, deliveryCharge, taxRatePercent, taxAmount, total,
-                    advance, balanceDue, json.writeValueAsString(lines));
+                    advance, balanceDue, json.writeValueAsString(lines),
+                    discounted ? discount : null, discounted ? order.voucherCode() : null);
         } catch (DuplicateKeyException e) {
             /*
               🔴 INV-39.1 - one order, one invoice, and a number is never reused. Re-issuing would
@@ -139,7 +149,7 @@ public class SalesInvoiceService {
                             + "retired rather than recycled (DB-012).");
         }
 
-        return new Issued(id, order.invoiceNumber(), subtotal, deliveryCharge,
+        return new Issued(id, order.invoiceNumber(), subtotal, discounted ? discount : null, deliveryCharge,
                 taxRatePercent, taxAmount, total);
     }
 
@@ -165,7 +175,7 @@ public class SalesInvoiceService {
                                   WHERE s.channel_order_id = i.channel_order_id AND s.consignment_id IS NOT NULL
                                     AND s.state <> 'CANCELLED'
                                   ORDER BY s.created_at DESC LIMIT 1), i.consignment_reference) AS consignment_reference,
-                       i.subtotal, i.delivery_charge,
+                       i.subtotal, i.discount, i.discount_code, i.delivery_charge,
                        i.tax_rate_percent, i.tax_amount, i.total,
                        o.advance_received, o.warranty_term, o.buyer_note, i.lines_json::text AS lines
                   FROM sales_invoice i JOIN channel_order o ON o.id = i.channel_order_id
@@ -188,7 +198,8 @@ public class SalesInvoiceService {
                     rs.getString("customer_name"), rs.getString("customer_phone"),
                     rs.getString("customer_address"),
                     rs.getString("external_order_reference"), rs.getString("consignment_reference"),
-                    rs.getBigDecimal("subtotal"), rs.getBigDecimal("delivery_charge"),
+                    rs.getBigDecimal("subtotal"), rs.getBigDecimal("discount"), rs.getString("discount_code"),
+                    rs.getBigDecimal("delivery_charge"),
                     rs.getBigDecimal("tax_rate_percent"), rs.getBigDecimal("tax_amount"),
                     total,
                     hasAdvance ? liveAdvance : null, hasAdvance ? total.subtract(liveAdvance) : null,
@@ -218,6 +229,10 @@ public class SalesInvoiceService {
                            String customerPhone, String customerAddress,
                            String externalOrderReference, String consignmentReference,
                            @MonetaryAmount BigDecimal subtotal,
+                           /** INV-39.2 - the seller voucher taken off the subtotal, fixed at issue; {@code null} = none. */
+                           @MonetaryAmount BigDecimal discount,
+                           /** The voucher code behind {@code discount}, or {@code null}. */
+                           String discountCode,
                            @MonetaryAmount BigDecimal deliveryCharge,
                            // A RATE, not money - but it crosses as TEXT all the same: the page trims it as a
                            // string, and a JSON number here crashed the invoice page (blank screen).
@@ -283,9 +298,20 @@ public class SalesInvoiceService {
         return lines;
     }
 
+    /** What the lines already take off for a voucher: (item price - paid price) x quantity where a paid price is reported. */
+    private BigDecimal alreadyInLines(UUID channelOrderId) {
+        BigDecimal reflected = jdbc.queryForObject("""
+                SELECT coalesce(sum(greatest(item_price - paid_price, 0) * quantity), 0)
+                  FROM channel_order_item
+                 WHERE channel_order_id = ? AND paid_price IS NOT NULL AND item_price IS NOT NULL
+                """, BigDecimal.class, channelOrderId);
+        return reflected == null ? BigDecimal.ZERO : reflected;
+    }
+
     private OrderSnapshot load(UUID channelOrderId) {
         return Optional.ofNullable(jdbc.query("""
                 SELECT o.trioloo_invoice_number, o.external_order_id, o.shipping_fee, o.advance_received,
+                       o.voucher_seller, o.voucher_code,
                        coalesce(o.shipping_first_name, o.customer_first_name) AS first_name,
                        coalesce(o.shipping_last_name, o.customer_last_name)  AS last_name,
                        o.shipping_phone,
@@ -309,7 +335,8 @@ public class SalesInvoiceService {
                     rs.getString("shipping_phone"),
                     rs.getString("address"),
                     rs.getBigDecimal("shipping_fee"),
-                    rs.getString("consignment_id"), rs.getBigDecimal("advance_received"));
+                    rs.getString("consignment_id"), rs.getBigDecimal("advance_received"),
+                    rs.getBigDecimal("voucher_seller"), rs.getString("voucher_code"));
         }, channelOrderId)).orElseThrow(
                 () -> new IllegalArgumentException("Order " + channelOrderId + " does not exist."));
     }
@@ -327,7 +354,8 @@ public class SalesInvoiceService {
 
     private record OrderSnapshot(String invoiceNumber, String externalOrderId, String customerName,
                                  String customerPhone, String customerAddress,
-                                 BigDecimal shippingFee, String consignmentId, BigDecimal advanceReceived) {
+                                 BigDecimal shippingFee, String consignmentId, BigDecimal advanceReceived,
+                                 BigDecimal voucherSeller, String voucherCode) {
     }
 
     /**
@@ -337,6 +365,7 @@ public class SalesInvoiceService {
      */
     public record Issued(UUID id, String invoiceNumber,
                          @MonetaryAmount BigDecimal subtotal,
+                         @MonetaryAmount BigDecimal discount,
                          @MonetaryAmount BigDecimal deliveryCharge,
                          @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
                          BigDecimal taxRatePercent,

@@ -95,6 +95,43 @@ class WebsiteIntegrationTest {
     }
 
     @Test
+    @DisplayName("carries the voucher a customer used as a seller voucher with its code; an order without one carries none")
+    void carriesTheVoucher() {
+        FakeTransport transport = new FakeTransport();
+        transport.body = """
+                {"data":[
+                  {"orderNumber":"ZT-2001","customerName":"Al Amin","phone":"01726083893","address":"Rajbari","division":"Rajshahi",
+                   "paymentMethod":"COD","paymentStatus":"PENDING","status":"CONFIRMED",
+                   "subtotal":21700,"discount":1000,"voucherCode":"SAVE1000","delivery":0,"total":20700,
+                   "createdAt":"2026-10-10 06:57:10","updatedAt":"2026-10-10 06:58:00",
+                   "items":[{"productId":"ZT053G","sku":"ZT053G","name":"Desktop PC","unitPrice":21700,"quantity":1,"lineTotal":21700}]},
+                  {"orderNumber":"ZT-2002","customerName":"Karim","phone":"01812345678","address":"Dhaka","division":"Dhaka",
+                   "paymentMethod":"COD","paymentStatus":"PENDING","status":"PENDING",
+                   "subtotal":100,"discount":0,"voucherCode":null,"delivery":0,"total":100,
+                   "createdAt":"2026-10-10 07:00:00","updatedAt":"2026-10-10 07:00:00","items":[]}
+                ]}
+                """;
+        WebsiteChannelOrderProvider provider = new WebsiteChannelOrderProvider(configured(), transport);
+
+        ChannelOrderProvider.Page page = provider.listOrdersUpdatedSince(UUID.randomUUID(),
+                Instant.parse("2026-10-01T00:00:00Z"), 0, 100);
+
+        ChannelOrderSnapshot discounted = page.orders().get(0);
+        // The price stays the site's total (what the customer pays); the lines stay at the prices the customer saw.
+        assertThat(discounted.price()).isEqualByComparingTo("20700.00");
+        assertThat(discounted.items().get(0).itemPrice()).isEqualByComparingTo("21700.00");
+        assertThat(discounted.voucher()).isEqualByComparingTo("1000.00");
+        assertThat(discounted.voucherSeller()).isEqualByComparingTo("1000.00");
+        assertThat(discounted.voucherPlatform()).isNull();
+        assertThat(discounted.voucherCode()).isEqualTo("SAVE1000");
+
+        ChannelOrderSnapshot plain = page.orders().get(1);
+        assertThat(plain.voucher()).isNull();
+        assertThat(plain.voucherSeller()).isNull();
+        assertThat(plain.voucherCode()).isNull();
+    }
+
+    @Test
     @DisplayName("translates the six storefront words and declines one it does not publish")
     void translatesStatuses() {
         WebsiteChannelOrderProvider provider = new WebsiteChannelOrderProvider(configured(), new FakeTransport());

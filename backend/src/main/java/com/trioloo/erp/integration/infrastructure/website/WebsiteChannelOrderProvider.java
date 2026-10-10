@@ -216,12 +216,17 @@ public class WebsiteChannelOrderProvider implements ChannelOrderProvider {
         // The price is what the customer pays in all: the site's total (subtotal + delivery). The courier is asked to
         // collect that less what was already paid, so a paid order reaches Steadfast with nothing to collect (BR-203).
         BigDecimal total = money(node.path("total"));
+        // A voucher the customer used: the site is the seller, so the whole discount is seller-funded. The lines stay at
+        // the unit prices the customer saw; the invoice takes this off the subtotal and prints it.
+        BigDecimal discount = money(node.path("discount"));
+        boolean discounted = discount != null && discount.signum() > 0;
+        String voucherCode = node.path("voucherCode").asString(null);
         boolean paidOnline = paymentStatus != null && paymentStatus.trim().equalsIgnoreCase("PAID");
         return new ChannelOrderSnapshot(
                 number, number, created, updated,
                 total, money(node.path("delivery")),
-                null, null, null, null, null, null, null,
-                payment, null, items.size(),
+                null, null, null, discounted ? discount : null, null, discounted ? discount : null, null,
+                payment, discounted && voucherCode != null && !voucherCode.isBlank() ? voucherCode.trim() : null, items.size(),
                 status == null ? List.of() : List.of(status),
                 null, null, null, null,
                 remarks.isEmpty() ? null : String.join(" · ", remarks),

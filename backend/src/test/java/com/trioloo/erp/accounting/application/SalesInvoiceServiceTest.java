@@ -102,6 +102,53 @@ class SalesInvoiceServiceTest {
     }
 
     @Test
+    @DisplayName("takes the seller voucher off the subtotal, snapshots it with its code, and the total follows")
+    void takesTheVoucherOffTheSubtotal() {
+        // The channel reported a 100.00 seller voucher; its lines are at the unit prices the customer saw.
+        jdbc.update("UPDATE channel_order SET voucher = 100.00, voucher_seller = 100.00, voucher_code = 'SAVE100' WHERE id = ?", orderId);
+
+        SalesInvoiceService.Issued issued = invoices.issue(orderId);
+
+        // 1500.00 of lines - 100.00 voucher + 60.00 delivery.
+        assertThat(issued.subtotal()).isEqualByComparingTo("1500.00");
+        assertThat(issued.discount()).isEqualByComparingTo("100.00");
+        assertThat(issued.total()).isEqualByComparingTo("1460.00");
+
+        SalesInvoiceService.Rendered rendered = invoices.forRendering(orderId).orElseThrow();
+        assertThat(rendered.discount()).isEqualByComparingTo("100.00");
+        assertThat(rendered.discountCode()).isEqualTo("SAVE100");
+        assertThat(rendered.total()).isEqualByComparingTo("1460.00");
+
+        // INV-39.2 - a later change to the order's voucher does not move the issued invoice.
+        jdbc.update("UPDATE channel_order SET voucher_seller = 999.00, voucher_code = 'OTHER' WHERE id = ?", orderId);
+        SalesInvoiceService.Rendered after = invoices.forRendering(orderId).orElseThrow();
+        assertThat(after.discount()).isEqualByComparingTo("100.00");
+        assertThat(after.discountCode()).isEqualTo("SAVE100");
+        assertThat(after.total()).isEqualByComparingTo("1460.00");
+    }
+
+    @Test
+    @DisplayName("an order with no voucher has no discount, and a voucher the lines already carry is not taken off twice")
+    void noDiscountOrNoDoubleCount() {
+        SalesInvoiceService.Issued plain = invoices.issue(orderId);
+        assertThat(plain.discount()).isNull();
+        assertThat(invoices.forRendering(orderId).orElseThrow().discountCode()).isNull();
+
+        // A marketplace-style order: each line's paid price is already 100.00 below its item price, and the order
+        // reports the same 100.00 seller voucher. The lines already carry it, so nothing more comes off.
+        UUID second = seedSecondOrder();
+        jdbc.update("UPDATE channel_order_item SET paid_price = item_price - 100.00 WHERE channel_order_id = ?", second);
+        jdbc.update("UPDATE channel_order SET voucher = 100.00, voucher_seller = 100.00, voucher_code = 'MKT100' WHERE id = ?", second);
+
+        SalesInvoiceService.Issued issued = invoices.issue(second);
+
+        assertThat(issued.discount()).isNull();
+        // 1400.00 (the net line) + 60.00 delivery.
+        assertThat(issued.total()).isEqualByComparingTo("1460.00");
+        assertThat(invoices.forRendering(second).orElseThrow().discountCode()).isNull();
+    }
+
+    @Test
     @DisplayName("prints the line quantity and the extended line total (unit price x quantity)")
     void printsQuantityAndLineTotal() {
         jdbc.update("UPDATE channel_order_item SET quantity = 3 WHERE external_order_item_id = 'INV-ITEM-1'");

@@ -289,6 +289,46 @@ describe('Sales invoice printable', () => {
     expect(screen.getByTestId('invoice-total').textContent).toContain('100');
   });
 
+  it('prints a voucher discount with its code straight after the subtotal, and none when there is none', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0303', issuedAt: '2026-10-10T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '21700.00', discount: '1000.00', discountCode: 'SAVE1000',
+          deliveryCharge: '0.00', taxRatePercent: '0.000', taxAmount: '0.00', total: '20700.00',
+          lines: [{ name: 'Desktop PC', sku: 'ZT053G', quantity: 1, unitPrice: '21700.00', lineTotal: '21700.00' }],
+        },
+        200,
+      ),
+    );
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    const discount = screen.getByTestId('invoice-discount');
+    expect(discount.textContent).toContain('Discount (SAVE1000)');
+    expect(discount.textContent).toContain('- ');
+    expect(discount.textContent).toContain('1,000');
+    // It sits immediately after the subtotal row, and the total is the stored figure (subtotal - discount).
+    const subtotal = screen.getByText('Subtotal').parentElement as HTMLElement;
+    expect(subtotal.nextElementSibling).toBe(discount);
+    expect(screen.getByTestId('invoice-total').textContent).toContain('20,700');
+  });
+
+  it('shows no Discount row on an invoice without one', async () => {
+    renderWith(() =>
+      json(
+        {
+          invoiceNumber: 'TR0304', issuedAt: '2026-10-10T10:00:00Z', customerName: 'Demo',
+          customerPhone: null, customerAddress: null, externalOrderReference: null,
+          consignmentReference: null, subtotal: '100.00', discount: null, discountCode: null, deliveryCharge: null,
+          taxRatePercent: '0.000', taxAmount: '0.00', total: '100.00', lines: [],
+        },
+        200,
+      ),
+    );
+    expect(await screen.findByTestId('invoice-sheet')).not.toBeNull();
+    expect(screen.queryByTestId('invoice-discount')).toBeNull();
+  });
+
   it('reports a transport failure as a failure, not as an absence', async () => {
     renderWith(() => json({ message: 'upstream exploded' }, 500));
 

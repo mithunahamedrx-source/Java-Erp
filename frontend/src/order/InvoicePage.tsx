@@ -438,6 +438,17 @@ export function InvoiceSheet({ invoice }: { readonly invoice: InvoiceView }): Re
       </div>
       <div data-testid="invoice-totals" style={{ width: '340px', fontVariantNumeric: 'tabular-nums' }}>
         <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
+        {/*
+          Owner instruction 2026-10-10: a voucher discount is taken off the subtotal and printed with its code, so the
+          total reads subtotal - discount + delivery. The figure is the one stored at issue (INV-39.2).
+        */}
+        {invoice.discount ? (
+          <TotalRow
+            label={invoice.discountCode ? `Discount (${invoice.discountCode})` : 'Discount'}
+            value={`- ${money(invoice.discount)}`}
+            testId="invoice-discount"
+          />
+        ) : null}
         {/* Owner instruction 2026-10-05 (BR-127): the advance sits straight after the subtotal. */}
         {invoice.advanceReceived ? (
           <TotalRow label="Advance received" value={`- ${money(invoice.advanceReceived)}`} testId="invoice-advance" />
@@ -623,6 +634,10 @@ export type InvoiceView = {
   readonly externalOrderReference: string | null;
   readonly consignmentReference: string | null;
   readonly subtotal: string;
+  /** `INV-39.2` — the seller voucher taken off the subtotal, fixed at issue; `null` = none. */
+  readonly discount?: string | null;
+  /** The voucher code behind `discount`, or null. */
+  readonly discountCode?: string | null;
   readonly deliveryCharge: string | null;
   /** ⚠ `null` means no rate is configured — nobody has decided (`SYS-034`), not zero. */
   readonly taxRatePercent: string | null;
